@@ -1,1 +1,23 @@
 __pycache__/
+CLAUDE.md
+docs/
+
+# Python
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Environment and secrets
+.env
+
+# Database
+backend/data/*.db
+
+# Frontend (for later)
+node_modules/
+frontend/dist/
+
