@@ -13,11 +13,12 @@ ApplicationPriority = Literal["top_target", "standard", "longshot"]
 
 
 class ApplicationCreate(BaseModel):
-    """What the client sends to POST /applications. Just enough to get started."""
+    """What the client sends to POST /applications.
+    Only posting_url is required — type, organization, and role are inferred by Claude."""
     posting_url: HttpUrl
-    type: ApplicationType
-    organization: str
-    role_or_program: str
+    type: ApplicationType | None = None
+    organization: str | None = None
+    role_or_program: str | None = None
     deadline: datetime | None = None
     priority: ApplicationPriority | None = None
     notes: str | None = None

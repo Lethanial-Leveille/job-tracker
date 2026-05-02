@@ -29,22 +29,23 @@ def list_applications(
 
 @router.post("/", response_model=ApplicationResponse, status_code=201)
 def create_application(body: ApplicationCreate, db: Session = Depends(get_db)) -> Application:
+    # Parse the JD first so we can fall back to Claude's inferences
+    # for any fields the caller didn't provide
+    jd_text, jd_parsed = parse_jd(str(body.posting_url))
+
     app = Application(
-        type=body.type,
-        organization=body.organization,
-        role_or_program=body.role_or_program,
+        type=body.type or jd_parsed.get("inferred_type", "internship"),
+        organization=body.organization or jd_parsed.get("inferred_organization", "Unknown"),
+        role_or_program=body.role_or_program or jd_parsed.get("inferred_role", "Unknown Role"),
         posting_url=str(body.posting_url),
         deadline=body.deadline,
         priority=body.priority,
         notes=body.notes,
+        jd_text=jd_text,
+        jd_parsed=jd_parsed,
     )
+
     db.add(app)
-    db.flush()  # assigns the UUID before we call the parser
-
-    jd_text, jd_parsed = parse_jd(str(body.posting_url))
-    app.jd_text = jd_text
-    app.jd_parsed = jd_parsed
-
     db.commit()
     db.refresh(app)
     return app

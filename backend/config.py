@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
 
     # Claude models — Sonnet for routine parsing, Opus for resume tailoring
-    claude_default_model: str = "claude-sonnet-4-7"
+    claude_default_model: str = "claude-sonnet-4-6"
     claude_tailoring_model: str = "claude-opus-4-7"
 
 

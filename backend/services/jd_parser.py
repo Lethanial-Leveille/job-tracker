@@ -11,7 +11,10 @@ from config import get_settings
 PARSE_PROMPT = """You are a job description parser. Extract structured information from the text below.
 
 Return ONLY valid JSON with this exact shape — no commentary, no markdown fences:
-{
+{{
+  "inferred_organization": "company or institution name",
+  "inferred_role": "exact job title or program name",
+  "inferred_type": "internship | scholarship | fellowship | research | grant",
   "required_skills": ["skill1", "skill2"],
   "nice_to_haves": ["skill1", "skill2"],
   "seniority": "internship | entry | mid | senior | not_specified",
@@ -19,7 +22,7 @@ Return ONLY valid JSON with this exact shape — no commentary, no markdown fenc
   "compensation": "dollar amount or range or not_specified",
   "keywords": ["keyword1", "keyword2"],
   "summary": "one sentence describing the role"
-}
+}}
 
 JOB DESCRIPTION TEXT:
 {jd_text}"""
