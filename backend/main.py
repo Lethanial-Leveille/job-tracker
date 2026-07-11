@@ -9,9 +9,11 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from database import get_db
+from routers.applications import router as applications_router
 
 app = FastAPI(title="Job & Scholarship Tracker", version="0.1.0")
 
+app.include_router(applications_router)
 
 @app.get("/health")
 def health(db: Session = Depends(get_db)) -> dict[str, str]:
