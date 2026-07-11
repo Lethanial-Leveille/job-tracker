@@ -85,6 +85,7 @@ Only after the tool is deployed and I am using it for real.
 - n8n deadline and follow up managers: morning deadline nudges, Monday follow up drafts.
 - Weekly stats endpoint feeding my Sunday review.
 - Discovery scrapers: company career pages and scholarship boards, auto inserted as "discovered."
+- Browser extension: detect a job posting, scrape it, POST to the API to create a draft application. Depends on v2 parsing and v3 deployment. Its own mini-project.
 
 ### SOMEDAY (maybe never): the ambitious tail
 
