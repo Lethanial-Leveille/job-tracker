@@ -4,3 +4,8 @@ backend/data/dev.db
 .venv/
 node_modules/
 __pycache__/
+.DS_Store
+
+# Personal instructions / design brief — keep local, never track
+CLAUDE.md
+docs/build-brief.md
