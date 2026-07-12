@@ -132,6 +132,8 @@ discovered, shortlisted, drafting, ready, applied, applied_confirmed, recruiter_
 
 An internship walks toward offer and accepted. A scholarship walks toward offer (award) and skips the interview stages. Both share one enum so the pipeline is one component, not two.
 
+Note on deadline semantics: deadline is meaningful for scholarships (hard cutoffs) and mostly not for internships (rolling, recency driven). For jobs the real urgency signal is staleness, days since discovered while unapplied, derivable from created_at. Consider surfacing that in a later version.
+
 ---
 
 ## Scholarships to seed once v1 exists
