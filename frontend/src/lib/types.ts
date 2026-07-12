@@ -1,0 +1,55 @@
+// Mirror of the backend Pydantic schemas (backend/schemas/application.py) and
+// model enums (backend/models/application.py). Kept in sync by hand for v1 —
+// if a column is added or an enum value changes on the backend, update it here
+// too. These are the exact shapes GET /applications returns.
+
+export type ApplicationType = "internship" | "scholarship";
+
+export type ApplicationStatus =
+  | "discovered"
+  | "drafting"
+  | "ready"
+  | "applied"
+  | "recruiter_engaged"
+  | "phone_screen"
+  | "technical_interview"
+  | "onsite"
+  | "offer"
+  | "accepted"
+  | "declined"
+  | "rejected"
+  | "ghosted"
+  | "missed_deadline";
+
+export type Priority = "low" | "medium" | "high";
+
+export interface Application {
+  id: string;
+  type: ApplicationType;
+  organization: string;
+  role_or_program: string;
+  posting_url: string;
+  status: ApplicationStatus;
+  priority: Priority;
+  deadline: string | null; // ISO date, e.g. "2026-07-14"
+  notes: string | null;
+  jd_parsed: Record<string, unknown> | null; // empty in v1
+  created_at: string; // ISO datetime
+  updated_at: string; // ISO datetime
+}
+
+// The body we send to POST /applications. Mirror of the backend ApplicationCreate
+// schema: the four identifying fields are required; status and priority are
+// optional (the backend fills discovered/medium if omitted); deadline and notes
+// are optional. Server-managed fields (id, timestamps, jd_parsed) are absent —
+// the client never sends those.
+export interface ApplicationCreateInput {
+  type: ApplicationType;
+  organization: string;
+  role_or_program: string;
+  posting_url: string;
+  status?: ApplicationStatus;
+  priority?: Priority;
+  deadline?: string | null;
+  notes?: string | null;
+}
