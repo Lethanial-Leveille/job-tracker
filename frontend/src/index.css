@@ -1,0 +1,71 @@
+/* SCOUT design tokens.
+ *
+ * This file is the single source of truth for the visual system described in
+ * docs/design.md. Everything downstream inherits from here. Tailwind v4 is
+ * CSS-first: tokens declared in @theme below become utility classes
+ * automatically (--color-surface -> bg-surface / text-surface / border-surface,
+ * --radius-frame -> rounded-frame, --shadow-glow -> shadow-glow).
+ *
+ * The rule the whole palette encodes: black dominates, purple is scarce and
+ * expensive. Purple (accent) appears ONLY on the primary action, the active
+ * row, focus rings, links, and the offer win-state. Everything else is greys
+ * and near-white. If you find yourself reaching for bg-accent on a fifth kind
+ * of element, stop: the design doc says pull it back.
+ */
+
+@import "tailwindcss";
+
+@theme {
+  /* Backgrounds: near true black with a faint purple undertone. Black is the
+   * dominant color; these are distinguished by lightness, not hue. */
+  --color-base: #0a0810; /* app background */
+  --color-surface: #100c16; /* table container, nav panel, cards */
+  --color-surface-hover: #16111f; /* row hover — a grey lift, never purple */
+
+  /* Borders: the chrome. Most structure is drawn with these, not with color. */
+  --color-line: #211c2b; /* row dividers, most borders */
+  --color-line-strong: #2e2838; /* panel edges, header underline */
+
+  /* Text: high contrast for a dense layout. */
+  --color-ink: #f4f2f7; /* headings, org names, primary data */
+  --color-ink-soft: #9e97ac; /* body, role text */
+  --color-ink-muted: #67616f; /* column labels, section headers, meta */
+
+  /* The scarce purple. */
+  --color-accent: #8b5cf6;
+  --color-accent-hover: #9d6ff7;
+  --color-accent-press: #7c3aed;
+  --color-accent-subtle: rgba(139, 92, 246, 0.1); /* active-row fill */
+
+  /* Shape language: crisp frames, softer interactive elements. */
+  --radius-frame: 6px; /* cards, table container, nav */
+  --radius-interactive: 10px; /* buttons, inputs */
+
+  /* The one glow token. Subtle violet emphasis, not a neon bloom. Applied only
+   * to purple elements in their active/focus/hover states. */
+  --shadow-glow: 0 0 20px -6px rgba(139, 92, 246, 0.45);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-base);
+    color: var(--color-ink-soft);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Purple selection, in keeping with the accent-is-focus idea. */
+  ::selection {
+    background-color: var(--color-accent-press);
+    color: var(--color-ink);
+  }
+}
