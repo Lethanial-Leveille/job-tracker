@@ -2,8 +2,11 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
 
 from services.application import create_application,get_application, list_applications, update_application, delete_application
+from services.parsing import parse_job_description
 from database import get_db
+from config import Settings, get_settings
 from schemas.application import ApplicationCreate, ApplicationRead, ApplicationUpdate
+from schemas.parsing import ParseRequest, ParsedJob
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -11,6 +14,16 @@ router = APIRouter(prefix="/applications", tags=["applications"])
 def create(data: ApplicationCreate, db: Session = Depends(get_db)) -> ApplicationRead:
     new_application = create_application(db, data)
     return new_application
+
+@router.post("/parse", response_model=ParsedJob)
+def parse(data: ParseRequest, settings: Settings = Depends(get_settings)) -> ParsedJob:
+    # Parse only — this never writes a row. Claude extracts the fields; you
+    # review and submit through the normal create flow (the "never auto-submit"
+    # guardrail). None means Claude refused or the reply was truncated.
+    result = parse_job_description(data.text, settings)
+    if result is None:
+        raise HTTPException(status_code=502, detail="Could not parse the posting")
+    return result
 
 @router.get("/{application_id}", response_model=ApplicationRead)
 def read_one(application_id: str, db: Session = Depends(get_db)) -> ApplicationRead:

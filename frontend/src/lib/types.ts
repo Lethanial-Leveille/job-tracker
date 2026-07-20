@@ -38,6 +38,20 @@ export interface Application {
   updated_at: string; // ISO datetime
 }
 
+// What POST /applications/parse returns. Mirror of the backend ParsedJob schema
+// (backend/schemas/parsing.py). This is Claude's extraction, not a stored row —
+// the modal uses it to pre-fill fields, which you review before saving.
+export interface ParsedJob {
+  type: ApplicationType;
+  organization: string;
+  role_or_program: string;
+  deadline: string | null; // ISO date or null if the posting didn't state one
+  salary: string | null;
+  location: string | null;
+  summary: string | null;
+  key_requirements: string[];
+}
+
 // The body we send to POST /applications. Mirror of the backend ApplicationCreate
 // schema: the four identifying fields are required; status and priority are
 // optional (the backend fills discovered/medium if omitted); deadline and notes

@@ -4,12 +4,14 @@ import type {
   Application,
   ApplicationStatus,
   ApplicationType,
+  ParsedJob,
   Priority,
 } from "../../lib/types";
 import { priorityLabel, statusLabel } from "../../lib/format";
 import {
   createApplication,
   deleteApplication,
+  parseJobDescription,
   updateApplication,
 } from "../../lib/api";
 
@@ -107,6 +109,13 @@ export function ApplicationFormModal({ application, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Autofill state (create mode only): the pasted posting, plus its own
+  // loading/error, kept separate from the save flow so a parse failure never
+  // looks like a save failure.
+  const [pasteText, setPasteText] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+
   function handleChange(
     event: ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -114,6 +123,36 @@ export function ApplicationFormModal({ application, onClose, onSaved }: Props) {
   ) {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  // Merge Claude's extraction into the form. Only the four fields ParsedJob maps
+  // to a column are filled; posting_url stays for you to add (you pasted text,
+  // not a URL). deadline null becomes "" to match the form's string fields. The
+  // extras (salary, summary, requirements) aren't persisted yet — that's the
+  // jd_parsed follow-up.
+  function applyParsed(parsed: ParsedJob) {
+    setForm((prev) => ({
+      ...prev,
+      type: parsed.type,
+      organization: parsed.organization,
+      role_or_program: parsed.role_or_program,
+      deadline: parsed.deadline ?? "",
+    }));
+  }
+
+  async function handleAutofill() {
+    if (pasteText.trim() === "") return;
+    setParsing(true);
+    setParseError(null);
+    try {
+      applyParsed(await parseJobDescription(pasteText));
+    } catch (err: unknown) {
+      setParseError(
+        err instanceof Error ? err.message : "Could not parse the posting",
+      );
+    } finally {
+      setParsing(false);
+    }
   }
 
   async function handleSubmit(event: SyntheticEvent) {
@@ -186,6 +225,42 @@ export function ApplicationFormModal({ application, onClose, onSaved }: Props) {
             ✕
           </button>
         </div>
+
+        {/* Autofill: create mode only. Paste a posting, Claude fills the fields
+            below, you review and save. Secondary (grey) action — purple stays
+            reserved for Save. */}
+        {!isEdit && (
+          <div className="mt-6 rounded-frame border border-line bg-base p-4">
+            <label className={labelClass}>
+              Autofill from a posting
+              <textarea
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                rows={4}
+                placeholder="Paste the job or scholarship description here…"
+                className={`${fieldClass} resize-none`}
+              />
+            </label>
+            {parseError && (
+              <p className="mt-2 rounded-interactive border border-line bg-surface px-3 py-2 text-sm text-ink">
+                {parseError}
+              </p>
+            )}
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="text-xs text-ink-muted">
+                Claude fills the fields below. Review before saving.
+              </span>
+              <button
+                type="button"
+                onClick={handleAutofill}
+                disabled={parsing || pasteText.trim() === ""}
+                className="rounded-interactive border border-line px-3 py-2 text-sm font-medium text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
+              >
+                {parsing ? "Parsing…" : "Autofill"}
+              </button>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
           <label className={labelClass}>

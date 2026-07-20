@@ -3,7 +3,11 @@
 // place. All calls go through the Vite proxy at /api (see vite.config.ts),
 // which strips /api and forwards to the backend on :8000.
 
-import type { Application, ApplicationCreateInput } from "./types";
+import type {
+  Application,
+  ApplicationCreateInput,
+  ParsedJob,
+} from "./types";
 
 const BASE = "/api";
 
@@ -35,6 +39,20 @@ export async function createApplication(
     throw new Error(`Request failed: ${res.status} ${res.statusText}`);
   }
   return res.json() as Promise<Application>;
+}
+
+// POST raw posting text and get back Claude's extraction. This never creates a
+// row — the modal uses the result to pre-fill fields you then review and submit.
+export async function parseJobDescription(text: string): Promise<ParsedJob> {
+  const res = await fetch(`${BASE}/applications/parse`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<ParsedJob>;
 }
 
 // PATCH an existing application. The backend's update schema treats every field
