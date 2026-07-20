@@ -115,6 +115,11 @@ export function ApplicationFormModal({ application, onClose, onSaved }: Props) {
   const [pasteText, setPasteText] = useState("");
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  // The parser's extras, stashed on autofill and sent with the create so they
+  // land in the jd_parsed column. Null for a manual (non-autofilled) create.
+  const [jdParsed, setJdParsed] = useState<Record<string, unknown> | null>(
+    null,
+  );
 
   function handleChange(
     event: ChangeEvent<
@@ -138,6 +143,13 @@ export function ApplicationFormModal({ application, onClose, onSaved }: Props) {
       role_or_program: parsed.role_or_program,
       deadline: parsed.deadline ?? "",
     }));
+    // Stash the fields with no column of their own for the jd_parsed blob.
+    setJdParsed({
+      salary: parsed.salary,
+      location: parsed.location,
+      summary: parsed.summary,
+      key_requirements: parsed.key_requirements,
+    });
   }
 
   async function handleAutofill() {
@@ -172,9 +184,11 @@ export function ApplicationFormModal({ application, onClose, onSaved }: Props) {
       // The presence of `application` picks POST vs PATCH. Checking the object
       // itself (not a boolean) is what lets TypeScript know id exists here.
       if (application) {
+        // Edit never touches jd_parsed — leave the stored blob as it is.
         await updateApplication(application.id, payload);
       } else {
-        await createApplication(payload);
+        // Create carries the parser's extras (null if you didn't autofill).
+        await createApplication({ ...payload, jd_parsed: jdParsed });
       }
       onSaved();
     } catch (err: unknown) {

@@ -27,8 +27,8 @@ from models.application import (
 # --- Shared base -------------------------------------------------------------
 # The fields a person actually types. Create and Update both build on this set,
 # so field definitions (max lengths, descriptions) live in exactly one place.
-# jd_parsed is deliberately absent: no parser exists in v1, so it is read-only
-# (present in the response, never accepted in a request).
+# jd_parsed is not here because it isn't a human-typed field: Create adds it (to
+# carry v2 parser extras), Update omits it, Read returns it. See each below.
 
 
 class ApplicationBase(BaseModel):
@@ -50,12 +50,15 @@ class ApplicationBase(BaseModel):
 
 
 # --- Create ------------------------------------------------------------------
-# Nothing extra to add: the POST body is exactly the base fields. Required stays
-# required. id, timestamps, and jd_parsed are all server-managed and excluded.
+# The base fields, plus jd_parsed. As of v2 the parser returns extras (salary,
+# summary, requirements) with no column of their own, so create accepts a
+# jd_parsed blob to carry them into storage. Optional: a manual create omits it
+# (defaults to None); an autofilled create sends the parser's extras. id and
+# timestamps stay server-managed and excluded.
 
 
 class ApplicationCreate(ApplicationBase):
-    pass
+    jd_parsed: dict | None = None
 
 
 # --- Update ------------------------------------------------------------------

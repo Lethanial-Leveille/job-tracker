@@ -47,6 +47,30 @@ def test_create_application_persists_and_returns_row(db):
     assert fetched is not None
 
 
+def test_create_application_persists_jd_parsed_blob(db):
+    # An autofilled create carries the parser's extras (no column of their own)
+    # in jd_parsed. Confirm the JSON blob survives a round trip to the DB.
+    extras = {
+        "salary": "$10,000",
+        "location": "US or Canada",
+        "summary": "A scholarship for CS students.",
+        "key_requirements": ["Enrolled undergrad", "CS or related degree"],
+    }
+    created = _make(db, jd_parsed=extras)
+
+    fetched = db.get(Application, created.id)
+
+    assert fetched is not None
+    assert fetched.jd_parsed == extras
+
+
+def test_create_application_defaults_jd_parsed_to_none(db):
+    # A manual create omits jd_parsed entirely; the column should be NULL.
+    created = _make(db)
+
+    assert db.get(Application, created.id).jd_parsed is None
+
+
 def test_get_application_returns_matching_row(db):
     created = _make(db, organization="Google")
 

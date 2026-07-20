@@ -66,4 +66,7 @@ export interface ApplicationCreateInput {
   priority?: Priority;
   deadline?: string | null;
   notes?: string | null;
+  // The parser's extras (salary, summary, requirements) with no column of their
+  // own. Set only on an autofilled create; omitted on manual create and edit.
+  jd_parsed?: Record<string, unknown> | null;
 }
