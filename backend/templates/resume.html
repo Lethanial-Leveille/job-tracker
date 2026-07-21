@@ -1,0 +1,77 @@
+{#
+  The locked resume template: STRUCTURE only (which field goes where).
+  All visual styling lives in resume.css, which Claude tailoring never sees.
+  Receives a validated Resume as `r` (see backend/schemas/resume.py).
+
+  Optional fields are guarded so a partial resume still renders cleanly:
+  `| select` drops any None/empty pieces before joining, so no stray "|".
+#}
+{% set c = r.contact %}
+<header class="head">
+  <div class="name">{{ c.name }}</div>
+  <div class="contact">{{ [c.location, c.phone, c.email] | select | join("  |  ") }}</div>
+  {% set link_line = [c.linkedin, c.github, c.website] | select | list %}
+  {% if link_line %}<div class="contact links">{{ link_line | join("  |  ") }}</div>{% endif %}
+</header>
+
+{% if r.summary %}
+<section>
+  <p class="summary">{{ r.summary }}</p>
+</section>
+{% endif %}
+
+{% if r.education %}
+<section>
+  <div class="section">Education</div>
+  {% for e in r.education %}
+  <div class="entry">
+    <div class="row"><span class="bold">{{ e.institution }}</span>{% if e.location %}<span class="right italic">{{ e.location }}</span>{% endif %}</div>
+    <div class="row"><span class="italic">{{ e.degree }}</span>{% if e.dates %}<span class="right italic">{{ e.dates }}</span>{% endif %}</div>
+    {% if e.gpa or e.honors %}
+    <div class="detail">{% if e.gpa %}GPA: {{ e.gpa }}{% endif %}{% if e.honors %}{% if e.gpa %}&nbsp;&nbsp;&nbsp;{% endif %}<span class="bold">{{ e.honors | join("  ") }}</span>{% endif %}</div>
+    {% endif %}
+    {% if e.coursework %}<div class="detail"><span class="bold">Relevant Coursework:</span> {{ e.coursework | join(", ") }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if r.skills %}
+<section>
+  <div class="section">Technical Skills</div>
+  {% for g in r.skills %}
+  <div class="skill"><span class="skill-label">{{ g.category }}:</span><span class="skill-items">{{ g.items | join(", ") }}</span></div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if r.experience %}
+<section>
+  <div class="section">Experience</div>
+  {% for x in r.experience %}
+  <div class="entry">
+    <div class="row"><span class="bold">{{ x.organization }}</span>{% if x.location %}<span class="right italic">{{ x.location }}</span>{% endif %}</div>
+    <div class="row"><span class="italic">{{ x.role }}</span>{% if x.dates %}<span class="right italic">{{ x.dates }}</span>{% endif %}</div>
+    {% if x.bullets %}<ul>{% for b in x.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if r.projects %}
+<section>
+  <div class="section">Projects</div>
+  {% for p in r.projects %}
+  {% if p.bullets %}{# skip bank projects that have no bullets yet, so no orphan header #}
+  <div class="entry">
+    <div class="row">
+      <span><span class="bold">{{ p.name }}</span>{% if p.tools %} <span class="tools">| {{ p.tools | join(", ") }}</span>{% endif %}</span>
+      {% if p.dates %}<span class="right italic">{{ p.dates }}</span>{% endif %}
+    </div>
+    {% if p.links %}<div class="plinks">{{ p.links | join("  |  ") }}</div>{% endif %}
+    <ul>{% for b in p.bullets %}<li>{{ b }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+  {% endfor %}
+</section>
+{% endif %}

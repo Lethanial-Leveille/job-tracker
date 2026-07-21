@@ -1,0 +1,119 @@
+# Master resume — the single source of truth for your resume CONTENT.
+#
+# This file is the "bullet bank": keep EVERY project, every bullet, and every
+# real metric here. Tailoring reads this, then for a given job it selects a
+# subset of projects, keeps the strongest ~4 bullets per entry, reorders, and
+# rephrases — using only what is already written here. It never invents.
+#
+# Everything below is drawn from your actual repos, commit history, project
+# writeups, and current resume. Anything I could not verify is marked "TODO:".
+# Numbers all trace to a real source; none are made up.
+#
+# NOTE (see CLAUDE.md hard rule #6): this tracker is itself the "Job & Scholarship
+# Tracker" project below. When it gains a feature or tool, its entry gets updated.
+#
+# Shape matches backend/schemas/resume.py.
+
+contact:
+  name: Lethanial L. Leveille
+  location: Hollywood, FL
+  phone: (754) 422-6402
+  email: leveillelethanial@gmail.com
+  linkedin: linkedin.com/in/lethanial-lee-leveille
+  github: github.com/Lethanial-Leveille
+  website: null   # TODO: portfolio URL if you have one (you own lethanial.com)
+
+# The one free-text line tailoring is allowed to rewrite per job. DRAFT below —
+# every claim in it is true, but edit it to sound like you.
+summary: >-
+  Computer Engineering student at the University of Florida (Class of 2029) who
+  builds full-stack systems end to end, spanning embedded hardware, on-device
+  ML, and cloud back ends. Currently a software engineering intern at Fuzzy AI.
+
+education:
+  - institution: University of Florida – Herbert Wertheim College of Engineering
+    degree: Bachelor of Science in Computer Engineering
+    location: Gainesville, FL
+    dates: Expected May 2029
+    gpa: 3.75 / 4.00
+    honors:
+      - Dean's List
+    coursework:
+      - Python Computing
+      - C++ Computing
+      - Discrete Structures
+      - Calculus 1–3
+      - Physics 1
+
+skills:
+  # Kept close to your current resume. See my message for extra technologies I
+  # found real evidence of in your repos that you can add if you're comfortable
+  # claiming them (e.g. GitHub GraphQL, Notion API, OAuth2, SQLAlchemy).
+  - category: Languages
+    items: [Python, C/C++, JavaScript, TypeScript, Swift, HTML/CSS, SQL]
+  - category: Cloud & DevOps
+    items: [AWS (IoT Core, Lambda, DynamoDB, API Gateway), MongoDB, Docker, Docker Compose, Cloudflare Tunnel, n8n, Postman, Git/GitHub, MQTT]
+  - category: Frameworks & Libraries
+    items: [React, Next.js, FastAPI, SQLAlchemy, SwiftUI, scikit-learn, Whisper.cpp, ElevenLabs]
+  - category: Hardware & Embedded
+    items: [Raspberry Pi 5, MPU6050 IMU, I2C Protocol, openWakeWord]
+
+experience:
+  - organization: Fuzzy AI
+    role: Software Engineering Intern
+    location: Singapore
+    dates: June 2026 – August 2026
+    # Bank grounded in your actual merged PRs (FuzzySequence api / front-end /
+    # landing-page). Keep ~3 strongest per application.
+    bullets:
+      - Shipped a Sales Navigator preview-and-import flow on the contact-ingestion API (TypeScript), letting users review and select staged candidates before any records are created, reusing a shared dedup and batch-insert core across import paths.
+      - Hardened the import pipeline against double-submits with a single-use atomic claim plus partial-write claim recovery and concurrency tests, so a retried or duplicated request cannot create duplicate contacts.
+      - Built onboarding-checklist UX in the React/TypeScript product app, including an impersonation-safe, cross-tab gate that defers premature step check-off until the user actually opens the tab.
+      - Launched go-to-market surfaces on the Next.js marketing site — Product Hunt launch banner, free-trial CTAs, and a Slack community section — reusing the existing design-system components.
+      - Added automated specs across the contacts module (service, controller, concurrency and claim-recovery cases) as part of the team's testing standards.
+      - Selected as a freshman through the UF in Singapore program for an early-career SWE role at an AI-focused startup.
+      # TODO: add one quantified-impact bullet if you have a number (contacts imported, onboarding completion lift, etc.).
+
+projects:
+  - name: M.I.L.E.S.
+    tools: [Python, FastAPI, Swift/SwiftUI, Whisper.cpp, Claude API, SQLite, Cloudflare]
+    links:
+      - github.com/Lethanial-Leveille/miles
+      - github.com/Lethanial-Leveille/miles-app
+    dates: April 2026 – Present
+    bullets:
+      - Architected a voice-activated personal AI assistant on a Raspberry Pi 5 with a native SwiftUI iOS companion app, featuring custom wake-word detection via openWakeWord (90.4% recall), on-device Whisper.cpp speech-to-text, and speaker verification through 256-dimensional voice embeddings (cosine similarity, 0.65 threshold).
+      - Built a JWT-authenticated FastAPI backend (REST and WebSocket) with persistent SQLite memory in WAL mode and Claude API streaming, using a stop-sequence plus look-ahead StreamRouter to detect action tags mid-stream.
+      - Pipelined ElevenLabs TTS straight to ALSA and cut time-to-first-audio to ~520ms, including a 1.5s latency win from flushing stdin after every audio chunk.
+      - Deployed three systemd services on boot with global access via Cloudflare Tunnel at miles.lethanial.com, consumed by the iOS app with Face ID and Keychain-stored JWTs.
+      - Built the SwiftUI companion app from scratch with zero third-party dependencies — Face ID auth, on-device SFSpeechRecognizer input, paginated history with search, and a memory-bank viewer.
+  - name: MotionSense
+    tools: [Python, Raspberry Pi, AWS, scikit-learn, React, Docker]
+    links:
+      - github.com/Lethanial-Leveille/motionsense
+    dates: March 2026 – April 2026
+    bullets:
+      - Engineered a wearable motion-classification system on a Raspberry Pi 5 and MPU6050 6-axis IMU, reading accelerometer and gyroscope data at 20 Hz over I2C and classifying activity from six statistical features over 1-second sliding windows.
+      - Trained a scikit-learn Random Forest (100 trees, 80/20 split) on 1,074 labeled samples to reach 99.5% accuracy across three activity types, up from ~85% with hand-tuned thresholds.
+      - Built a serverless cloud pipeline (MQTT → AWS IoT Core → Lambda → DynamoDB → API Gateway) streaming classified readings to a Dockerized React/Recharts dashboard.
+  - name: Life OS
+    tools: [n8n, Docker Compose, Cloudflare Tunnel, GitHub GraphQL API, Notion API, Claude API, Gmail API, JavaScript, Raspberry Pi 5]
+    links: []
+    dates: April 2026 – Present
+    bullets:
+      - Built a self-hosted personal automation platform on a Raspberry Pi 5 running n8n (Docker Compose, restart-always) that orchestrates a weekly self-review pipeline across the GitHub GraphQL, Notion, Anthropic Claude, and Gmail APIs, running 24/7 independent of any laptop.
+      - Wired a Sunday 6am Eastern cron pipeline that pulls trailing-7-day commit contributions from the GitHub GraphQL API with dynamic date expressions, flattens a 157+ block Notion context doc into markdown, and prompts Claude Sonnet 4.6 for a structured six-field review.
+      - Parsed the model response into discrete fields written to a Notion database row (queryable date, summary, and question properties) plus six body blocks that respect Notion's 2000-character-per-block limit, and delivered an HTML review email via the Gmail API over OAuth2.
+      - Exposed the stack over HTTPS at automation.lethanial.com via Cloudflare Tunnel (no port forwarding or static IP), sharing one tunnel with the MILES backend on the same Pi, and migrated Gmail auth from an SMTP app password to OAuth2 once the public domain was live.
+      - Externalized the Claude prompt to a Notion page so context edits require no workflow changes, and generated the email subject as a separate sub-70-character hook to lift open rate on a self-sent accountability email.
+  - name: Job & Scholarship Tracker
+    # This project. Per CLAUDE.md hard rule #6, update this entry as the tracker grows.
+    tools: [Python, FastAPI, SQLAlchemy 2.0, Alembic, SQLite, React, TypeScript, Vite, Tailwind CSS, Claude API]
+    links:
+      - github.com/Lethanial-Leveille/job-tracker
+    dates: July 2026 – Present
+    bullets:
+      - Building a full-stack tracker for internship and scholarship applications with a FastAPI + SQLAlchemy 2.0 backend (Alembic migrations on SQLite) and a React + TypeScript + Vite + Tailwind dark-theme frontend.
+      - Layered the backend into thin routers, a service layer for business logic, and Pydantic request/response schemas, with dependency-injected DB sessions and an in-memory SQLite test suite that never touches the real database.
+      - Integrated the Claude API to parse pasted job descriptions into structured fields via structured outputs (typed Pydantic), running the cheaper Haiku model with the model swappable through configuration.
+      # In progress: resume tailoring (this very feature) — YAML master + locked WeasyPrint renderer + Opus tailoring. Add bullets as it lands (rule #6).

@@ -1,0 +1,142 @@
+/*
+  The LOCKED resume format. This is the "renderer" half of the content vs format
+  split (vision.md): Claude tailoring produces content (a Resume); it never sees
+  or edits this file, so every generated PDF looks identical.
+
+  Modeled on Lee's current resume: Carlito (a free, metric-compatible Calibri
+  clone) so the type matches Calibri, centered name, uppercase navy section
+  headers with a rule, single column, right-aligned dates. Subtle deeper-navy
+  accent (#1e3a5f). Spacing tuned to keep a tailored resume on one page.
+*/
+
+@page {
+  size: Letter;
+  margin: 0.5in 0.55in;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Carlito", "Calibri", "Helvetica Neue", "Arial", sans-serif;
+  font-size: 9.8pt;
+  line-height: 1.27;
+  color: #1a1a1a;
+}
+
+/* --- Header ------------------------------------------------------------- */
+.head {
+  text-align: center;
+  margin-bottom: 5pt;
+}
+
+.name {
+  font-size: 19pt;
+  font-weight: 700;
+  letter-spacing: 0.3pt;
+  margin-bottom: 2pt;
+}
+
+.contact {
+  font-size: 9pt;
+  color: #333333;
+  margin-top: 1pt;
+}
+
+.contact.links {
+  color: #1e3a5f;
+}
+
+/* --- Sections ----------------------------------------------------------- */
+section {
+  margin-top: 6.5pt;
+}
+
+.section {
+  font-size: 10.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7pt;
+  color: #1e3a5f;
+  border-bottom: 1pt solid #1e3a5f;
+  padding-bottom: 2pt;
+  margin-bottom: 3pt;
+}
+
+.summary {
+  margin-bottom: 1pt;
+}
+
+/* --- Entries (education / experience / projects) ------------------------ */
+.entry {
+  margin-bottom: 4pt;
+}
+
+/* Two-column header row: title flush left, location/dates flush right. */
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10pt;
+}
+
+.right {
+  text-align: right;
+  white-space: nowrap;
+  color: #333333;
+}
+
+.bold {
+  font-weight: 700;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.tools {
+  font-weight: 400;        /* project tech list stays regular weight */
+}
+
+.detail {
+  margin-top: 1pt;
+}
+
+/* Two-column skills: aligned bold label column, values in a flexible column
+   (continuation lines wrap under the values, not under the label). Narrow label
+   column gives the values as much width as possible. */
+.skill {
+  display: flex;
+  margin-bottom: 1.5pt;
+}
+
+.skill-label {
+  font-weight: 700;
+  width: 112pt;
+  flex-shrink: 0;
+}
+
+.skill-items {
+  flex: 1;
+}
+
+.plinks {
+  font-size: 8.5pt;
+  font-style: italic;
+  color: #1e3a5f;
+  margin-top: 1pt;
+}
+
+/* --- Bullets ------------------------------------------------------------ */
+ul {
+  margin: 2pt 0 0 0;
+  padding-left: 13pt;
+}
+
+li {
+  margin-bottom: 1.5pt;
+  line-height: 1.27;
+}

@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     # code. Vision policy: cheaper capable model for routine parsing work.
     anthropic_model: str = "claude-haiku-4-5"
 
+    # Resume tailoring uses the TOP model, per vision policy ("the top model only
+    # for resume tailoring and essay drafts"). Bullet selection and phrasing is
+    # the highest-value, most judgment-heavy step, so it earns Opus over Haiku.
+    # Verified current against the API docs (July 2026).
+    anthropic_tailoring_model: str = "claude-opus-4-8"
+
 
 @lru_cache
 def get_settings() -> Settings:
