@@ -9,3 +9,6 @@ __pycache__/
 # Personal instructions / design brief — keep local, never track
 CLAUDE.md
 docs/build-brief.md
+# Generated resume preview artifacts (dev throwaways)
+backend/data/*.pdf
+backend/data/tailored_last.json
