@@ -59,6 +59,9 @@ class ApplicationBase(BaseModel):
 
 class ApplicationCreate(ApplicationBase):
     jd_parsed: dict | None = None
+    # The raw JD text, carried in from the autofill paste so tailoring can later
+    # run against the real posting. Optional: a manual create omits it.
+    jd_text: str | None = None
 
 
 # --- Update ------------------------------------------------------------------
@@ -80,6 +83,9 @@ class ApplicationUpdate(BaseModel):
     priority: Priority | None = None
     deadline: date | None = None
     notes: str | None = None
+    # Re-settable input (unlike jd_parsed, which update omits): lets you paste a
+    # JD onto an application created by hand so the tailoring button can use it.
+    jd_text: str | None = None
 
 
 # --- Read --------------------------------------------------------------------
@@ -97,5 +103,6 @@ class ApplicationRead(ApplicationBase):
 
     id: str
     jd_parsed: dict | None = None
+    jd_text: str | None = None
     created_at: datetime
     updated_at: datetime

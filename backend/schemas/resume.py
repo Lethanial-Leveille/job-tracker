@@ -110,3 +110,12 @@ class Resume(BaseModel):
     skills: list[SkillGroup] = []
     experience: list[Experience] = []
     projects: list[Project] = []      # the full bank; tailoring keeps a subset
+
+
+# Route input wrapper, NOT part of the three-consumer Resume shape above. This is
+# the body of POST /resume/tailor: the job description text to tailor against.
+# Mirrors ParseRequest — a model, not a raw string, per the "no raw dicts"
+# convention. The master resume is loaded server-side, so the client only sends
+# the JD.
+class TailorRequest(BaseModel):
+    text: str

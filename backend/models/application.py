@@ -90,6 +90,12 @@ class Application(Base):
     # Parser output home. Empty in v1 (no JD parsing yet); filled in v2.
     jd_parsed: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
+    # The raw pasted job description text. Kept so resume tailoring can run
+    # against the real posting from a saved application. Distinct from jd_parsed
+    # (parser *output*): this is the parser *input*, and unlike jd_parsed it is
+    # re-settable via update (you can paste a JD onto an app created by hand).
+    jd_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Timestamps, always UTC. updated_at re-stamps on every modification via
     # the onupdate hook.
     created_at: Mapped[datetime] = mapped_column(

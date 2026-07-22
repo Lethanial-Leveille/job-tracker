@@ -18,6 +18,7 @@ from database import Base, DATABASE_URL  # noqa: E402
 # autogenerate would see an empty schema and create nothing. noqa: it looks
 # unused, but the import is the point (the side effect of registration).
 from models.application import Application  # noqa: E402, F401
+from models.resume_version import ResumeVersion  # noqa: E402, F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
