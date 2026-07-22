@@ -1,0 +1,585 @@
+<title>Scout</title>
+<style>
+  :root {
+    --base: #0a0810;
+    --surface: #100c16;
+    --surface-2: #16111f;
+    --surface-hover: #1a1424;
+    --line: #211c2b;
+    --line-strong: #2e2838;
+    --ink: #f4f2f7;
+    --ink-soft: #9e97ac;
+    --ink-muted: #67616f;
+    --accent: #8b5cf6;
+    --accent-hover: #9d6ff7;
+    --accent-press: #7c3aed;
+    --accent-subtle: rgba(139, 92, 246, 0.10);
+    --accent-line: rgba(139, 92, 246, 0.28);
+    --r-frame: 6px;
+    --r-interactive: 10px;
+    --glow: 0 0 20px -6px rgba(139, 92, 246, 0.45);
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;
+    --nav-w: 250px;
+    --drawer-w: 460px;
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body {
+    margin: 0; background: var(--base); color: var(--ink-soft); font-family: var(--font);
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-size: 14px; line-height: 1.5;
+  }
+  a { color: inherit; }
+  button { font-family: inherit; cursor: pointer; }
+  ::selection { background: var(--accent-press); color: var(--ink); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  [hidden] { display: none !important; }
+
+  .app { display: grid; grid-template-columns: var(--nav-w) 1fr; min-height: 100vh; }
+
+  .texture { position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(120% 90% at 100% 0%, rgba(139,92,246,.07), transparent 55%),
+                radial-gradient(90% 70% at 0% 100%, rgba(139,92,246,.045), transparent 60%); }
+
+  /* ---- Sidebar ---- */
+  .nav { position: relative; z-index: 2; border-right: 1px solid var(--line-strong);
+    background: linear-gradient(180deg, var(--surface), var(--base)); display: flex; flex-direction: column;
+    padding: 22px 16px; gap: 24px; }
+  .brand { display: flex; align-items: center; gap: 12px; padding: 2px 6px; }
+  .brand .logo { width: 40px; height: 40px; flex: none; border-radius: 11px;
+    background: linear-gradient(155deg, #8b5cf6, #6d3fd4); display: grid; place-items: center;
+    box-shadow: var(--glow), inset 0 1px 0 rgba(255,255,255,.18); }
+  .brand .logo svg { width: 22px; height: 22px; }
+  .brand .word { color: var(--ink); font-weight: 600; font-size: 16px; letter-spacing: 0.22em; text-transform: uppercase; line-height: 1.1; }
+  .brand .word small { display: block; font-size: 9px; letter-spacing: 0.2em; color: var(--ink-muted); font-weight: 500; margin-top: 3px; }
+
+  .nav-group { display: flex; flex-direction: column; gap: 2px; }
+  .nav-label { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-muted); padding: 0 8px; margin-bottom: 9px; }
+  .nav-item { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: var(--r-interactive);
+    color: var(--ink-soft); background: none; border: none; width: 100%; text-align: left; font-size: 13.5px;
+    transition: background .15s, color .15s; }
+  .nav-item svg { width: 17px; height: 17px; flex: none; stroke-width: 1.7; }
+  .nav-item .n { margin-left: auto; font-size: 12px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  .nav-item:hover { background: var(--surface-2); color: var(--ink); }
+  .nav-item.active { background: var(--accent-subtle); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent-line); }
+  .nav-item.active svg { color: var(--accent); }
+  .nav-item.active .n { color: var(--ink); }
+  .nav-item.soon { color: var(--ink-muted); cursor: default; }
+  .nav-item.soon:hover { background: none; }
+  .tag-soon { margin-left: auto; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: 2px 7px; }
+
+  .pipe { display: flex; flex-direction: column; gap: 1px; }
+  .pipe-row { display: flex; align-items: center; gap: 11px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--ink-soft); }
+  .pipe-row .sq { width: 9px; height: 9px; border-radius: 2px; flex: none; border: 1px solid var(--ink-muted); }
+  .pipe-row.f1 .sq { background: var(--ink-soft); border-color: var(--ink-soft); }
+  .pipe-row.f2 .sq { background: var(--ink); border-color: var(--ink); }
+  .pipe-row.offer .sq { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px 0 rgba(139,92,246,.6); }
+  .pipe-row.offer { color: var(--accent); }
+  .pipe-row .n { margin-left: auto; font-size: 12px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  .pipe-row.offer .n { color: var(--accent); }
+
+  .nav-foot { margin-top: auto; display: flex; align-items: center; gap: 11px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-frame); background: var(--surface-2); }
+  .avatar { width: 32px; height: 32px; border-radius: 9px; flex: none; display: grid; place-items: center;
+    background: var(--base); border: 1px solid var(--line-strong); color: var(--ink-soft); font-size: 12px; font-weight: 600; }
+  .nav-foot .who { font-size: 13px; color: var(--ink); line-height: 1.3; }
+  .nav-foot .who small { display: block; color: var(--ink-muted); font-size: 11px; }
+
+  /* ---- Main ---- */
+  .main { position: relative; z-index: 1; min-width: 0; }
+  .view { padding: 26px 30px 60px; }
+
+  .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .title-row { display: flex; align-items: center; gap: 12px; }
+  h1 { color: var(--ink); font-size: 27px; font-weight: 600; letter-spacing: -0.02em; margin: 0; }
+  .count-pill { font-size: 12px; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; background: var(--surface); font-variant-numeric: tabular-nums; }
+  .subtitle { color: var(--ink-muted); font-size: 13px; margin: 6px 0 0; }
+  .head-actions { display: flex; align-items: center; gap: 10px; }
+
+  .input { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-interactive); color: var(--ink);
+    padding: 9px 12px; font-size: 13.5px; transition: border-color .15s, box-shadow .15s; }
+  .input::placeholder { color: var(--ink-muted); }
+  .input:focus { outline: none; border-color: var(--accent); box-shadow: var(--glow); }
+  .search { width: 250px; }
+  .search-wrap { position: relative; }
+  .search-wrap > svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--ink-muted); pointer-events: none; }
+  .search-wrap .input { padding-left: 32px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 7px; border-radius: var(--r-interactive); padding: 9px 14px;
+    font-size: 13.5px; font-weight: 500; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+    transition: background .15s, color .15s, border-color .15s, box-shadow .15s; }
+  .btn:hover { color: var(--ink); border-color: var(--line-strong); background: var(--surface-2); }
+  .btn-primary { background: var(--accent); border-color: transparent; color: #fff; box-shadow: var(--glow); }
+  .btn-primary:hover { background: var(--accent-hover); color: #fff; }
+  .btn-primary:active { background: var(--accent-press); }
+  .btn svg { width: 16px; height: 16px; }
+  .btn-ghost { background: none; border-color: transparent; }
+  .btn-ghost:hover { background: var(--surface-2); }
+  .btn-danger:hover { color: #f0a0a8; border-color: #4a2730; }
+
+  .toolbar { display: flex; align-items: center; gap: 14px; margin: 22px 0 14px; flex-wrap: wrap; }
+  .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-interactive); padding: 3px; gap: 2px; }
+  .seg button { border: none; background: none; color: var(--ink-soft); padding: 6px 13px; border-radius: 7px; font-size: 12.5px; font-weight: 500; transition: background .15s, color .15s; }
+  .seg button:hover { color: var(--ink); }
+  .seg button.on { background: var(--surface-hover); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-strong); }
+  .tool-meta { margin-left: auto; font-size: 12px; color: var(--ink-muted); display: flex; align-items: center; gap: 8px; }
+  .select { background: var(--surface); border: 1px solid var(--line); color: var(--ink-soft); border-radius: var(--r-interactive); padding: 7px 10px; font-size: 12.5px; }
+  .select:focus { outline: none; border-color: var(--accent); box-shadow: var(--glow); }
+
+  /* ---- Table ---- */
+  .table { border: 1px solid var(--line-strong); border-radius: var(--r-frame); background: var(--surface); overflow: hidden; }
+  .thead, .trow { display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(0, 2fr) 88px 150px 84px 120px; align-items: center; gap: 16px; padding: 0 18px; }
+  .thead { height: 42px; border-bottom: 1px solid var(--line-strong); background: linear-gradient(180deg, var(--surface-2), var(--surface)); }
+  .th { font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; }
+  .trow { height: 60px; border-bottom: 1px solid var(--line); border-left: 2px solid transparent; background: none; width: 100%; text-align: left; color: var(--ink-soft); transition: background .13s; cursor: pointer; }
+  .trow:last-child { border-bottom: none; }
+  .trow:hover { background: var(--surface-hover); }
+  .trow.sel { background: var(--accent-subtle); border-left-color: var(--accent); box-shadow: var(--glow); }
+  .org { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .mono { width: 34px; height: 34px; border-radius: 9px; flex: none; display: grid; place-items: center; background: var(--surface-2); border: 1px solid var(--line-strong); color: var(--ink-soft); font-size: 12px; font-weight: 600; }
+  .org .name { color: var(--ink); font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .role { color: var(--ink-soft); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .type-badge { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink-soft); background: var(--surface-2); white-space: nowrap; }
+  .status { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; white-space: nowrap; }
+  .status .d { width: 7px; height: 7px; border-radius: 999px; flex: none; background: currentColor; }
+  .status.s-early { color: var(--ink-muted); }
+  .status.s-active { color: var(--ink); }
+  .status.s-live { color: #d9d2e6; }
+  .status.s-dead { color: var(--ink-muted); opacity: .72; }
+  .status.s-offer { color: var(--accent); }
+  .status.s-offer .d { box-shadow: 0 0 9px 0 rgba(139,92,246,.7); }
+  .prio { display: inline-flex; align-items: flex-end; gap: 3px; height: 14px; }
+  .prio i { width: 4px; border-radius: 1px; background: var(--ink-muted); display: block; }
+  .prio i:nth-child(1) { height: 6px; } .prio i:nth-child(2) { height: 10px; } .prio i:nth-child(3) { height: 14px; }
+  .prio.p-low i:nth-child(1) { background: var(--ink-soft); }
+  .prio.p-med i:nth-child(1), .prio.p-med i:nth-child(2) { background: var(--ink-soft); }
+  .prio.p-high i { background: var(--ink); }
+  .prio-wrap { display: flex; align-items: center; gap: 8px; }
+  .prio-label { font-size: 12px; color: var(--ink-muted); }
+  .deadline { font-size: 12.5px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .deadline small { display: block; color: var(--ink-muted); font-size: 11px; }
+  .deadline.soon { color: var(--ink); }
+  .deadline.past { color: var(--ink-muted); }
+  .empty { padding: 60px 20px; text-align: center; color: var(--ink-muted); font-size: 13.5px; }
+
+  /* ================= ADD OPPORTUNITY (full screen) ================= */
+  #addView { position: relative; min-height: 100vh; }
+  #addView::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background: repeating-radial-gradient(circle at 78% 46%, transparent 0 58px, rgba(139,92,246,.05) 58px 59px, transparent 59px 118px);
+    mask-image: radial-gradient(70% 80% at 80% 45%, #000, transparent 78%); opacity: .8; }
+  .add-top { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+    padding: 20px 30px; border-bottom: 1px solid var(--line); }
+  .back { justify-self: start; }
+  .stepper { justify-self: center; display: flex; align-items: center; gap: 14px; }
+  .step { display: inline-flex; align-items: center; gap: 9px; color: var(--ink-muted); font-size: 13.5px; font-weight: 500; }
+  .step i { width: 26px; height: 26px; border-radius: 999px; display: grid; place-items: center; font-size: 12px; font-style: normal;
+    border: 1.5px solid var(--line-strong); color: var(--ink-muted); background: var(--surface); font-variant-numeric: tabular-nums; transition: all .2s; }
+  .step.active { color: var(--ink); }
+  .step.active i { border-color: var(--accent); color: #fff; box-shadow: var(--glow); }
+  .step.done i { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .step.done { color: var(--ink-soft); }
+  .step-line { width: 46px; height: 1px; background: var(--line-strong); }
+  .step-line.lit { background: var(--accent-line); }
+
+  .add-stage { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 56px 24px 80px; }
+  .add-step { display: flex; flex-direction: column; }
+  .hero-h { font-family: var(--serif); color: var(--ink); font-size: 42px; font-weight: 600; text-align: center; letter-spacing: -0.01em; text-wrap: balance; margin: 0; }
+  .hero-p { text-align: center; color: var(--ink-soft); font-size: 15px; line-height: 1.6; margin: 14px auto 0; max-width: 460px; text-wrap: balance; }
+
+  .paste-box { margin-top: 38px; width: 100%; min-height: 300px; background: rgba(22,17,31,.5); border: 1px solid var(--line-strong);
+    border-radius: 14px; color: var(--ink); padding: 22px 24px; font-size: 14px; line-height: 1.6; resize: vertical; transition: border-color .15s, box-shadow .15s; }
+  .paste-box::placeholder { color: var(--ink-muted); }
+  .paste-box:focus { outline: none; border-color: var(--accent); box-shadow: var(--glow); }
+
+  .or { display: flex; align-items: center; gap: 16px; margin: 30px 0 18px; color: var(--ink-muted); font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; }
+  .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .url-wrap { position: relative; }
+  .url-wrap > svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: var(--ink-muted); }
+  .url-input { width: 100%; background: rgba(22,17,31,.5); border: 1px solid var(--line-strong); border-radius: 12px; color: var(--ink); padding: 16px 16px 16px 44px; font-size: 14px; transition: border-color .15s, box-shadow .15s; }
+  .url-input::placeholder { color: var(--ink-muted); }
+  .url-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--glow); }
+  .url-note { font-size: 11px; color: var(--ink-muted); margin: 7px 4px 0; display: flex; align-items: center; gap: 6px; }
+  .url-note b { color: var(--ink-soft); font-weight: 500; }
+
+  .read-btn { margin-top: 26px; width: 100%; padding: 18px; border-radius: 12px; border: 1px solid var(--line-strong);
+    background: var(--surface-2); color: var(--ink); font-size: 15px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    transition: background .15s, border-color .15s; }
+  .read-btn:hover { background: var(--surface-hover); border-color: var(--accent-line); }
+  .read-btn svg { width: 17px; height: 17px; color: var(--accent); }
+  .add-foot-note { text-align: center; color: var(--ink-muted); font-size: 12.5px; margin-top: 18px; }
+
+  /* parse step */
+  .parsing { align-items: center; text-align: center; padding-top: 70px; }
+  .parse-ring { width: 66px; height: 66px; border-radius: 999px; border: 2px solid var(--line-strong); border-top-color: var(--accent); animation: spin 1s linear infinite; margin-bottom: 26px; box-shadow: var(--glow); }
+  .parsing h3 { font-family: var(--serif); color: var(--ink); font-size: 26px; font-weight: 600; margin: 0 0 8px; }
+  .parsing p { color: var(--ink-soft); font-size: 14px; margin: 0; }
+
+  /* review step */
+  .review-head { text-align: center; margin-bottom: 32px; }
+  .review-head h3 { font-family: var(--serif); color: var(--ink); font-size: 30px; font-weight: 600; margin: 0 0 8px; }
+  .review-head p { color: var(--ink-soft); font-size: 14px; margin: 0; }
+  .rv-form { display: flex; flex-direction: column; gap: 16px; }
+  .rgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field > label { font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; }
+  .field .input, .field select { width: 100%; }
+  .captured { border: 1px solid var(--accent-line); border-radius: var(--r-frame); background: var(--accent-subtle); padding: 15px 16px; display: flex; flex-direction: column; gap: 11px; }
+  .captured .ch { font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 7px; }
+  .captured .ch svg { width: 13px; height: 13px; }
+  .kv-inline { display: flex; flex-wrap: wrap; gap: 10px 24px; }
+  .kv-inline .item { display: flex; flex-direction: column; gap: 2px; }
+  .kv-inline .k { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
+  .kv-inline .v { color: var(--ink); font-size: 13px; }
+  .reqs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .reqs li { position: relative; padding-left: 18px; color: var(--ink-soft); font-size: 12.5px; line-height: 1.45; }
+  .reqs li::before { content: ""; position: absolute; left: 3px; top: 8px; width: 5px; height: 5px; border-radius: 999px; background: var(--accent); opacity: .6; }
+  .rv-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+
+  /* ---- Drawer / panels ---- */
+  .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(4,3,8,.62); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .22s; }
+  .scrim.show { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 50; width: min(var(--drawer-w), 94vw); background: var(--surface);
+    border-left: 1px solid var(--line-strong); box-shadow: -30px 0 60px -30px rgba(0,0,0,.7); transform: translateX(100%);
+    transition: transform .26s cubic-bezier(.22,.61,.36,1); display: flex; flex-direction: column; overflow: hidden; }
+  .drawer.show { transform: translateX(0); }
+  .drawer.stack { z-index: 60; width: min(500px, 96vw); }
+  .drawer-head { padding: 20px 22px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: flex-start; gap: 14px; }
+  .drawer-head .mono { width: 42px; height: 42px; font-size: 14px; }
+  .drawer-title { min-width: 0; flex: 1; }
+  .drawer-title h2 { color: var(--ink); font-size: 18px; font-weight: 600; margin: 0 0 3px; letter-spacing: -0.01em; }
+  .drawer-title .sub { color: var(--ink-soft); font-size: 13.5px; }
+  .x { width: 32px; height: 32px; flex: none; border-radius: 8px; background: none; border: 1px solid transparent; color: var(--ink-muted); display: grid; place-items: center; font-size: 17px; transition: background .15s, color .15s; }
+  .x:hover { background: var(--surface-2); color: var(--ink); }
+  .drawer-body { padding: 20px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 22px; }
+  .drawer-foot { padding: 14px 22px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; justify-content: space-between; background: var(--surface); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; }
+  .fact .k { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 4px; }
+  .fact .v { color: var(--ink); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  .fact .v a { color: var(--accent); text-decoration: none; word-break: break-all; }
+  .fact .v a:hover { text-decoration: underline; }
+  .section { display: flex; flex-direction: column; gap: 11px; }
+  .section > .sh { font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .section > .sh::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .posting-card { background: var(--base); border: 1px solid var(--line); border-radius: var(--r-frame); padding: 15px 16px; display: flex; flex-direction: column; gap: 13px; }
+  .posting-card .summary { color: var(--ink-soft); font-size: 13px; line-height: 1.55; }
+  .provenance { font-size: 11px; color: var(--ink-muted); display: flex; align-items: center; gap: 6px; }
+  .provenance svg { width: 13px; height: 13px; }
+  .notes { color: var(--ink-soft); font-size: 13px; line-height: 1.55; }
+  .versions { display: flex; flex-direction: column; gap: 8px; }
+  .ver { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: var(--r-frame); padding: 10px 13px; background: var(--base); }
+  .ver .vi { width: 30px; height: 30px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line-strong); display: grid; place-items: center; color: var(--ink-muted); flex: none; }
+  .ver .vi svg { width: 15px; height: 15px; }
+  .ver .vt { flex: 1; min-width: 0; }
+  .ver .vt b { color: var(--ink); font-weight: 500; font-size: 13px; display: block; }
+  .ver .vt small { color: var(--ink-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  form { display: flex; flex-direction: column; gap: 16px; }
+  textarea.input { resize: none; line-height: 1.5; }
+  .review-t { border: 1px solid var(--line); border-radius: var(--r-frame); background: var(--base); padding: 16px; display: none; flex-direction: column; gap: 16px; }
+  .review-t.show { display: flex; }
+  .review-t .rsum { color: var(--ink); font-size: 13px; line-height: 1.55; }
+  .review-t .rgh { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 7px; }
+  .review-t .rentry { margin-bottom: 11px; }
+  .review-t .rentry b { color: var(--ink); font-size: 12.5px; font-weight: 600; }
+  .review-t .rentry ul { margin: 5px 0 0; padding-left: 17px; }
+  .review-t .rentry li { color: var(--ink-soft); font-size: 12px; line-height: 1.5; margin-bottom: 3px; }
+  .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 999px; display: inline-block; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) { .drawer, .scrim, .parse-ring, * { transition: none !important; animation: none !important; } }
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .nav { display: none; }
+    .thead, .trow { grid-template-columns: minmax(0,2fr) 90px 130px; }
+    .col-role, .col-prio, .col-deadline { display: none; }
+    .hero-h { font-size: 32px; }
+  }
+</style>
+
+<div class="texture"></div>
+<div class="app">
+  <!-- ===== Sidebar ===== -->
+  <aside class="nav">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 3 L19.8 7.5 V16.5 L12 21 L4.2 16.5 V7.5 Z" stroke="#fff" stroke-width="1.5" opacity=".95"/><circle cx="12" cy="12" r="2.4" fill="#fff"/></svg>
+      </span>
+      <span class="word">Scout<small>Opportunity Tracker</small></span>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Workspace</div>
+      <button class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+        Applications <span class="n">8</span>
+      </button>
+      <button class="nav-item soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Deadlines <span class="tag-soon">Soon</span></button>
+      <button class="nav-item soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5"/></svg> Organizations <span class="tag-soon">Soon</span></button>
+      <button class="nav-item soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg> Documents <span class="tag-soon">Soon</span></button>
+      <button class="nav-item soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 4-6"/></svg> Analytics <span class="tag-soon">Soon</span></button>
+    </div>
+
+    <div class="nav-foot">
+      <span class="avatar">LL</span>
+      <span class="who">Lee Leveille<small>Fall 2026 cycle</small></span>
+    </div>
+  </aside>
+
+  <!-- ===== Main ===== -->
+  <main class="main">
+    <!-- LIST VIEW -->
+    <div id="listView" class="view">
+      <div class="head">
+        <div>
+          <div class="title-row">
+            <h1>Applications</h1>
+            <span class="count-pill" id="count">8 shown</span>
+          </div>
+          <p class="subtitle">Every internship and scholarship you're tracking, in one pipeline.</p>
+        </div>
+        <div class="head-actions">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input class="input search" id="search" type="search" placeholder="Search organization or role" />
+          </div>
+          <button class="btn btn-primary" id="newBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+            New application
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="seg" id="typeSeg">
+          <button class="on" data-type="all">All</button>
+          <button data-type="internship">Jobs</button>
+          <button data-type="scholarship">Scholarships</button>
+        </div>
+        <div class="tool-meta">
+          <span>Sort</span>
+          <select class="select" id="sort"><option value="deadline">Deadline</option><option value="priority">Priority</option></select>
+        </div>
+      </div>
+
+      <div class="table">
+        <div class="thead">
+          <div class="th">Organization</div>
+          <div class="th col-role">Role or program</div>
+          <div class="th">Type</div>
+          <div class="th">Status</div>
+          <div class="th col-prio">Priority</div>
+          <div class="th col-deadline">Deadline</div>
+        </div>
+        <div id="rows"></div>
+      </div>
+    </div>
+
+    <!-- ADD OPPORTUNITY VIEW (full screen) -->
+    <section id="addView" hidden>
+      <div class="add-top">
+        <button class="btn back" id="backBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+          Applications
+        </button>
+        <div class="stepper" id="stepper">
+          <span class="step active" data-s="input"><i>1</i> Input</span>
+          <span class="step-line"></span>
+          <span class="step" data-s="parse"><i>2</i> Parse</span>
+          <span class="step-line"></span>
+          <span class="step" data-s="review"><i>3</i> Review</span>
+        </div>
+        <span></span>
+      </div>
+
+      <div class="add-stage">
+        <!-- STEP 1: INPUT -->
+        <div class="add-step" data-step="input">
+          <h2 class="hero-h">Add an opportunity</h2>
+          <p class="hero-p">Paste a job or scholarship description, or drop a link. Scout reads it and fills in the details for you.</p>
+          <textarea class="paste-box" id="pasteBox" placeholder="Paste the full job or scholarship description here…"></textarea>
+          <div class="or">Or paste a URL</div>
+          <div class="url-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+            <input class="url-input" id="urlInput" placeholder="https://careers.example.com/role/12345" />
+          </div>
+          <div class="url-note"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg> <b>URL reading is coming soon</b> — most job sites block automated fetches, so paste the text for now.</div>
+          <button class="read-btn" id="readBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>
+            Read with Scout
+          </button>
+          <p class="add-foot-note">You'll review everything before it's saved.</p>
+        </div>
+
+        <!-- STEP 2: PARSE -->
+        <div class="add-step parsing" data-step="parse" hidden>
+          <div class="parse-ring"></div>
+          <h3>Reading the posting</h3>
+          <p>Scout is pulling out the role, deadline, and key details…</p>
+        </div>
+
+        <!-- STEP 3: REVIEW -->
+        <div class="add-step" data-step="review" hidden>
+          <div class="review-head">
+            <h3>Review before saving</h3>
+            <p>Scout filled these in. Check them, fix anything, then save. Nothing is stored until you do.</p>
+          </div>
+          <form class="rv-form" onsubmit="return false">
+            <div class="rgrid">
+              <div class="field"><label>Organization</label><input class="input" value="NVIDIA" /></div>
+              <div class="field"><label>Type</label><select class="input select"><option>Job</option><option>Scholarship</option></select></div>
+            </div>
+            <div class="field"><label>Role or program</label><input class="input" value="Software Engineering Intern" /></div>
+            <div class="field"><label>Posting URL</label><input class="input" placeholder="Add the link you applied through" /></div>
+            <div class="rgrid">
+              <div class="field"><label>Status</label><select class="input select"><option>Discovered</option><option>Drafting</option></select></div>
+              <div class="field"><label>Deadline</label><input class="input" type="date" value="2026-08-14" /></div>
+            </div>
+            <div class="captured">
+              <div class="ch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg> Captured from the posting — stored and shown in the detail view</div>
+              <div class="kv-inline">
+                <div class="item"><span class="k">Compensation</span><span class="v">$48 – $58 / hr</span></div>
+                <div class="item"><span class="k">Location</span><span class="v">Santa Clara, CA · Hybrid</span></div>
+              </div>
+              <ul class="reqs">
+                <li>Pursuing a BS/MS in CE, EE, or CS</li>
+                <li>Strong C++ and Python</li>
+                <li>Familiarity with systems or embedded programming</li>
+              </ul>
+            </div>
+            <div class="rv-actions">
+              <button class="btn" id="reviewBack">Back</button>
+              <button class="btn btn-primary" id="saveApp">Save application</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ===== Overlays ===== -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="detail" aria-label="Application detail"></aside>
+<aside class="drawer stack" id="tailorPanel" aria-label="Tailor resume"></aside>
+
+<script>
+  const APPS = [
+    { id:"1", type:"internship", org:"NVIDIA", role:"Software Engineering Intern", url:"https://nvidia.wd5.myworkdayjobs.com/job/SWE-Intern-2027", status:"technical_interview", priority:"high", deadline:"2026-08-14", added:"2026-07-09", notes:"Referred by a UF alum on the CUDA team. Second round is a systems + C++ pairing.", jd:{ summary:"Join NVIDIA's compute platform team building tooling for GPU-accelerated workloads across the driver stack and developer-facing SDKs.", salary:"$48 – $58 / hr", location:"Santa Clara, CA · Hybrid", reqs:["Pursuing a BS/MS in CE, EE, or CS","Strong C++ and Python","Familiarity with systems or embedded programming","CUDA or parallel computing a plus"] }, versions:[{n:"Tailored — NVIDIA SWE", d:"Jul 20, 2026"}] },
+    { id:"2", type:"internship", org:"Google", role:"STEP Intern", url:"https://google.com/about/careers/step-intern-2027", status:"offer", priority:"high", deadline:"2026-07-30", added:"2026-06-28", notes:"Offer in hand — deciding against SpaceX. Deadline to accept is Jul 30.", jd:{ summary:"A development program for first and second-year students, pairing you with a mentor on a real Google engineering project.", salary:"$45 / hr", location:"Sunnyvale, CA · On-site", reqs:["First or second-year undergraduate","Intro to data structures and algorithms","Coursework in Java, C++, or Python"] }, versions:[{n:"Tailored — Google STEP", d:"Jun 30, 2026"},{n:"Tailored — STEP v2", d:"Jul 2, 2026"}] },
+    { id:"3", type:"internship", org:"SpaceX", role:"Avionics Firmware Intern", url:"https://spacex.com/careers/avionics-firmware-intern", status:"applied", priority:"high", deadline:"2026-08-01", added:"2026-07-05", notes:"", jd:{ summary:"Develop and test flight firmware for avionics hardware on Falcon and Starship vehicles, with real hardware in the loop.", salary:"Not stated", location:"Hawthorne, CA · On-site", reqs:["Embedded C / C++","Microcontrollers (STM32, etc.)","Comfortable with hardware bring-up","US person status required"] }, versions:[] },
+    { id:"4", type:"scholarship", org:"Knight-Hennessy Scholars", role:"Graduate Fellowship", url:"https://knight-hennessy.stanford.edu/apply", status:"drafting", priority:"medium", deadline:"2026-10-08", added:"2026-07-11", notes:"Needs two essays + a recommendation. Start the leadership essay early.", jd:{ summary:"A fully funded graduate fellowship at Stanford for students showing leadership and a commitment to the greater good.", salary:"Full funding + stipend", location:"Stanford, CA", reqs:["Applying to a Stanford graduate program","Demonstrated leadership","Two essays and references"] }, versions:[] },
+    { id:"5", type:"scholarship", org:"Astronaut Scholarship Foundation", role:"Astronaut Scholarship", url:"https://astronautscholarship.org/apply", status:"ready", priority:"medium", deadline:"2026-09-15", added:"2026-07-13", notes:"Nominated by the UF department. Confirm the research statement is final.", jd:{ summary:"Awarded to top sophomore and junior STEM students intending to pursue research, nominated through partner universities.", salary:"Up to $15,000", location:"National", reqs:["Sophomore or junior in STEM","US citizen","Nominated by a participating university"] }, versions:[] },
+    { id:"6", type:"internship", org:"Lockheed Martin", role:"Embedded Systems Intern", url:"https://lockheedmartinjobs.com/embedded-intern", status:"phone_screen", priority:"medium", deadline:"2026-08-20", added:"2026-07-02", notes:"", jd:{ summary:"Support embedded software development for defense avionics programs, from requirements through integration and test.", salary:"$32 – $40 / hr", location:"Orlando, FL · On-site", reqs:["C / C++ on embedded targets","US citizenship required","RTOS familiarity a plus"] }, versions:[] },
+    { id:"7", type:"internship", org:"CareDx", role:"Software Engineering Intern", url:"https://caredx.com/careers/swe-intern", status:"ghosted", priority:"low", deadline:"2026-06-30", added:"2026-05-20", notes:"No response after the recruiter call. Following up once more.", jd:{ summary:"Build internal tools for a transplant diagnostics platform on a Python and React stack.", salary:"$30 / hr", location:"Remote (US)", reqs:["Python or JavaScript","Interest in health tech","React a plus"] }, versions:[] },
+    { id:"8", type:"scholarship", org:"Barry Goldwater Scholarship", role:"Goldwater Scholarship", url:"https://goldwater.scholarsapply.org", status:"rejected", priority:"low", deadline:"2026-01-27", added:"2025-11-30", notes:"Not selected this cycle. Reapply as a junior with a stronger research record.", jd:{ summary:"The premier undergraduate award in the natural sciences, engineering, and mathematics for students committed to a research career.", salary:"Up to $7,500", location:"National", reqs:["Sophomore or junior","Intent to pursue research","Institutional nomination"] }, versions:[] }
+  ];
+
+  const STATUS = { discovered:["Discovered","s-early"], drafting:["Drafting","s-active"], ready:["Ready","s-active"], applied:["Applied","s-active"], recruiter_engaged:["Recruiter engaged","s-live"], phone_screen:["Phone screen","s-live"], technical_interview:["Technical interview","s-live"], onsite:["Onsite","s-live"], offer:["Offer","s-offer"], accepted:["Accepted","s-live"], declined:["Declined","s-dead"], rejected:["Rejected","s-dead"], ghosted:["Ghosted","s-dead"], missed_deadline:["Missed deadline","s-dead"] };
+  const TYPE_LABEL = { internship:"Job", scholarship:"Scholarship" };
+  const PRIO = { low:["p-low","Low"], medium:["p-med","Medium"], high:["p-high","High"] };
+  const NOW = new Date("2026-07-22");
+
+  const monogram = s => s.replace(/[^A-Za-z0-9 ]/g,"").split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+  const fmtDate = iso => new Date(iso+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+  function relDeadline(iso){ const days=Math.round((new Date(iso+"T00:00:00")-NOW)/86400000); if(days<0) return ["past","passed"]; if(days===0) return ["soon","due today"]; if(days<=14) return ["soon","in "+days+"d"]; return ["","in "+days+"d"]; }
+
+  let state = { type:"all", search:"", sort:"deadline", sel:null };
+
+  function visible(){
+    let list = APPS.filter(a => (state.type==="all"||a.type===state.type) && (!state.search || (a.org+" "+a.role).toLowerCase().includes(state.search.toLowerCase())));
+    const prank={high:0,medium:1,low:2};
+    list.sort((a,b)=>{ if(state.sort==="priority"){ const r=prank[a.priority]-prank[b.priority]; if(r) return r; } return a.deadline<b.deadline?-1:a.deadline>b.deadline?1:0; });
+    return list;
+  }
+  function renderTable(){
+    const list = visible();
+    document.getElementById("count").textContent = list.length+" shown";
+    const rows = document.getElementById("rows");
+    if(!list.length){ rows.innerHTML='<div class="empty">No applications match this filter.</div>'; return; }
+    rows.innerHTML = list.map(a=>{
+      const [sl,sc]=STATUS[a.status], [dc,dr]=relDeadline(a.deadline), [pc,pl]=PRIO[a.priority];
+      return `<button class="trow ${state.sel===a.id?'sel':''}" data-id="${a.id}">
+        <div class="org"><span class="mono">${monogram(a.org)}</span><span class="name">${a.org}</span></div>
+        <div class="role col-role">${a.role}</div>
+        <div><span class="type-badge">${TYPE_LABEL[a.type]}</span></div>
+        <div><span class="status ${sc}"><span class="d"></span>${sl}</span></div>
+        <div class="col-prio"><span class="prio-wrap"><span class="prio ${pc}"><i></i><i></i><i></i></span><span class="prio-label">${pl}</span></span></div>
+        <div class="deadline col-deadline ${dc}">${fmtDate(a.deadline)}<small>${dr}</small></div>
+      </button>`;
+    }).join("");
+    rows.querySelectorAll(".trow").forEach(r=> r.addEventListener("click", ()=> openDetail(r.dataset.id)));
+  }
+
+  // ---- Detail drawer ----
+  function openDetail(id){
+    const a = APPS.find(x=>x.id===id); state.sel=id; renderTable();
+    const [sl,sc]=STATUS[a.status];
+    const vh = a.versions.length ? a.versions.map(v=>`<div class="ver"><span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><span class="vt"><b>${v.n}</b><small>Saved ${v.d}</small></span><button class="btn btn-ghost" style="padding:6px 10px">PDF</button></div>`).join("") : `<div class="provenance">No tailored versions saved yet. Use <b style="color:var(--ink-soft)">Tailor resume</b> to draft one.</div>`;
+    document.getElementById("detail").innerHTML = `
+      <div class="drawer-head"><span class="mono">${monogram(a.org)}</span><div class="drawer-title"><h2>${a.org}</h2><div class="sub">${a.role}</div></div><button class="x" data-close aria-label="Close">✕</button></div>
+      <div class="drawer-body">
+        <div class="chips"><span class="type-badge">${TYPE_LABEL[a.type]}</span><span class="status ${sc}" style="border:1px solid var(--line-strong);border-radius:999px;padding:3px 10px"><span class="d"></span>${sl}</span><span class="type-badge">Priority: ${PRIO[a.priority][1]}</span></div>
+        <div class="facts"><div class="fact"><div class="k">Deadline</div><div class="v">${fmtDate(a.deadline)}</div></div><div class="fact"><div class="k">Added</div><div class="v">${fmtDate(a.added)}</div></div><div class="fact" style="grid-column:1/-1"><div class="k">Posting link</div><div class="v"><a href="${a.url}" target="_blank" rel="noopener">${a.url}</a></div></div></div>
+        <div class="section"><div class="sh">From the posting</div><div class="posting-card"><div class="summary">${a.jd.summary}</div><div class="kv-inline"><div class="item"><span class="k">Compensation</span><span class="v">${a.jd.salary}</span></div><div class="item"><span class="k">Location</span><span class="v">${a.jd.location}</span></div></div><div><div class="k" style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">Key requirements</div><ul class="reqs">${a.jd.reqs.map(r=>`<li>${r}</li>`).join("")}</ul></div><div class="provenance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 3 2 5 3 7h8c1-2 3-4 3-7a7 7 0 0 0-7-7Z"/><path d="M9 21h6"/></svg> Extracted by Claude when you pasted the posting</div></div></div>
+        ${a.notes?`<div class="section"><div class="sh">Notes</div><div class="notes">${a.notes}</div></div>`:""}
+        <div class="section"><div class="sh">Tailored resumes</div><div class="versions">${vh}</div></div>
+      </div>
+      <div class="drawer-foot"><button class="btn btn-danger" data-close>Delete</button><div style="display:flex;gap:10px"><button class="btn" data-close>Edit</button><button class="btn btn-primary" id="tailorBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg> Tailor resume</button></div></div>`;
+    document.getElementById("detail").querySelector("#tailorBtn").addEventListener("click", ()=> openTailor(a));
+    show(document.getElementById("detail"));
+  }
+
+  // ---- Tailor drawer ----
+  function openTailor(a){
+    document.getElementById("tailorPanel").innerHTML = `
+      <div class="drawer-head"><div class="drawer-title" style="padding-left:2px"><h2>Tailor resume</h2><div class="sub">${a.org} — ${a.role}</div></div><button class="x" data-close aria-label="Close">✕</button></div>
+      <div class="drawer-body">
+        <div class="field"><label>Job description</label><textarea class="input" rows="5">${a.jd.summary}</textarea></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:11.5px;color:var(--ink-muted)">Claude drafts a one-page resume from your master. Review before saving.</span><button class="btn btn-primary" id="genBtn">Generate tailored resume</button></div>
+        <div class="review-t" id="reviewT">
+          <div class="rsum">Computer Engineering student at the University of Florida building full-stack systems across embedded hardware, on-device ML, and cloud back ends — targeting NVIDIA's compute platform work.</div>
+          <div><div class="rgh">Projects</div><div class="rentry"><b>M.I.L.E.S. — Autonomous Rover</b><ul><li>Built on-device perception in C++ on an embedded Jetson target, cutting inference latency for real-time navigation.</li><li>Designed the sensor-fusion pipeline integrating LiDAR and camera streams.</li></ul></div><div class="rentry"><b>MotionSense</b><ul><li>Engineered a low-power gesture recognition system on an STM32 microcontroller with a custom ML model.</li></ul></div></div>
+          <div><div class="rgh">Skills</div><div class="rentry"><ul><li><b style="color:var(--ink)">Languages:</b> C++, Python, C, TypeScript</li><li><b style="color:var(--ink)">Systems:</b> Embedded Linux, RTOS, CUDA basics</li></ul></div></div>
+        </div>
+      </div>
+      <div class="drawer-foot"><span id="savedMsg" style="font-size:12px;color:var(--ink-muted)"></span><div style="display:flex;gap:10px"><button class="btn" id="dlBtn" disabled style="opacity:.5">Download PDF</button><button class="btn" id="saveBtn" disabled style="opacity:.5">Save version</button></div></div>`;
+    const p = document.getElementById("tailorPanel");
+    p.querySelector("#genBtn").addEventListener("click", e=>{ const b=e.currentTarget; b.innerHTML='<span class="spinner"></span> Tailoring…'; b.disabled=true; setTimeout(()=>{ p.querySelector("#reviewT").classList.add("show"); b.innerHTML="Regenerate"; b.disabled=false; ["#dlBtn","#saveBtn"].forEach(s=>{const x=p.querySelector(s); x.disabled=false; x.style.opacity=1;}); }, 1100); });
+    p.querySelector("#saveBtn").addEventListener("click", e=>{ e.currentTarget.textContent="Saved"; e.currentTarget.disabled=true; p.querySelector("#savedMsg").textContent="Saved to "+a.org+"."; });
+    show(p, true);
+  }
+
+  // ---- Add opportunity (full screen) ----
+  function setStep(step){
+    document.querySelectorAll("#addView .add-step").forEach(s=> s.hidden = (s.dataset.step!==step));
+    const order = ["input","parse","review"], idx = order.indexOf(step);
+    document.querySelectorAll("#stepper .step").forEach(el=>{
+      const i = order.indexOf(el.dataset.s);
+      el.classList.toggle("active", i===idx);
+      el.classList.toggle("done", i<idx);
+    });
+    document.querySelectorAll("#stepper .step-line").forEach((l,i)=> l.classList.toggle("lit", i<idx));
+  }
+  function openAdd(){ closeAll(false); document.getElementById("listView").hidden=true; document.getElementById("addView").hidden=false; setStep("input"); window.scrollTo(0,0); }
+  function closeAdd(){ document.getElementById("addView").hidden=true; document.getElementById("listView").hidden=false; }
+
+  document.getElementById("newBtn").addEventListener("click", openAdd);
+  document.getElementById("backBtn").addEventListener("click", closeAdd);
+  document.getElementById("readBtn").addEventListener("click", ()=>{ setStep("parse"); setTimeout(()=> setStep("review"), 1400); });
+  document.getElementById("reviewBack").addEventListener("click", ()=> setStep("input"));
+  document.getElementById("saveApp").addEventListener("click", closeAdd);
+
+  // ---- Overlay plumbing ----
+  const scrim = document.getElementById("scrim");
+  function show(el, stack){ if(!stack) closeAll(true); scrim.classList.add("show"); el.classList.add("show"); el.querySelectorAll("[data-close]").forEach(b=> b.addEventListener("click", ()=> closeOne(el))); }
+  function closeOne(el){ el.classList.remove("show"); if(![...document.querySelectorAll(".drawer.show")].length){ scrim.classList.remove("show"); state.sel=null; renderTable(); } }
+  function closeAll(keepScrim){ document.querySelectorAll(".drawer.show").forEach(d=> d.classList.remove("show")); if(!keepScrim){ scrim.classList.remove("show"); state.sel=null; renderTable(); } }
+  scrim.addEventListener("click", ()=> closeAll(false));
+  document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeAll(false); });
+  document.getElementById("search").addEventListener("input", e=>{ state.search=e.target.value; renderTable(); });
+  document.getElementById("sort").addEventListener("change", e=>{ state.sort=e.target.value; renderTable(); });
+  document.getElementById("typeSeg").addEventListener("click", e=>{ const b=e.target.closest("button"); if(!b) return; document.querySelectorAll("#typeSeg button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); state.type=b.dataset.type; renderTable(); });
+
+  renderTable();
+</script>
