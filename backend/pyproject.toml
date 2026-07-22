@@ -1,0 +1,22 @@
+[project]
+name = "job-tracker-backend"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "alembic",
+    "pydantic",
+    "pydantic-settings",
+    "anthropic",
+    "pyyaml",
+    "jinja2",
+    "weasyprint==69",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.uv]
+package = false
