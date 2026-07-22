@@ -10,10 +10,12 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from routers.applications import router as applications_router
+from routers.auth import router as auth_router
 from routers.resume import router as resume_router
 
 app = FastAPI(title="Job & Scholarship Tracker", version="0.1.0")
 
+app.include_router(auth_router)
 app.include_router(applications_router)
 app.include_router(resume_router)
 

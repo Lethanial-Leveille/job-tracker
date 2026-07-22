@@ -18,6 +18,7 @@ from database import Base
 # The noqa silences "imported but unused" — the import's side effect IS the use.
 import models.application  # noqa: F401
 import models.resume_version  # noqa: F401
+import models.user  # noqa: F401
 
 
 @pytest.fixture
