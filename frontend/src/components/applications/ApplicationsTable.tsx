@@ -30,6 +30,8 @@ export function ApplicationsTable({ applications, selectedId, onSelect }: Props)
         {COLUMNS.map((label) => (
           <span key={label}>{label}</span>
         ))}
+        {/* Trailing actions column (open-posting link + chevron): no label. */}
+        <span aria-hidden="true" />
       </div>
 
       {/* Rows */}

@@ -4,6 +4,7 @@ import type {
   Application,
   ApplicationStatus,
   ApplicationType,
+  JdParsed,
   ParsedJob,
   Priority,
 } from "../../lib/types";
@@ -28,6 +29,10 @@ interface Props {
   application?: Application;
   onClose: () => void;
   onSaved: () => void;
+  // Edit mode only: open the tailoring flow for this saved application. The
+  // parent swaps this modal for the TailorModal (a saved id is required to save
+  // a version against).
+  onTailor?: (application: Application) => void;
 }
 
 // --- Form state -------------------------------------------------------------
@@ -99,7 +104,12 @@ const labelClass =
 const fieldClass =
   "rounded-interactive border border-line bg-base px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:shadow-glow focus:outline-none";
 
-export function ApplicationFormModal({ application, onClose, onSaved }: Props) {
+export function ApplicationFormModal({
+  application,
+  onClose,
+  onSaved,
+  onTailor,
+}: Props) {
   // Seed from the row when editing, blank when creating. The initializer runs
   // once, so switching which row is edited works because the parent unmounts
   // and remounts this modal per row.
@@ -117,9 +127,7 @@ export function ApplicationFormModal({ application, onClose, onSaved }: Props) {
   const [parseError, setParseError] = useState<string | null>(null);
   // The parser's extras, stashed on autofill and sent with the create so they
   // land in the jd_parsed column. Null for a manual (non-autofilled) create.
-  const [jdParsed, setJdParsed] = useState<Record<string, unknown> | null>(
-    null,
-  );
+  const [jdParsed, setJdParsed] = useState<JdParsed | null>(null);
 
   function handleChange(
     event: ChangeEvent<
@@ -187,8 +195,13 @@ export function ApplicationFormModal({ application, onClose, onSaved }: Props) {
         // Edit never touches jd_parsed — leave the stored blob as it is.
         await updateApplication(application.id, payload);
       } else {
-        // Create carries the parser's extras (null if you didn't autofill).
-        await createApplication({ ...payload, jd_parsed: jdParsed });
+        // Create carries the parser's extras and the raw JD text (both null if
+        // you didn't autofill) so tailoring can later run against the posting.
+        await createApplication({
+          ...payload,
+          jd_parsed: jdParsed,
+          jd_text: pasteText.trim() === "" ? null : pasteText,
+        });
       }
       onSaved();
     } catch (err: unknown) {
@@ -395,14 +408,26 @@ export function ApplicationFormModal({ application, onClose, onSaved }: Props) {
               right-aligned in create mode when there is no Delete. */}
           <div className="mt-2 flex items-center justify-between gap-3">
             {isEdit ? (
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={saving}
-                className="rounded-interactive px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
-              >
-                Delete
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={saving}
+                  className="rounded-interactive px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
+                >
+                  Delete
+                </button>
+                {onTailor && application && (
+                  <button
+                    type="button"
+                    onClick={() => onTailor(application)}
+                    disabled={saving}
+                    className="rounded-interactive border border-line px-3 py-2 text-sm font-medium text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
+                  >
+                    Tailor resume
+                  </button>
+                )}
+              </div>
             ) : (
               <span />
             )}

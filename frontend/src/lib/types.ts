@@ -23,6 +23,15 @@ export type ApplicationStatus =
 
 export type Priority = "low" | "medium" | "high";
 
+// The parser's extras with no column of their own, stored in the jd_parsed blob
+// and surfaced in the detail drawer's "From the posting" section.
+export interface JdParsed {
+  summary?: string | null;
+  salary?: string | null;
+  location?: string | null;
+  key_requirements?: string[];
+}
+
 export interface Application {
   id: string;
   type: ApplicationType;
@@ -33,7 +42,8 @@ export interface Application {
   priority: Priority;
   deadline: string | null; // ISO date, e.g. "2026-07-14"
   notes: string | null;
-  jd_parsed: Record<string, unknown> | null; // empty in v1
+  jd_parsed: JdParsed | null; // parser extras (salary, summary, requirements…)
+  jd_text: string | null; // the raw pasted JD, used as tailoring input
   created_at: string; // ISO datetime
   updated_at: string; // ISO datetime
 }
@@ -68,5 +78,72 @@ export interface ApplicationCreateInput {
   notes?: string | null;
   // The parser's extras (salary, summary, requirements) with no column of their
   // own. Set only on an autofilled create; omitted on manual create and edit.
-  jd_parsed?: Record<string, unknown> | null;
+  jd_parsed?: JdParsed | null;
+  // The raw pasted JD, carried in on an autofilled create so tailoring can later
+  // run against the real posting. Omitted on a manual create.
+  jd_text?: string | null;
+}
+
+// --- Resume tailoring -------------------------------------------------------
+// Mirror of backend/schemas/resume.py: the one Resume shape shared by the master
+// file, tailoring in/out, and the renderer. Dates are freeform strings, not real
+// dates (resumes show "Expected May 2029"). Kept in sync by hand like the rest.
+
+export interface Contact {
+  name: string;
+  location?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  linkedin?: string | null;
+  github?: string | null;
+  website?: string | null;
+}
+
+export interface Education {
+  institution: string;
+  degree: string;
+  location?: string | null;
+  dates?: string | null;
+  gpa?: string | null;
+  honors: string[];
+  coursework: string[];
+}
+
+export interface SkillGroup {
+  category: string;
+  items: string[];
+}
+
+export interface Experience {
+  organization: string;
+  role: string;
+  location?: string | null;
+  dates?: string | null;
+  bullets: string[];
+}
+
+export interface Project {
+  name: string;
+  tools: string[];
+  links: string[];
+  dates?: string | null;
+  bullets: string[];
+}
+
+export interface Resume {
+  contact: Contact;
+  summary?: string | null;
+  education: Education[];
+  skills: SkillGroup[];
+  experience: Experience[];
+  projects: Project[];
+}
+
+// A saved, tailored resume version. Mirror of backend ResumeVersionRead.
+export interface ResumeVersion {
+  id: string;
+  application_id: string;
+  resume: Resume;
+  job_description: string;
+  created_at: string; // ISO datetime
 }

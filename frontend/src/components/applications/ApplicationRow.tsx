@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from "react";
 import type { Application } from "../../lib/types";
 import { monogram } from "../../lib/format";
 import { ROW_GRID } from "./grid";
@@ -12,16 +13,29 @@ interface Props {
   onSelect: (id: string) => void;
 }
 
-// One table row. Selecting a row is a legitimate use of the accent: the active
-// row gets a purple left bar, a faint purple fill, and the soft glow. Every
-// other row stays calm and only lifts to a grey surface on hover, so the data
-// reads first and the purple means "this is the one you're on".
+// One table row. The whole row opens the detail drawer, so it acts as a button
+// (role + keyboard handling). It is a <div>, not a <button>, because it hosts a
+// second, independent control: the open-posting link. A link can't legally nest
+// inside a button, so the row is a clickable container and the link stops the
+// click from also opening the drawer.
 export function ApplicationRow({ application, selected, onSelect }: Props) {
+  const open = () => onSelect(application.id);
+
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
+    }
+  }
+
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(application.id)}
-      className={`${ROW_GRID} w-full border-l-2 px-5 py-3.5 text-left transition-colors ${
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={open}
+      onKeyDown={onKeyDown}
+      aria-label={`Open ${application.organization} — ${application.role_or_program}`}
+      className={`${ROW_GRID} group w-full cursor-pointer border-l-2 px-5 py-3.5 text-left transition-colors focus:outline-none focus-visible:bg-surface-hover ${
         selected
           ? "border-l-accent bg-accent-subtle shadow-glow"
           : "border-l-transparent hover:bg-surface-hover"
@@ -55,6 +69,39 @@ export function ApplicationRow({ application, selected, onSelect }: Props) {
 
       {/* Deadline */}
       <DeadlineCell deadline={application.deadline} />
-    </button>
+
+      {/* Actions: open the posting (independent link) + a detail affordance. */}
+      <div className="flex items-center justify-end gap-0.5">
+        {application.posting_url && (
+          <a
+            href={application.posting_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Open ${application.organization} posting in a new tab`}
+            className="grid size-7 place-items-center rounded-md text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:text-ink"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M14 4h6v6M20 4l-8 8" />
+              <path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
+            </svg>
+          </a>
+        )}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className="text-ink-muted/50 transition-colors group-hover:text-ink-muted"
+        >
+          <path d="m9 6 6 6-6 6" />
+        </svg>
+      </div>
+    </div>
   );
 }

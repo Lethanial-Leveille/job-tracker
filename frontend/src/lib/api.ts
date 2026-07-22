@@ -7,6 +7,8 @@ import type {
   Application,
   ApplicationCreateInput,
   ParsedJob,
+  Resume,
+  ResumeVersion,
 } from "./types";
 
 const BASE = "/api";
@@ -80,4 +82,64 @@ export async function deleteApplication(id: string): Promise<void> {
   if (!res.ok) {
     throw new Error(`Request failed: ${res.status} ${res.statusText}`);
   }
+}
+
+// --- Resume tailoring -------------------------------------------------------
+
+// POST a job description and get back the tailored Resume (JSON). Runs Opus on
+// the backend; this is the draft you review before rendering or saving. Never
+// auto-submits anything (hard rule #1).
+export async function tailorResume(text: string): Promise<Resume> {
+  const res = await fetch(`${BASE}/resume/tailor`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<Resume>;
+}
+
+// POST a reviewed Resume and get back the rendered PDF as a Blob (binary, not
+// JSON), which the caller turns into a download. No Opus call — rendering is
+// pure, so re-rendering after an edit is free.
+export async function renderResume(resume: Resume): Promise<Blob> {
+  const res = await fetch(`${BASE}/resume/render`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(resume),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+  }
+  return res.blob();
+}
+
+// GET an application's saved tailored resume versions, newest first.
+export function listResumeVersions(
+  applicationId: string,
+): Promise<ResumeVersion[]> {
+  return getJson<ResumeVersion[]>(
+    `/resume/versions?application_id=${encodeURIComponent(applicationId)}`,
+  );
+}
+
+// POST to persist a reviewed tailored resume as a version for an application.
+// Explicit save (never automatic): the UI calls this only after you approve a
+// draft. Returns the stored version.
+export async function saveResumeVersion(input: {
+  application_id: string;
+  resume: Resume;
+  job_description: string;
+}): Promise<ResumeVersion> {
+  const res = await fetch(`${BASE}/resume/versions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<ResumeVersion>;
 }

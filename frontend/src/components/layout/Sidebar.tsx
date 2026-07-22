@@ -124,6 +124,17 @@ export function Sidebar({ applicationCount }: Props) {
           ),
         )}
       </nav>
+
+      {/* User card, pinned to the bottom. mt-auto pushes it down past the nav. */}
+      <div className="mt-auto flex items-center gap-3 rounded-frame border border-line bg-surface-hover p-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-line-strong bg-base text-xs font-semibold text-ink-soft">
+          LL
+        </span>
+        <div className="leading-tight">
+          <div className="text-[13px] font-medium text-ink">Lee Leveille</div>
+          <div className="text-[11px] text-ink-muted">Fall 2026 cycle</div>
+        </div>
+      </div>
     </aside>
   );
 }
