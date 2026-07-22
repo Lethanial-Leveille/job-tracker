@@ -48,6 +48,20 @@ class Settings(BaseSettings):
     # Verified current against the API docs (July 2026).
     anthropic_tailoring_model: str = "claude-opus-4-8"
 
+    # --- Auth ---------------------------------------------------------------
+    # JWT signing secret. No default: JWT_SECRET must be present or the app
+    # won't start (same fail-loud rule as anthropic_api_key). Already in .env.
+    jwt_secret: str
+
+    # Symmetric signing: one secret both signs and verifies. HS256 is the
+    # standard choice when the same server both issues and checks the token.
+    jwt_algorithm: str = "HS256"
+
+    # How long a login token stays valid. 7 days for a personal tool, with no
+    # refresh token to manage. Minutes because that is the unit the exp math
+    # in the auth service will use.
+    access_token_expire_minutes: int = 60 * 24 * 7
+
 
 @lru_cache
 def get_settings() -> Settings:
