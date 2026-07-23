@@ -31,6 +31,12 @@ class ResumeVersion(Base):
         String(36), primary_key=True, default=lambda: str(uuid4())
     )
 
+    # The owner. Same users.id FK as Application. A version is owned by the same
+    # user as the application it belongs to.
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
+    )
+
     # The link to the application this version was tailored for. String(36) to
     # match applications.id; the ForeignKey names the target column.
     application_id: Mapped[str] = mapped_column(

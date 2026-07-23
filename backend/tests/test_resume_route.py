@@ -19,7 +19,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from config import Settings, get_settings
+from dependencies import get_current_user
 from main import app
+from models.user import User
 from schemas.resume import Contact, Resume
 
 
@@ -29,15 +31,24 @@ def _fake_settings() -> Settings:
     )
 
 
+def _fake_user() -> User:
+    # The /resume routes are behind get_current_user now. This route doesn't use
+    # the user object, so a throwaway (unpersisted) User just satisfies the guard.
+    return User(id="test-user", email="test@example.com", password_hash="x")
+
+
 @pytest.fixture
 def client() -> TestClient:
-    """A TestClient whose get_settings is overridden, cleaned up after the test.
+    """A TestClient whose get_settings and get_current_user are overridden,
+    cleaned up after the test.
 
     dependency_overrides is FastAPI's built-in seam for tests: it swaps what a
-    Depends() resolves to without touching the route code. We clear it in
-    teardown so the override can't leak into another test.
+    Depends() resolves to without touching the route code. Overriding
+    get_current_user lets us exercise a protected route without a real token. We
+    clear all overrides in teardown so they can't leak into another test.
     """
     app.dependency_overrides[get_settings] = _fake_settings
+    app.dependency_overrides[get_current_user] = _fake_user
     yield TestClient(app)
     app.dependency_overrides.clear()
 

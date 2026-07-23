@@ -12,8 +12,10 @@ from models.resume_version import ResumeVersion
 from schemas.resume_version import ResumeVersionCreate
 
 
-def save_resume_version(db: Session, data: ResumeVersionCreate) -> ResumeVersion:
-    """Persist a reviewed, tailored resume as a new version row.
+def save_resume_version(
+    db: Session, data: ResumeVersionCreate, user_id: str
+) -> ResumeVersion:
+    """Persist a reviewed, tailored resume as a new version row, owned by user_id.
 
     The Resume is stored as a dict (model_dump) in the JSON column; job_description
     is the snapshot of what it targeted. Append-only — this always inserts a new
@@ -21,6 +23,7 @@ def save_resume_version(db: Session, data: ResumeVersionCreate) -> ResumeVersion
     """
     version = ResumeVersion(
         application_id=data.application_id,
+        user_id=user_id,
         resume_json=data.resume.model_dump(),
         job_description=data.job_description,
     )
@@ -30,11 +33,16 @@ def save_resume_version(db: Session, data: ResumeVersionCreate) -> ResumeVersion
     return version
 
 
-def list_resume_versions(db: Session, application_id: str) -> list[ResumeVersion]:
-    """Return an application's saved versions, newest first."""
+def list_resume_versions(
+    db: Session, application_id: str, user_id: str
+) -> list[ResumeVersion]:
+    """Return an application's saved versions owned by user_id, newest first."""
     stmt = (
         select(ResumeVersion)
-        .where(ResumeVersion.application_id == application_id)
+        .where(
+            ResumeVersion.application_id == application_id,
+            ResumeVersion.user_id == user_id,
+        )
         .order_by(ResumeVersion.created_at.desc())
     )
     return list(db.execute(stmt).scalars().all())

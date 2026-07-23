@@ -9,7 +9,7 @@ import enum
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, Date, DateTime, Enum as SqlEnum, String, Text
+from sqlalchemy import JSON, Date, DateTime, Enum as SqlEnum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
@@ -62,6 +62,13 @@ class Application(Base):
     # UUID as a 36-char string. Generated on insert; never passed in by hand.
     id: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid4())
+    )
+
+    # The owner. Foreign key to users.id, mirroring resume_version's FK. Every
+    # application belongs to exactly one user (non-null is the end state; the
+    # migration backfills existing rows before enforcing it).
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
     )
 
     # Enum columns: stored as VARCHAR plus a CHECK constraint in SQLite, so the

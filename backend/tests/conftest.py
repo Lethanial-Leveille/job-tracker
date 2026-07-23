@@ -19,6 +19,7 @@ from database import Base
 import models.application  # noqa: F401
 import models.resume_version  # noqa: F401
 import models.user  # noqa: F401
+from models.user import User
 
 
 @pytest.fixture
@@ -51,3 +52,15 @@ def db() -> Session:
         session.close()
         Base.metadata.drop_all(engine)
         engine.dispose()
+
+
+@pytest.fixture
+def user(db: Session) -> User:
+    """One persisted user to own rows in service tests. The password_hash is a
+    placeholder — these tests exercise ownership, not login, so no real hash is
+    needed."""
+    row = User(email="owner@example.com", password_hash="placeholder-not-a-hash")
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row

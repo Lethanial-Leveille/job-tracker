@@ -20,6 +20,8 @@ from sqlalchemy.orm import Session
 
 from config import Settings, get_settings
 from database import get_db
+from dependencies import get_current_user
+from models.user import User
 from schemas.resume import Resume, TailorRequest
 from schemas.resume_version import ResumeVersionCreate, ResumeVersionRead
 from services.application import get_application
@@ -31,7 +33,11 @@ from services.tailoring import tailor_resume
 # resume_render.py uses for templates/. This is the bullet-bank master resume.
 _MASTER_PATH = Path(__file__).resolve().parent.parent / "data" / "master_resume.yaml"
 
-router = APIRouter(prefix="/resume", tags=["resume"])
+router = APIRouter(
+    prefix="/resume",
+    tags=["resume"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.post("/tailor", response_model=Resume)
@@ -71,23 +77,28 @@ def render(resume: Resume) -> Response:
     status_code=status.HTTP_201_CREATED,
 )
 def create_version(
-    data: ResumeVersionCreate, db: Session = Depends(get_db)
+    data: ResumeVersionCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> ResumeVersionRead:
     # Explicit save (2a): the frontend calls this only after you review a tailored
-    # draft. We verify the application exists first and 404 if not — SQLite does
-    # not enforce the foreign key, so this guard is what actually prevents an
-    # orphaned version pointing at no application.
-    if get_application(db, data.application_id) is None:
+    # draft. The scoped get_application 404s both when the application does not
+    # exist AND when it belongs to another user — so you cannot attach a version
+    # to someone else's application. That guard also compensates for SQLite not
+    # enforcing the foreign key.
+    if get_application(db, data.application_id, user.id) is None:
         raise HTTPException(status_code=404, detail="Application not found")
-    row = save_resume_version(db, data)
+    row = save_resume_version(db, data, user.id)
     return ResumeVersionRead.from_row(row)
 
 
 @router.get("/versions", response_model=list[ResumeVersionRead])
 def list_versions(
-    application_id: str, db: Session = Depends(get_db)
+    application_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> list[ResumeVersionRead]:
     # application_id is a required query param (?application_id=...). Returns that
-    # application's saved versions, newest first; an empty list if it has none.
-    rows = list_resume_versions(db, application_id)
+    # application's saved versions owned by you, newest first; empty if none.
+    rows = list_resume_versions(db, application_id, user.id)
     return [ResumeVersionRead.from_row(r) for r in rows]
