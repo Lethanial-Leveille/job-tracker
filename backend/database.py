@@ -9,21 +9,23 @@ from collections.abc import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-# Where the SQLite file lives, relative to where we run uvicorn (backend/).
-# Hardcoded for v1 on purpose — no secrets or env vars to read yet. This moves
-# into config.py the first time we actually need to read a secret (v2 JD parsing).
-DATABASE_URL = "sqlite:///./data/dev.db"
+from config import get_settings
 
-# The engine manages the pool of connections to SQLite. Created once, reused
-# for the life of the app.
-#
-# check_same_thread=False: SQLite normally forbids using one connection across
-# threads. FastAPI serves requests from a thread pool, so we relax that rule.
-# Safe here because SQLAlchemy hands each request its own session (see get_db).
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
+# The connection URL now comes from config (env-driven): SQLite locally by
+# default, Postgres in prod via DATABASE_URL. See config.Settings.database_url.
+DATABASE_URL = get_settings().database_url
+
+# check_same_thread=False is a SQLite-only quirk: SQLite forbids sharing one
+# connection across threads, and FastAPI serves from a thread pool, so we relax
+# it (safe because each request gets its own session via get_db). Postgres
+# rejects that arg entirely, so only pass it when the URL is SQLite.
+connect_args = (
+    {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 )
+
+# The engine manages the pool of connections. Created once, reused for the life
+# of the app.
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
 # SessionLocal is a factory: call SessionLocal() to get one fresh session,
 # which is a single conversation with the DB for one unit of work.

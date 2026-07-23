@@ -34,6 +34,11 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # Database connection URL. Defaults to the local SQLite file; overridden via
+    # the DATABASE_URL env var (backend/.env locally, real env in prod) to point
+    # at Postgres. SQLAlchemy speaks both dialects, so app code doesn't change.
+    database_url: str = "sqlite:///./data/dev.db"
+
     # No default: ANTHROPIC_API_KEY must be present or the app won't start.
     anthropic_api_key: str
 

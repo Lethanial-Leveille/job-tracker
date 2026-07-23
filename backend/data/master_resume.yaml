@@ -108,12 +108,13 @@ projects:
       - Externalized the Claude prompt to a Notion page so context edits require no workflow changes, and generated the email subject as a separate sub-70-character hook to lift open rate on a self-sent accountability email.
   - name: Job & Scholarship Tracker
     # This project. Per CLAUDE.md hard rule #6, update this entry as the tracker grows.
-    tools: [Python, FastAPI, SQLAlchemy 2.0, Alembic, SQLite, React, TypeScript, Vite, Tailwind CSS, Claude API, WeasyPrint, Jinja, JWT, bcrypt]
+    tools: [Python, FastAPI, SQLAlchemy 2.0, Alembic, PostgreSQL, SQLite, React, TypeScript, Vite, Tailwind CSS, Claude API, WeasyPrint, Jinja, JWT, bcrypt]
     links:
       - github.com/Lethanial-Leveille/job-tracker
     dates: July 2026 – Present
     bullets:
-      - Building a full-stack tracker for internship and scholarship applications with a FastAPI + SQLAlchemy 2.0 backend (Alembic migrations on SQLite) and a React + TypeScript + Vite + Tailwind dark-theme frontend.
+      - Building a full-stack tracker for internship and scholarship applications with a FastAPI + SQLAlchemy 2.0 backend (Alembic migrations, PostgreSQL in production) and a React + TypeScript + Vite + Tailwind dark-theme frontend.
+      - Migrated the database from SQLite to PostgreSQL behind an env-driven connection URL, gating the SQLite-only migration workarounds by dialect and verifying the full migration chain on Postgres so the same code runs on both.
       - Layered the backend into thin routers, a service layer for business logic, and Pydantic request/response schemas, with dependency-injected DB sessions and an in-memory SQLite test suite that never touches the real database.
       - Integrated the Claude API to parse pasted job descriptions into structured fields via structured outputs (typed Pydantic), running the cheaper Haiku model with the model swappable through configuration.
       - Built an AI resume-tailoring pipeline that selects and rephrases bullets from a YAML master resume against a job description using Claude (Opus via structured outputs, constrained to never invent content), then renders a one-page PDF through a locked Jinja and WeasyPrint template, separating content from format so the model cannot alter layout.

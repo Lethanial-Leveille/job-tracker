@@ -15,6 +15,7 @@ dependencies = [
     "weasyprint==69",
     "pyjwt",
     "bcrypt",
+    "psycopg[binary]",
 ]
 
 [dependency-groups]
