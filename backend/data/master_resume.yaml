@@ -108,7 +108,7 @@ projects:
       - Externalized the Claude prompt to a Notion page so context edits require no workflow changes, and generated the email subject as a separate sub-70-character hook to lift open rate on a self-sent accountability email.
   - name: Job & Scholarship Tracker
     # This project. Per CLAUDE.md hard rule #6, update this entry as the tracker grows.
-    tools: [Python, FastAPI, SQLAlchemy 2.0, Alembic, SQLite, React, TypeScript, Vite, Tailwind CSS, Claude API, WeasyPrint, Jinja]
+    tools: [Python, FastAPI, SQLAlchemy 2.0, Alembic, SQLite, React, TypeScript, Vite, Tailwind CSS, Claude API, WeasyPrint, Jinja, JWT, bcrypt]
     links:
       - github.com/Lethanial-Leveille/job-tracker
     dates: July 2026 – Present
@@ -118,3 +118,4 @@ projects:
       - Integrated the Claude API to parse pasted job descriptions into structured fields via structured outputs (typed Pydantic), running the cheaper Haiku model with the model swappable through configuration.
       - Built an AI resume-tailoring pipeline that selects and rephrases bullets from a YAML master resume against a job description using Claude (Opus via structured outputs, constrained to never invent content), then renders a one-page PDF through a locked Jinja and WeasyPrint template, separating content from format so the model cannot alter layout.
       - Persisted reviewed tailored resumes as immutable, append-only versions per application in a foreign-keyed table, keeping tailoring a draft step that the user reviews and saves explicitly so nothing is auto-submitted.
+      - Implemented JWT authentication with bcrypt-hashed passwords and scoped every record to its owner through a foreign-keyed user_id, guarding all routes by default with fail-safe router-level dependencies and proving isolation with cross-user tests, so the single-user app can become multi-user without reworking data access.
