@@ -74,9 +74,10 @@ const WORKSPACE: NavItem[] = [
 
 interface Props {
   applicationCount: number;
+  onLogout: () => void;
 }
 
-export function Sidebar({ applicationCount }: Props) {
+export function Sidebar({ applicationCount, onLogout }: Props) {
   return (
     <aside className="relative z-10 flex h-screen flex-col gap-8 border-r border-line-strong bg-surface/60 px-4 py-6 backdrop-blur-sm">
       {/* Wordmark */}
@@ -134,6 +135,18 @@ export function Sidebar({ applicationCount }: Props) {
           <div className="text-[13px] font-medium text-ink">Lee Leveille</div>
           <div className="text-[11px] text-ink-muted">Fall 2026 cycle</div>
         </div>
+        <button
+          type="button"
+          onClick={onLogout}
+          aria-label="Sign out"
+          title="Sign out"
+          className="ml-auto grid size-7 shrink-0 place-items-center rounded-lg border border-line text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+        >
+          <Icon>
+            <path d="M7 3.5H4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3" />
+            <path d="M10.5 11.5 14 8l-3.5-3.5M14 8H6.5" />
+          </Icon>
+        </button>
       </div>
     </aside>
   );

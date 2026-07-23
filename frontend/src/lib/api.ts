@@ -1,8 +1,9 @@
 // Typed wrappers around the backend HTTP API. Components never call fetch
-// directly — they call these, so the URL shape and error handling live in one
-// place. All calls go through the Vite proxy at /api (see vite.config.ts),
+// directly — they call these, so the URL shape, auth, and error handling live in
+// one place. All calls go through the Vite proxy at /api (see vite.config.ts),
 // which strips /api and forwards to the backend on :8000.
 
+import { clearToken, getToken } from "./auth";
 import type {
   Application,
   ApplicationCreateInput,
@@ -13,106 +14,129 @@ import type {
 
 const BASE = "/api";
 
-async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
+// One shared entry point for every AUTHENTICATED call. It attaches the bearer
+// token, and on a 401 (token missing, expired, or invalid) it clears the token
+// and fires a window event so the app drops back to the login screen. It returns
+// the raw Response so each caller can read JSON, a Blob, or nothing (204) as it
+// needs. Login is deliberately NOT routed through here (see below).
+async function request(path: string, options: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(options.headers);
+  const token = getToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+
+  if (res.status === 401) {
+    clearToken();
+    window.dispatchEvent(new Event("auth:unauthorized"));
+  }
   if (!res.ok) {
     throw new Error(`Request failed: ${res.status} ${res.statusText}`);
   }
+  return res;
+}
+
+async function getJson<T>(path: string): Promise<T> {
+  const res = await request(path);
   return res.json() as Promise<T>;
 }
+
+// --- Auth -------------------------------------------------------------------
+
+// Log in with email + password and return the access token. This is a direct
+// fetch, NOT via request(), on purpose: a 401 here means "wrong password" — a
+// message for the login form — not "log the user out globally," so it must not
+// fire the unauthorized event or it would loop.
+export async function login(email: string, password: string): Promise<string> {
+  const res = await fetch(`${BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    throw new Error(
+      res.status === 401
+        ? "Incorrect email or password"
+        : "Login failed, please try again",
+    );
+  }
+  const data = (await res.json()) as { access_token: string };
+  return data.access_token;
+}
+
+// --- Applications -----------------------------------------------------------
 
 export function listApplications(): Promise<Application[]> {
   return getJson<Application[]>("/applications");
 }
 
-// POST a new application. Unlike a GET, this carries a JSON body, so we set the
-// method, the Content-Type header, and JSON.stringify the payload. The backend
-// returns the created row (with its new id and timestamps), which we hand back
-// so the caller can use it if it wants.
+// POST a new application. The backend returns the created row (with its new id
+// and timestamps), which we hand back so the caller can use it.
 export async function createApplication(
   input: ApplicationCreateInput,
 ): Promise<Application> {
-  const res = await fetch(`${BASE}/applications`, {
+  const res = await request("/applications", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
-  }
   return res.json() as Promise<Application>;
 }
 
 // POST raw posting text and get back Claude's extraction. This never creates a
-// row — the modal uses the result to pre-fill fields you then review and submit.
+// row — the flow uses the result to pre-fill fields you then review and submit.
 export async function parseJobDescription(text: string): Promise<ParsedJob> {
-  const res = await fetch(`${BASE}/applications/parse`, {
+  const res = await request("/applications/parse", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
   });
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
-  }
   return res.json() as Promise<ParsedJob>;
 }
 
 // PATCH an existing application. The backend's update schema treats every field
-// as optional, so sending the full edited object is valid — it just overwrites
-// each field with what the form holds. Returns the updated row.
+// as optional, so sending the full edited object is valid. Returns the row.
 export async function updateApplication(
   id: string,
   input: ApplicationCreateInput,
 ): Promise<Application> {
-  const res = await fetch(`${BASE}/applications/${id}`, {
+  const res = await request(`/applications/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
-  }
   return res.json() as Promise<Application>;
 }
 
-// DELETE an application. The backend answers 204 No Content on success, so there
-// is no body to parse — we just confirm it worked and return nothing.
+// DELETE an application. The backend answers 204 No Content, so there is no body
+// to parse — request() already confirmed it worked.
 export async function deleteApplication(id: string): Promise<void> {
-  const res = await fetch(`${BASE}/applications/${id}`, { method: "DELETE" });
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
-  }
+  await request(`/applications/${id}`, { method: "DELETE" });
 }
 
 // --- Resume tailoring -------------------------------------------------------
 
 // POST a job description and get back the tailored Resume (JSON). Runs Opus on
-// the backend; this is the draft you review before rendering or saving. Never
-// auto-submits anything (hard rule #1).
+// the backend; this is the draft you review before rendering or saving.
 export async function tailorResume(text: string): Promise<Resume> {
-  const res = await fetch(`${BASE}/resume/tailor`, {
+  const res = await request("/resume/tailor", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
   });
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
-  }
   return res.json() as Promise<Resume>;
 }
 
 // POST a reviewed Resume and get back the rendered PDF as a Blob (binary, not
-// JSON), which the caller turns into a download. No Opus call — rendering is
-// pure, so re-rendering after an edit is free.
+// JSON), which the caller turns into a download.
 export async function renderResume(resume: Resume): Promise<Blob> {
-  const res = await fetch(`${BASE}/resume/render`, {
+  const res = await request("/resume/render", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(resume),
   });
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
-  }
   return res.blob();
 }
 
@@ -133,13 +157,10 @@ export async function saveResumeVersion(input: {
   resume: Resume;
   job_description: string;
 }): Promise<ResumeVersion> {
-  const res = await fetch(`${BASE}/resume/versions`, {
+  const res = await request("/resume/versions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
-  }
   return res.json() as Promise<ResumeVersion>;
 }
