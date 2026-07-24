@@ -1,0 +1,28 @@
+# Caddy reverse proxy for the Job & Scholarship Tracker (Option A: frontend and
+# backend on one droplet, same origin, so no CORS is needed).
+#
+# Caddy obtains and renews HTTPS certificates automatically once the domain's
+# DNS points at this server, which is why it also covers deployment step 6.
+#
+# Install location on the droplet: /etc/caddy/Caddyfile  (then: systemctl reload caddy)
+
+tracker.lethanial.com {
+	# API calls. handle_path STRIPS the matched /api prefix before proxying, so
+	# /api/applications reaches uvicorn as /applications — the backend serves
+	# routes without the /api prefix (same rewrite the Vite dev proxy does).
+	# uvicorn listens only on localhost; Caddy is the sole public edge.
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# Everything else: the built React frontend (static files). try_files falls
+	# back to index.html so any future client-side route still resolves to the
+	# single-page app instead of 404ing.
+	handle {
+		root * /var/www/job-tracker
+		try_files {path} /index.html
+		file_server
+	}
+
+	encode gzip
+}

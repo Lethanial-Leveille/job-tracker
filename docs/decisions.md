@@ -95,16 +95,16 @@ Short record of what was decided and why, so any future session (mine or Claude 
 - Supporting changes: `Sidebar` gained a user-card footer; `index.css` gained `--font-serif` (system serif, used only for the add-flow hero headings) and `--color-accent-line`; `types.ts` gained a `JdParsed` interface (now the type of `Application.jd_parsed`). `ApplicationsPage` is the orchestrator (detail / add / edit / tailor). `tsc -b` + `vite build` clean.
 - Dead code to prune later: `ApplicationFormModal`'s create/autofill path is now unreachable (the full-screen Add flow replaces it); the component is kept for the Edit flow only.
 
-## v3 deployment — NOT started, remaining checklist (recommended order)
+## v3 deployment — IN PROGRESS (steps 1-3 DONE July 23 2026), remaining checklist (recommended order)
 
-v1 is feature-complete (CRUD + JD parsing + resume tailoring + redesigned UI). Deployment is its own phase; before a live URL exists:
+v1 is feature-complete (CRUD + JD parsing + resume tailoring + redesigned UI). Deployment steps 1-3 are done and committed (details in the "v3 step 2" and "v3 step 3" sections below). **NEXT SESSION starts at step 4 (droplet).**
 
-1. **Dependency manifest** — there is still no `requirements.txt`/`pyproject.toml`; backend deps only exist as prose in this file. Add one first (it unblocks CI and the droplet). Known deps: fastapi, uvicorn, sqlalchemy, alembic, pydantic-settings, anthropic, pyyaml, weasyprint==69, jinja2, pytest, plus psycopg for Postgres.
-2. **Auth** — there is NONE today. CLAUDE.md requires JWT (single user, me) + a service token for n8n webhooks. A public URL without auth exposes the data, so this blocks deploy.
-3. **SQLite → Postgres** — the plan (v1 data-model note) reserves Postgres for real deploys. Verify Alembic migrations run cleanly on PG: the `render_as_batch` ALTER emulation is SQLite-only, and `SqlEnum` CHECK-constraint handling differs on PG. `DATABASE_URL` is currently a hardcoded SQLite constant in `database.py` — move it to config/env.
-4. **Hosting (DigitalOcean droplet)** — apt install `libpango-1.0-0 libpangocairo-1.0-0` for WeasyPrint (the macOS DYLD `~/lib` fix is NOT needed on Linux — libs land in standard paths); install the Carlito font; place `backend/.env` (ANTHROPIC_API_KEY, JWT_SECRET) on the server, never committed.
-5. **Serve the frontend** — `npm run build`, serve the static `dist/` (behind nginx/Caddy or the backend). In prod there is no Vite proxy, so point the app at the real API base and handle CORS (or same-origin via reverse proxy).
-6. **Domain + HTTPS** — lethanial.com is owned; wire DNS + TLS.
+1. **Dependency manifest** (DONE) — `backend/pyproject.toml` + `uv.lock`, `.python-version` pinned to 3.13, venv rebuilt on 3.13. `pytest` in a dev group; run `uv sync` (prod) / `uv sync --no-dev`.
+2. **Auth** (DONE) — JWT + bcrypt + per-user authorization + frontend login. Service token DEFERRED to v4 (n8n). See "v3 step 2" section.
+3. **SQLite → Postgres** (DONE) — env-driven `DATABASE_URL`, dialect-aware `render_as_batch`, `psycopg[binary]`; local dev now runs Postgres too. See "v3 step 3" section.
+4. **Hosting (DigitalOcean droplet)** (NEXT) — GATED on the DO credit: GitHub Student Pack shows "$200 through 7/31/26" — verify whether that is the redeem-by date or the credit lifetime, and redeem before 7/31/26. NOTE: the credit covers the server only; the Anthropic API is explicitly excluded, so Claude calls stay billed to the Anthropic account. On the droplet: apt install `libpango-1.0-0 libpangocairo-1.0-0` for WeasyPrint (the macOS DYLD `~/lib` fix is NOT needed on Linux — libs land in standard paths); install the Carlito font; install Postgres, create the `job_tracker` DB + a real role WITH a password (local uses trust auth, prod must not); place `backend/.env` (ANTHROPIC_API_KEY, JWT_SECRET, DATABASE_URL pointing at the prod Postgres) on the server, never committed; run migrations then seed the user via `scripts/seed_user.py`; run uvicorn under a process manager (systemd or similar).
+5. **Serve the frontend** — DECIDED (July 23 2026): **Option A, same-origin on the droplet** (not a split Vercel frontend). `npm run build`, then a reverse proxy serves the static `dist/` and routes `/api/*` to uvicorn on `127.0.0.1:8000`. Same origin means **NO CORS needed** and the frontend keeps calling relative `/api` (the Vite dev proxy is dev-only; in prod the reverse proxy fills that role), so no frontend code change. Use **Caddy** as the reverse proxy: it does automatic HTTPS/TLS via Let's Encrypt, which folds step 6 into this step.
+6. **Domain + HTTPS** — lethanial.com is owned; wire DNS (an A record for `tracker.lethanial.com` → droplet IP) + TLS. With Caddy (step 5) TLS is automatic once DNS resolves, so this step is mostly the DNS record.
 
 ## v3 step 2 — Auth (DONE, July 23, 2026)
 
