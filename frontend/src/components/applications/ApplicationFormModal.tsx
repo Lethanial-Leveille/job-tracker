@@ -4,34 +4,25 @@ import type {
   Application,
   ApplicationStatus,
   ApplicationType,
-  JdParsed,
-  ParsedJob,
   Priority,
 } from "../../lib/types";
 import { priorityLabel, statusLabel } from "../../lib/format";
-import {
-  createApplication,
-  deleteApplication,
-  parseJobDescription,
-  updateApplication,
-} from "../../lib/api";
+import { deleteApplication, updateApplication } from "../../lib/api";
 
-// One modal for both creating and editing an application, because the form is
-// identical either way. The `application` prop is the mode switch: absent means
-// create, present means edit (and unlocks the Delete button). Keeping this as a
-// single component means the eight fields are defined once, not twice.
+// The edit modal for an existing application. Creating is handled by the
+// full-screen Add flow (AddOpportunity), so this is edit-only: `application` is
+// required, and it exposes Save / Delete / Tailor. Opened from the detail
+// drawer's Edit button.
 //
-// The parent renders it only when it wants it open. onClose dismisses without
-// saving; onSaved fires after a successful create/update/delete (the parent
-// refreshes the list and closes).
+// onClose dismisses without saving; onSaved fires after a successful
+// update/delete (the parent refreshes the list and closes).
 
 interface Props {
-  application?: Application;
+  application: Application;
   onClose: () => void;
   onSaved: () => void;
-  // Edit mode only: open the tailoring flow for this saved application. The
-  // parent swaps this modal for the TailorModal (a saved id is required to save
-  // a version against).
+  // Open the tailoring flow for this saved application. The parent swaps this
+  // modal for the TailorPanel (a saved id is required to save a version against).
   onTailor?: (application: Application) => void;
 }
 
@@ -52,19 +43,8 @@ interface FormState {
   notes: string;
 }
 
-const INITIAL_FORM: FormState = {
-  type: "internship",
-  organization: "",
-  role_or_program: "",
-  posting_url: "",
-  status: "discovered",
-  priority: "medium",
-  deadline: "",
-  notes: "",
-};
-
-// Seed the form from an existing row when editing. The API sends deadline/notes
-// as string | null; the form wants plain strings, so null becomes "".
+// Seed the form from the row being edited. The API sends deadline/notes as
+// string | null; the form wants plain strings, so null becomes "".
 function formFromApplication(app: Application): FormState {
   return {
     type: app.type,
@@ -110,24 +90,11 @@ export function ApplicationFormModal({
   onSaved,
   onTailor,
 }: Props) {
-  // Seed from the row when editing, blank when creating. The initializer runs
-  // once, so switching which row is edited works because the parent unmounts
-  // and remounts this modal per row.
-  const [form, setForm] = useState<FormState>(
-    application ? formFromApplication(application) : INITIAL_FORM,
-  );
+  // Seed from the row. The initializer runs once, and the parent unmounts and
+  // remounts this modal per row, so switching which row is edited works.
+  const [form, setForm] = useState<FormState>(formFromApplication(application));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Autofill state (create mode only): the pasted posting, plus its own
-  // loading/error, kept separate from the save flow so a parse failure never
-  // looks like a save failure.
-  const [pasteText, setPasteText] = useState("");
-  const [parsing, setParsing] = useState(false);
-  const [parseError, setParseError] = useState<string | null>(null);
-  // The parser's extras, stashed on autofill and sent with the create so they
-  // land in the jd_parsed column. Null for a manual (non-autofilled) create.
-  const [jdParsed, setJdParsed] = useState<JdParsed | null>(null);
 
   function handleChange(
     event: ChangeEvent<
@@ -138,48 +105,12 @@ export function ApplicationFormModal({
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
-  // Merge Claude's extraction into the form. Only the four fields ParsedJob maps
-  // to a column are filled; posting_url stays for you to add (you pasted text,
-  // not a URL). deadline null becomes "" to match the form's string fields. The
-  // extras (salary, summary, requirements) aren't persisted yet — that's the
-  // jd_parsed follow-up.
-  function applyParsed(parsed: ParsedJob) {
-    setForm((prev) => ({
-      ...prev,
-      type: parsed.type,
-      organization: parsed.organization,
-      role_or_program: parsed.role_or_program,
-      deadline: parsed.deadline ?? "",
-    }));
-    // Stash the fields with no column of their own for the jd_parsed blob.
-    setJdParsed({
-      salary: parsed.salary,
-      location: parsed.location,
-      summary: parsed.summary,
-      key_requirements: parsed.key_requirements,
-    });
-  }
-
-  async function handleAutofill() {
-    if (pasteText.trim() === "") return;
-    setParsing(true);
-    setParseError(null);
-    try {
-      applyParsed(await parseJobDescription(pasteText));
-    } catch (err: unknown) {
-      setParseError(
-        err instanceof Error ? err.message : "Could not parse the posting",
-      );
-    } finally {
-      setParsing(false);
-    }
-  }
-
   async function handleSubmit(event: SyntheticEvent) {
     event.preventDefault();
 
     // Copy every field, then translate empty date/notes to null (the backend
-    // wants null for "not set", and rejects "" as a date).
+    // wants null for "not set", and rejects "" as a date). Edit never touches
+    // jd_parsed — the stored blob is left as it is.
     const payload = {
       ...form,
       deadline: form.deadline === "" ? null : form.deadline,
@@ -189,20 +120,7 @@ export function ApplicationFormModal({
     setSaving(true);
     setError(null);
     try {
-      // The presence of `application` picks POST vs PATCH. Checking the object
-      // itself (not a boolean) is what lets TypeScript know id exists here.
-      if (application) {
-        // Edit never touches jd_parsed — leave the stored blob as it is.
-        await updateApplication(application.id, payload);
-      } else {
-        // Create carries the parser's extras and the raw JD text (both null if
-        // you didn't autofill) so tailoring can later run against the posting.
-        await createApplication({
-          ...payload,
-          jd_parsed: jdParsed,
-          jd_text: pasteText.trim() === "" ? null : pasteText,
-        });
-      }
+      await updateApplication(application.id, payload);
       onSaved();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not save");
@@ -211,8 +129,7 @@ export function ApplicationFormModal({
   }
 
   async function handleDelete() {
-    if (!application) return;
-    // Hard delete with no undo in v1, so confirm before destroying the row.
+    // Hard delete with no undo, so confirm before destroying the row.
     if (!window.confirm("Delete this application? This cannot be undone.")) {
       return;
     }
@@ -228,8 +145,6 @@ export function ApplicationFormModal({
     }
   }
 
-  const isEdit = application !== undefined;
-
   return (
     <div
       onClick={onClose}
@@ -240,9 +155,7 @@ export function ApplicationFormModal({
         className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-frame border border-line-strong bg-surface p-6 shadow-2xl"
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-ink">
-            {isEdit ? "Edit application" : "New application"}
-          </h2>
+          <h2 className="text-lg font-semibold text-ink">Edit application</h2>
           <button
             type="button"
             onClick={onClose}
@@ -252,42 +165,6 @@ export function ApplicationFormModal({
             ✕
           </button>
         </div>
-
-        {/* Autofill: create mode only. Paste a posting, Claude fills the fields
-            below, you review and save. Secondary (grey) action — purple stays
-            reserved for Save. */}
-        {!isEdit && (
-          <div className="mt-6 rounded-frame border border-line bg-base p-4">
-            <label className={labelClass}>
-              Autofill from a posting
-              <textarea
-                value={pasteText}
-                onChange={(e) => setPasteText(e.target.value)}
-                rows={4}
-                placeholder="Paste the job or scholarship description here…"
-                className={`${fieldClass} resize-none`}
-              />
-            </label>
-            {parseError && (
-              <p className="mt-2 rounded-interactive border border-line bg-surface px-3 py-2 text-sm text-ink">
-                {parseError}
-              </p>
-            )}
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <span className="text-xs text-ink-muted">
-                Claude fills the fields below. Review before saving.
-              </span>
-              <button
-                type="button"
-                onClick={handleAutofill}
-                disabled={parsing || pasteText.trim() === ""}
-                className="rounded-interactive border border-line px-3 py-2 text-sm font-medium text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
-              >
-                {parsing ? "Parsing…" : "Autofill"}
-              </button>
-            </div>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
           <label className={labelClass}>
@@ -403,34 +280,28 @@ export function ApplicationFormModal({
             </p>
           )}
 
-          {/* Footer: Delete on the left (edit mode only), Cancel + Save on the
-              right. justify-between pushes them apart; the empty span keeps Save
-              right-aligned in create mode when there is no Delete. */}
+          {/* Footer: Delete + Tailor on the left, Cancel + Save on the right. */}
           <div className="mt-2 flex items-center justify-between gap-3">
-            {isEdit ? (
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={saving}
+                className="rounded-interactive px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
+              >
+                Delete
+              </button>
+              {onTailor && (
                 <button
                   type="button"
-                  onClick={handleDelete}
+                  onClick={() => onTailor(application)}
                   disabled={saving}
-                  className="rounded-interactive px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
+                  className="rounded-interactive border border-line px-3 py-2 text-sm font-medium text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
                 >
-                  Delete
+                  Tailor resume
                 </button>
-                {onTailor && application && (
-                  <button
-                    type="button"
-                    onClick={() => onTailor(application)}
-                    disabled={saving}
-                    className="rounded-interactive border border-line px-3 py-2 text-sm font-medium text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
-                  >
-                    Tailor resume
-                  </button>
-                )}
-              </div>
-            ) : (
-              <span />
-            )}
+              )}
+            </div>
 
             <div className="flex gap-3">
               <button
@@ -446,11 +317,7 @@ export function ApplicationFormModal({
                 disabled={saving}
                 className="rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink shadow-glow transition-colors hover:bg-accent-hover active:bg-accent-press disabled:opacity-60"
               >
-                {saving
-                  ? "Saving…"
-                  : isEdit
-                    ? "Save changes"
-                    : "Save application"}
+                {saving ? "Saving…" : "Save changes"}
               </button>
             </div>
           </div>
