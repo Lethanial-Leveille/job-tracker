@@ -9,6 +9,11 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # Skip a rebuild only for files the running app never reads (pure docs).
+    # NOT master_resume.yaml — the backend reads that at runtime for tailoring.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch: {} # allow manual runs from the Actions tab
 
 concurrency:
