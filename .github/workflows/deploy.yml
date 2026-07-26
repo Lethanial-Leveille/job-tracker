@@ -26,7 +26,7 @@ jobs:
           USER_NAME: deploy
         run: |
           mkdir -p ~/.ssh
-          printf '%s' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_ed25519 \
             "$USER_NAME@$HOST" 'bash -s' <<'DEPLOY'
