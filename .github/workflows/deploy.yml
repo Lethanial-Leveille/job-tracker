@@ -1,0 +1,41 @@
+name: Deploy
+
+# Auto-deploy to the droplet on every push to main. A GitHub runner SSHes in as
+# the non-root `deploy` user, pulls, rebuilds backend + frontend, runs
+# migrations, then calls the one root-owned script it's allowed to sudo
+# (publish dist + restart the service). The private key lives in the
+# DEPLOY_SSH_KEY repo secret; the host/user are not secret.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # never interrupt a deploy mid-flight
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: 157.245.240.42
+          USER_NAME: deploy
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_ed25519 \
+            "$USER_NAME@$HOST" 'bash -s' <<'DEPLOY'
+          set -euo pipefail
+          export PATH="$HOME/.local/bin:$PATH"
+          cd /opt/job-tracker
+          git pull --ff-only
+          cd backend && uv sync --no-dev && uv run alembic upgrade head
+          cd ../frontend && npm ci && npm run build
+          sudo /usr/local/bin/deploy-job-tracker.sh
+          echo "deploy complete"
+          DEPLOY
