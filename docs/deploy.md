@@ -148,6 +148,21 @@ cd ../frontend && npm ci && npm run build && sudo cp -r dist/* /var/www/job-trac
 sudo systemctl restart job-tracker
 ```
 
+## Backups
+
+Two complementary layers (see the difference: droplet backup = whole machine,
+weekly; pg_dump = database only, nightly, portable):
+
+1. **DigitalOcean droplet backups** — enable in the DO panel (droplet → Backups).
+   Weekly whole-disk snapshots; restores the entire droplet. Covered by credit.
+2. **Nightly `pg_dump`** — `deploy/backup-job-tracker.sh` run by
+   `/etc/cron.d/job-tracker-backup` at 03:00, writing dated dumps to
+   `/var/backups/job-tracker/`, keeping 7 days. Restore:
+   `sudo -u postgres pg_restore -d job_tracker --clean <file>`.
+3. **TODO — off-box the dumps.** They currently live on the droplet, so they die
+   with it. Copy nightly to the Raspberry Pi (rsync/scp) or DO Spaces so a backup
+   survives losing the droplet. NOT done yet.
+
 ## Notes / gotchas
 
 - Secrets stay in `backend/.env` on the server (chmod 600), never in git.
