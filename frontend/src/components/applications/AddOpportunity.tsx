@@ -65,7 +65,7 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  async function readWithScout() {
+  async function readWithProwl() {
     if (pasteText.trim() === "") return;
     setStep("parse");
     setParseError(null);
@@ -155,7 +155,7 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
               Add an opportunity
             </h1>
             <p className="mx-auto mt-3.5 max-w-[460px] text-balance text-center text-[15px] leading-relaxed text-ink-soft">
-              Paste a job or scholarship description, or drop a link. Scout reads
+              Paste a job or scholarship description, or drop a link. Prowl reads
               it and fills in the details for you.
             </p>
 
@@ -203,14 +203,14 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
 
             <button
               type="button"
-              onClick={readWithScout}
+              onClick={readWithProwl}
               disabled={pasteText.trim() === ""}
               className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl border border-line-strong bg-surface-hover py-[18px] text-[15px] font-medium text-ink transition-colors hover:border-accent-line disabled:opacity-50"
             >
               <svg className="size-[17px] text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M13 2 3 14h7l-1 8 10-12h-7z" />
               </svg>
-              Read with Scout
+              Read with Prowl
             </button>
             <p className="mt-4 text-center text-[12.5px] text-ink-muted">
               You'll review everything before it's saved.
@@ -225,7 +225,7 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
               Reading the posting
             </h2>
             <p className="mt-2 text-sm text-ink-soft">
-              Scout is pulling out the role, deadline, and key details…
+              Prowl is pulling out the role, deadline, and key details…
             </p>
           </div>
         )}
@@ -237,7 +237,7 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
                 Review before saving
               </h2>
               <p className="mt-2 text-sm text-ink-soft">
-                Scout filled these in. Check them, fix anything, then save.
+                Prowl filled these in. Check them, fix anything, then save.
                 Nothing is stored until you do.
               </p>
             </div>

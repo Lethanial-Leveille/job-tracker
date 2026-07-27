@@ -55,7 +55,7 @@ export function LoginPage({ onLoggedIn }: Props) {
           <LogoMark />
           <div className="leading-tight">
             <div className="text-sm font-semibold tracking-[0.2em] text-ink">
-              SCOUT
+              PROWL
             </div>
             <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">
               Opportunity Tracker
@@ -74,7 +74,7 @@ export function LoginPage({ onLoggedIn }: Props) {
           </h1>
 
           <p className="mt-5 text-[15px] leading-relaxed text-ink-soft">
-            Paste a posting and Scout reads it for you. Deadlines, requirements,
+            Paste a posting and Prowl reads it for you. Deadlines, requirements,
             and priority, organized into one calm pipeline.
           </p>
 
@@ -183,7 +183,7 @@ export function LoginPage({ onLoggedIn }: Props) {
           </button>
 
           <p className="mt-6 text-center text-sm text-ink-muted">
-            New to Scout?{" "}
+            New to Prowl?{" "}
             <button
               type="button"
               onClick={() => notYet("Account creation")}
@@ -262,7 +262,7 @@ function PipelineCard() {
       {rows.map((row, i) => (
         <div
           key={row.name}
-          className="scout-float flex items-center gap-3 rounded-interactive px-3 py-3"
+          className="prowl-float flex items-center gap-3 rounded-interactive px-3 py-3"
           style={{ animationDelay: `${i * 0.6}s`, opacity: row.faded ? 0.45 : 1 }}
         >
           <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-line-strong bg-base text-[11px] font-semibold text-ink-soft">
@@ -285,9 +285,9 @@ function PipelineCard() {
 function FloatKeyframes() {
   return (
     <style>{`
-      @keyframes scoutFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-      .scout-float { animation: scoutFloat 3.4s ease-in-out infinite; }
-      @media (prefers-reduced-motion: reduce) { .scout-float { animation: none; } }
+      @keyframes prowlFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+      .prowl-float { animation: prowlFloat 3.4s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) { .prowl-float { animation: none; } }
     `}</style>
   );
 }

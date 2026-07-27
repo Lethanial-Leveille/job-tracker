@@ -85,7 +85,7 @@ export function Sidebar({ applicationCount, onLogout }: Props) {
         <LogoMark />
         <div className="leading-tight">
           <div className="text-sm font-semibold tracking-[0.2em] text-ink">
-            SCOUT
+            PROWL
           </div>
           <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">
             Opportunity Tracker
