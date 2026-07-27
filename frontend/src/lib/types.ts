@@ -131,6 +131,11 @@ export interface Project {
 }
 
 export interface Resume {
+  // Rendering arrangement, mirrors backend schemas/resume.py. "student" puts
+  // education first with GPA and coursework shown; "professional" leads with
+  // experience and hides GPA/coursework. Optional because the server defaults it
+  // to "student", so a resume saved before this field existed stays valid.
+  career_stage?: "student" | "professional";
   contact: Contact;
   summary?: string | null;
   education: Education[];

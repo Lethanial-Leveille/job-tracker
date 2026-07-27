@@ -34,6 +34,8 @@ optional fields default to None or an empty list so a partial resume still
 validates.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -104,6 +106,14 @@ class Resume(BaseModel):
     number that isn't already in the master (hard rule #2, never invent).
     """
 
+    # Rendering ARRANGEMENT, not content: "student" puts education first with GPA
+    # and coursework shown; "professional" leads with experience and hides GPA/
+    # coursework (degree + school only). The renderer (templates/resume.html)
+    # reads this to choose the section order. Defaults to "student" so any resume
+    # saved before this field existed keeps its original layout. Tailoring must
+    # never change it — it's a fixed setting like the contact block, and the
+    # tailoring service forces it back from the master to guarantee that.
+    career_stage: Literal["student", "professional"] = "student"
     contact: Contact
     summary: str | None = None        # the one free-text spot tailoring may rewrite
     education: list[Education] = []

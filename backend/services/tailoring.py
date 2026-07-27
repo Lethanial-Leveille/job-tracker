@@ -93,4 +93,11 @@ def tailor_resume(
         messages=[{"role": "user", "content": user_content}],
         output_format=Resume,
     )
-    return response.parsed_output
+    result = response.parsed_output
+    if result is not None:
+        # career_stage is a fixed rendering setting, not content. The model could
+        # omit it (it then defaults to "student") or guess it, so we overwrite it
+        # from the master — a professional resume must never silently revert to
+        # the student layout after tailoring.
+        result.career_stage = master.career_stage
+    return result

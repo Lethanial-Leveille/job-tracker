@@ -3,6 +3,12 @@
   All visual styling lives in resume.css, which Claude tailoring never sees.
   Receives a validated Resume as `r` (see backend/schemas/resume.py).
 
+  Two arrangements of the SAME sections, chosen by r.career_stage:
+  - "student"      : Education first (with GPA + coursework), then Experience.
+  - "professional" : Experience first; Education demoted to the bottom with GPA
+                     and coursework hidden (degree + school only).
+  Each section is a macro so the markup exists once and only the ORDER changes.
+
   Optional fields are guarded so a partial resume still renders cleanly:
   `| select` drops any None/empty pieces before joining, so no stray "|".
 #}
@@ -14,12 +20,15 @@
   {% if link_line %}<div class="contact links">{{ link_line | join("  |  ") }}</div>{% endif %}
 </header>
 
+{% macro summary_section() %}
 {% if r.summary %}
 <section>
   <p class="summary">{{ r.summary }}</p>
 </section>
 {% endif %}
+{% endmacro %}
 
+{% macro education_section(show_details) %}
 {% if r.education %}
 <section>
   <div class="section">Education</div>
@@ -27,15 +36,19 @@
   <div class="entry">
     <div class="row"><span class="bold">{{ e.institution }}</span>{% if e.location %}<span class="right italic">{{ e.location }}</span>{% endif %}</div>
     <div class="row"><span class="italic">{{ e.degree }}</span>{% if e.dates %}<span class="right italic">{{ e.dates }}</span>{% endif %}</div>
+    {% if show_details %}
     {% if e.gpa or e.honors %}
     <div class="detail">{% if e.gpa %}GPA: {{ e.gpa }}{% endif %}{% if e.honors %}{% if e.gpa %}&nbsp;&nbsp;&nbsp;{% endif %}<span class="bold">{{ e.honors | join("  ") }}</span>{% endif %}</div>
     {% endif %}
     {% if e.coursework %}<div class="detail"><span class="bold">Relevant Coursework:</span> {{ e.coursework | join(", ") }}</div>{% endif %}
+    {% endif %}
   </div>
   {% endfor %}
 </section>
 {% endif %}
+{% endmacro %}
 
+{% macro skills_section() %}
 {% if r.skills %}
 <section>
   <div class="section">Technical Skills</div>
@@ -44,7 +57,9 @@
   {% endfor %}
 </section>
 {% endif %}
+{% endmacro %}
 
+{% macro experience_section() %}
 {% if r.experience %}
 <section>
   <div class="section">Experience</div>
@@ -57,7 +72,9 @@
   {% endfor %}
 </section>
 {% endif %}
+{% endmacro %}
 
+{% macro projects_section() %}
 {% if r.projects %}
 <section>
   <div class="section">Projects</div>
@@ -74,4 +91,19 @@
   {% endif %}
   {% endfor %}
 </section>
+{% endif %}
+{% endmacro %}
+
+{% if r.career_stage == "professional" %}
+  {{ summary_section() }}
+  {{ experience_section() }}
+  {{ skills_section() }}
+  {{ projects_section() }}
+  {{ education_section(false) }}
+{% else %}
+  {{ summary_section() }}
+  {{ education_section(true) }}
+  {{ skills_section() }}
+  {{ experience_section() }}
+  {{ projects_section() }}
 {% endif %}
