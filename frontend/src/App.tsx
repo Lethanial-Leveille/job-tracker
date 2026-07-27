@@ -4,6 +4,8 @@ import { ApplicationsPage } from "./components/applications/ApplicationsPage";
 import { LoginPage } from "./components/auth/LoginPage";
 import { clearToken, getToken } from "./lib/auth";
 import { useApplications } from "./lib/useApplications";
+import { ResumeBuilder } from "./components/resume/ResumeBuilder";
+import type { View } from "./components/layout/Sidebar";
 
 // Root composition and the auth gate. Token state is plain useState (seeded from
 // localStorage) — a single-screen app doesn't need a Context yet. No token shows
@@ -39,10 +41,21 @@ export function App() {
 // would fire an unauthenticated request and immediately 401.
 function AuthedApp({ onLogout }: { onLogout: () => void }) {
   const state = useApplications();
+  // Which top-level view is showing. Applications is home; Resume is the builder.
+  const [view, setView] = useState<View>("applications");
 
   return (
-    <AppShell applicationCount={state.applications.length} onLogout={onLogout}>
-      <ApplicationsPage {...state} />
+    <AppShell
+      current={view}
+      onNavigate={setView}
+      applicationCount={state.applications.length}
+      onLogout={onLogout}
+    >
+      {view === "resume" ? (
+        <ResumeBuilder onClose={() => setView("applications")} />
+      ) : (
+        <ApplicationsPage {...state} />
+      )}
     </AppShell>
   );
 }

@@ -58,26 +58,31 @@ const icons = {
 // the shell feels complete, but muted, non-clickable, and marked "Soon" — never
 // showing a fabricated count.
 
+export type View = "applications" | "resume";
+
 interface NavItem {
   key: keyof typeof icons;
   label: string;
-  active?: boolean;
+  // A navigable view, or undefined for a not-yet-built ("Soon") item.
+  view?: View;
 }
 
 const WORKSPACE: NavItem[] = [
-  { key: "applications", label: "Applications", active: true },
+  { key: "applications", label: "Applications", view: "applications" },
   { key: "deadlines", label: "Deadlines" },
   { key: "organizations", label: "Organizations" },
-  { key: "documents", label: "Documents" },
+  { key: "documents", label: "Resume", view: "resume" },
   { key: "analytics", label: "Analytics" },
 ];
 
 interface Props {
+  current: View;
+  onNavigate: (view: View) => void;
   applicationCount: number;
   onLogout: () => void;
 }
 
-export function Sidebar({ applicationCount, onLogout }: Props) {
+export function Sidebar({ current, onNavigate, applicationCount, onLogout }: Props) {
   return (
     <aside className="relative z-10 flex h-screen flex-col gap-8 border-r border-line-strong bg-surface/60 px-4 py-6 backdrop-blur-sm">
       {/* Wordmark */}
@@ -98,32 +103,48 @@ export function Sidebar({ applicationCount, onLogout }: Props) {
         <div className="px-3 pb-2 text-[10px] font-medium uppercase tracking-[0.18em] text-ink-muted">
           Workspace
         </div>
-        {WORKSPACE.map((item) =>
-          item.active ? (
-            <a
-              key={item.key}
-              href="#"
-              aria-current="page"
-              className="flex items-center gap-3 rounded-interactive border-l-2 border-l-accent bg-accent-subtle px-3 py-2 text-sm font-medium text-ink shadow-glow"
-            >
-              <span className="text-accent">{icons[item.key]}</span>
-              <span className="flex-1">{item.label}</span>
-              <span className="text-xs text-ink-soft">{applicationCount}</span>
-            </a>
-          ) : (
-            <span
-              key={item.key}
-              aria-disabled="true"
-              className="flex cursor-default items-center gap-3 rounded-interactive border-l-2 border-l-transparent px-3 py-2 text-sm text-ink-muted"
-            >
-              <span>{icons[item.key]}</span>
-              <span className="flex-1">{item.label}</span>
-              <span className="rounded-full border border-line px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-ink-muted">
-                Soon
+        {WORKSPACE.map((item) => {
+          // No view yet → a muted, non-clickable "Soon" placeholder.
+          if (!item.view) {
+            return (
+              <span
+                key={item.key}
+                aria-disabled="true"
+                className="flex cursor-default items-center gap-3 rounded-interactive border-l-2 border-l-transparent px-3 py-2 text-sm text-ink-muted"
+              >
+                <span>{icons[item.key]}</span>
+                <span className="flex-1">{item.label}</span>
+                <span className="rounded-full border border-line px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-ink-muted">
+                  Soon
+                </span>
               </span>
-            </span>
-          ),
-        )}
+            );
+          }
+          // Capture the narrowed view in a const: TS widens item.view back to
+          // View | undefined inside the onClick closure, but a local const holds
+          // the narrowing.
+          const view = item.view;
+          const active = view === current;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => onNavigate(view)}
+              aria-current={active ? "page" : undefined}
+              className={
+                active
+                  ? "flex items-center gap-3 rounded-interactive border-l-2 border-l-accent bg-accent-subtle px-3 py-2 text-sm font-medium text-ink shadow-glow"
+                  : "flex items-center gap-3 rounded-interactive border-l-2 border-l-transparent px-3 py-2 text-sm text-ink-soft transition-colors hover:text-ink"
+              }
+            >
+              <span className={active ? "text-accent" : undefined}>{icons[item.key]}</span>
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.view === "applications" && (
+                <span className="text-xs text-ink-soft">{applicationCount}</span>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
       {/* User card, pinned to the bottom. mt-auto pushes it down past the nav. */}
