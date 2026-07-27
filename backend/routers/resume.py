@@ -1,19 +1,21 @@
-"""Resume tailoring routes: the HTTP surface over the two resume services.
+"""Resume routes: the HTTP surface over the resume services.
 
-Two endpoints, one per half of the content-vs-format split (see decisions.md,
+The master-resume endpoints are the per-user source of truth — one master
+resume per user, stored in the DB and edited by the builder UI. Tailor and
+render are the content-vs-format split layered over it (see decisions.md,
 "v2 resume tailoring"):
 
+- GET  /resume/master : the user's saved master Resume (404 if none yet).
+- PUT  /resume/master : create-or-replace the user's master Resume.
 - POST /resume/tailor : JD text in  -> tailored Resume JSON out (runs Opus).
 - POST /resume/render : a Resume in -> PDF bytes out (pure, no API call).
 
-They are split on purpose. The tailored Resume is the reviewable draft (hard
-rule #1, nothing auto-submits); the PDF is a download of an already-reviewed
-draft. Keeping them separate means the expensive Opus call happens once, and
-re-rendering after an edit costs nothing. The frontend holds the Resume JSON
-between the two calls.
+Tailor and render are split on purpose. The tailored Resume is the reviewable
+draft (hard rule #1, nothing auto-submits); the PDF is a download of an
+already-reviewed draft. Keeping them separate means the expensive Opus call
+happens once, and re-rendering after an edit costs nothing. The frontend holds
+the Resume JSON between the two calls.
 """
-
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
@@ -25,13 +27,10 @@ from models.user import User
 from schemas.resume import Resume, TailorRequest
 from schemas.resume_version import ResumeVersionCreate, ResumeVersionRead
 from services.application import get_application
-from services.resume_render import load_master, render_resume_pdf
+from services.resume import get_master, upsert_master
+from services.resume_render import render_resume_pdf
 from services.resume_version import list_resume_versions, save_resume_version
 from services.tailoring import tailor_resume
-
-# data/ is a sibling of routers/ under backend/, same relative-path convention
-# resume_render.py uses for templates/. This is the bullet-bank master resume.
-_MASTER_PATH = Path(__file__).resolve().parent.parent / "data" / "master_resume.yaml"
 
 router = APIRouter(
     prefix="/resume",
@@ -40,15 +39,57 @@ router = APIRouter(
 )
 
 
+@router.get("/master", response_model=Resume)
+def get_master_resume(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Resume:
+    # The user's stored master resume. 404 when they don't have one yet — the
+    # builder UI reads that as "start from a blank resume". Stored data always
+    # went in through the Resume schema (see PUT below), so it is always valid
+    # to read back out through it.
+    master = get_master(db, user.id)
+    if master is None:
+        raise HTTPException(status_code=404, detail="No master resume yet")
+    return Resume.model_validate(master.resume_json)
+
+
+@router.put("/master", response_model=Resume)
+def put_master_resume(
+    resume: Resume,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Resume:
+    # Save (create-or-replace) the user's master. The body is a full Resume, not
+    # a raw dict (the "no raw dicts" convention) — and because Resume's required
+    # fields are unconstrained strings, a half-filled resume with empty strings
+    # still validates, so the builder can save work in progress. We persist the
+    # model_dump() dict; the service stays schema-agnostic.
+    row = upsert_master(db, user.id, resume.model_dump())
+    return Resume.model_validate(row.resume_json)
+
+
 @router.post("/tailor", response_model=Resume)
 def tailor(
-    data: TailorRequest, settings: Settings = Depends(get_settings)
+    data: TailorRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> Resume:
-    # Tailor only — this never renders or writes anything. Opus selects and
-    # rephrases the master's own content for this JD; you review the returned
-    # Resume before rendering (the "never auto-submit" guardrail). None means
-    # Claude refused or the reply was truncated, same as the parse route.
-    master = load_master(_MASTER_PATH)
+    # Tailor only — this never renders or writes anything. The master now comes
+    # from the DB per user (not one shared YAML file), so tailoring is genuinely
+    # multi-user: each person tailors their OWN resume. 400 if they have not
+    # built one yet. Opus selects and rephrases the master's own content for this
+    # JD; you review the returned Resume before rendering (the "never auto-submit"
+    # guardrail). None means Claude refused or the reply was truncated, like the
+    # parse route.
+    master_row = get_master(db, user.id)
+    if master_row is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Create your master resume before tailoring",
+        )
+    master = Resume.model_validate(master_row.resume_json)
     result = tailor_resume(master, data.text, settings)
     if result is None:
         raise HTTPException(status_code=502, detail="Could not tailor the resume")

@@ -19,7 +19,15 @@ const BASE = "/api";
 // and fires a window event so the app drops back to the login screen. It returns
 // the raw Response so each caller can read JSON, a Blob, or nothing (204) as it
 // needs. Login is deliberately NOT routed through here (see below).
-async function request(path: string, options: RequestInit = {}): Promise<Response> {
+//
+// allowStatuses lets a caller opt out of the throw for specific non-ok codes it
+// wants to handle itself — e.g. getMasterResume passes [404] to read "no master
+// yet" as null instead of an error. A 401 is always handled (never swallowable).
+async function request(
+  path: string,
+  options: RequestInit = {},
+  allowStatuses: number[] = [],
+): Promise<Response> {
   const headers = new Headers(options.headers);
   const token = getToken();
   if (token) {
@@ -32,7 +40,7 @@ async function request(path: string, options: RequestInit = {}): Promise<Respons
     clearToken();
     window.dispatchEvent(new Event("auth:unauthorized"));
   }
-  if (!res.ok) {
+  if (!res.ok && !allowStatuses.includes(res.status)) {
     throw new Error(`Request failed: ${res.status} ${res.statusText}`);
   }
   return res;
@@ -163,4 +171,29 @@ export async function saveResumeVersion(input: {
     body: JSON.stringify(input),
   });
   return res.json() as Promise<ResumeVersion>;
+}
+
+// --- Master resume ----------------------------------------------------------
+
+// GET the current user's master resume, or null if they don't have one yet. The
+// backend 404s when none exists; we allow that status and return null so the
+// builder opens blank for a first-time user rather than treating it as an error.
+export async function getMasterResume(): Promise<Resume | null> {
+  const res = await request("/resume/master", {}, [404]);
+  if (res.status === 404) {
+    return null;
+  }
+  return res.json() as Promise<Resume>;
+}
+
+// PUT the user's master resume (create-or-replace). The backend accepts a
+// partial, half-filled Resume, so this doubles as the "save work in progress"
+// call. Returns the stored resume.
+export async function saveMasterResume(resume: Resume): Promise<Resume> {
+  const res = await request("/resume/master", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(resume),
+  });
+  return res.json() as Promise<Resume>;
 }
