@@ -23,19 +23,14 @@ contact:
   github: github.com/Lethanial-Leveille
   website: null   # TODO: portfolio URL if you have one (you own lethanial.com)
 
-# The one free-text line tailoring is allowed to rewrite per job. DRAFT below —
-# every claim in it is true, but edit it to sound like you.
-summary: >-
-  Computer Engineering student at the University of Florida (Class of 2029) who
-  builds full-stack systems end to end, spanning embedded hardware, on-device
-  ML, and cloud back ends. Currently a software engineering intern at Fuzzy AI.
+# No summary section: the resume leads with education and experience instead.
 
 education:
   - institution: University of Florida – Herbert Wertheim College of Engineering
     degree: Bachelor of Science in Computer Engineering
     location: Gainesville, FL
     dates: Expected May 2029
-    gpa: 3.75 / 4.00
+    gpa: 3.77 / 4.00
     honors:
       - Dean's List
     coursework:
@@ -63,7 +58,7 @@ experience:
   - organization: Fuzzy AI
     role: Software Engineering Intern
     location: Singapore
-    dates: June 2026 – August 2026
+    dates: June 2026 – July 2026
     # Bank grounded in your actual merged PRs (FuzzySequence api / front-end /
     # landing-page). Keep ~3 strongest per application.
     bullets:
@@ -72,12 +67,11 @@ experience:
       - Built onboarding-checklist UX in the React/TypeScript product app, including an impersonation-safe, cross-tab gate that defers premature step check-off until the user actually opens the tab.
       - Launched go-to-market surfaces on the Next.js marketing site — Product Hunt launch banner, free-trial CTAs, and a Slack community section — reusing the existing design-system components.
       - Added automated specs across the contacts module (service, controller, concurrency and claim-recovery cases) as part of the team's testing standards.
-      - Selected as a freshman through the UF in Singapore program for an early-career SWE role at an AI-focused startup.
       # TODO: add one quantified-impact bullet if you have a number (contacts imported, onboarding completion lift, etc.).
 
 projects:
   - name: M.I.L.E.S.
-    tools: [Python, FastAPI, Swift/SwiftUI, Whisper.cpp, Claude API, SQLite, Cloudflare]
+    tools: [Python, FastAPI, Swift/SwiftUI, Whisper.cpp, Claude API, SQLite, SQLite FTS5, Resemblyzer, webrtcvad, sentence-transformers, ONNX, NumPy, ElevenLabs, Cloudflare, systemd]
     links:
       - github.com/Lethanial-Leveille/miles
       - github.com/Lethanial-Leveille/miles-app
@@ -88,6 +82,13 @@ projects:
       - Pipelined ElevenLabs TTS straight to ALSA and cut time-to-first-audio to ~520ms, including a 1.5s latency win from flushing stdin after every audio chunk.
       - Deployed three systemd services on boot with global access via Cloudflare Tunnel at miles.lethanial.com, consumed by the iOS app with Face ID and Keychain-stored JWTs.
       - Built the SwiftUI companion app from scratch with zero third-party dependencies — Face ID auth, on-device SFSpeechRecognizer input, paginated history with search, and a memory-bank viewer.
+      - Migrated the assistant off hand-parsed bracket action tags onto native Claude tool use behind a single tool registry (six live tools), bounding the follow-up loop and deleting the 50-character lookahead buffer that had sat directly on the path to first audio.
+      - Built hybrid memory retrieval over a 233-memory SQLite corpus, fusing FTS5 keyword search ranked by summed inverse document frequency with all-MiniLM-L6-v2 semantic search (384-dimensional float32 vectors, 31ms per query) through reciprocal rank fusion, so two uncalibrated scoring scales vote without either being mapped onto the other.
+      - "Designed a rank-based authorization model that keeps recognition separate from access: the prompt corpus is assembled per tier, so a fact below the owner tier is never in the context at all rather than being withheld by instruction, proven by tests asserting no personal name appears at any lower tier."
+      - Diagnosed months of speaker-verification false rejections down to four compounding defects (an energy VAD that never fired at -53 dBFS capture, a follow-up loop that could not exit on hallucinated transcripts, an enrollment centroid poisoned to 0.63 average pairwise similarity, and mic gain leaving 7 of 16 bits unused), replacing the energy threshold with webrtcvad plus a 300ms pre-roll ring buffer and adding per-attempt logging that showed zero rejections across 94 attempts over two seconds.
+      - Cut turn latency by capping the Whisper audio context after measuring transcription flat at ~2000ms regardless of clip length (the encoder pads every clip to 30 seconds), then moving the follow-up call to Haiku with prompt caching.
+      - Added wake-word barge-in during playback without acoustic echo cancellation, using a watcher thread that exclusively owns the mic stream for the span playback drains and kills it on a hit, keyed on a phrase the assistant's own speech never contains.
+      - "Built incremental voiceprint learning from ordinary conversation with a rolling 60-sample window, admitting samples only well clear of the accept threshold and never applying an update automatically: a preview tool shows what an update would move, backs up the profile first, and refuses to average across microphones."
   - name: MotionSense
     tools: [Python, Raspberry Pi, AWS, scikit-learn, React, Docker]
     links:
