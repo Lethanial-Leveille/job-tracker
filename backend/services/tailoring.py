@@ -53,7 +53,6 @@ What you MAY do:
   parenthetical list, keep at most two examples inside it, e.g. shorten
   "AWS (IoT Core, Lambda, DynamoDB, API Gateway)" to "AWS (Lambda, DynamoDB)".
   Never add a tool not present in the master.
-- Rewrite the `summary` to target this job, in one to two sentences.
 
 The final resume MUST fit on a single page. It is better to cut a weaker bullet
 or project than to overflow. When in doubt, cut.
@@ -62,6 +61,8 @@ What you MUST NOT do — these are hard rules, never break them:
 - NEVER invent. Do not add any metric, number, technology, tool, company, date,
   or claim that is not already present in the master. If a bullet has no metric,
   do not fabricate one; a strong bullet without a number is fine.
+- Never write a `summary`. This resume has no summary section: leave the field
+  empty (null) even if the job description asks for a profile or objective.
 - Never change identity facts: name, contact, education (institution, degree,
   GPA, honors, dates), organization names, roles, or project names.
 - Do not use em dashes. Rephrase with commas or shorter sentences. Ordinary
