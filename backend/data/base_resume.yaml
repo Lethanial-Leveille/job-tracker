@@ -1,0 +1,85 @@
+# The BASE resume: one general-purpose, one-page resume to hand out when there
+# is no specific job to tailor against.
+#
+# This is a SELECTION from master_resume.yaml, not a second source of truth.
+# Every bullet here is the same claim as its master counterpart, trimmed for
+# length — nothing is added. When the master gains a fact worth leading with,
+# copy it down here by hand; nothing syncs automatically.
+#
+# Render it with:
+#   python scripts/build_base_resume.py
+
+career_stage: student
+
+contact:
+  name: Lethanial L. Leveille
+  location: Hollywood, FL
+  phone: (754) 422-6402
+  email: leveillelethanial@gmail.com
+  linkedin: linkedin.com/in/lethanial-lee-leveille
+  github: github.com/Lethanial-Leveille
+
+education:
+  - institution: University of Florida – Herbert Wertheim College of Engineering
+    degree: Bachelor of Science in Computer Engineering
+    location: Gainesville, FL
+    dates: Expected May 2029
+    gpa: 3.77 / 4.00
+    honors:
+      - Dean's List
+    coursework:
+      - Data Structures and Algorithms
+      - Digital Logic
+      - Computer Organization
+      - Software Engineering
+      - Discrete Structures
+      - Linear Algebra
+
+skills:
+  - category: Languages
+    items: [Python, C/C++, TypeScript, JavaScript, Swift, SQL]
+  - category: Frameworks & Libraries
+    items: [React, Next.js, FastAPI, SQLAlchemy, SwiftUI, scikit-learn]
+  - category: Cloud & DevOps
+    items: [AWS (Lambda, DynamoDB), Docker, PostgreSQL, Cloudflare Tunnel, Git/GitHub, Linux/systemd]
+  - category: Hardware & Embedded
+    items: [Raspberry Pi 5, MPU6050 IMU, I2C, ONNX, Whisper.cpp]
+
+experience:
+  - organization: Fuzzy AI
+    role: Software Engineering Intern
+    location: Singapore
+    dates: June 2026 – July 2026
+    bullets:
+      - Shipped a Sales Navigator preview-and-import flow on the contact-ingestion API in TypeScript, letting users review and select staged candidates before any records are created.
+      - Hardened the import pipeline against double-submits with a single-use atomic claim plus claim recovery and concurrency tests, so a retried request cannot create duplicate contacts.
+      - Built onboarding-checklist UX in the React/TypeScript product app with an impersonation-safe, cross-tab gate, and added specs across the contacts module to the team's testing standards.
+
+projects:
+  - name: M.I.L.E.S.
+    tools: [Python, FastAPI, Claude API, Whisper.cpp, SQLite]
+    links:
+      - github.com/Lethanial-Leveille/miles
+    dates: April 2026 – Present
+    bullets:
+      - Architected a voice-activated AI assistant on a Raspberry Pi 5 with custom wake-word detection (openWakeWord, 90.4% recall), on-device Whisper.cpp speech-to-text, and speaker verification through 256-dimensional voice embeddings.
+      - Built a JWT-authenticated FastAPI backend (REST and WebSocket) with persistent SQLite memory and Claude API streaming, cutting time-to-first-audio to ~520ms by piping ElevenLabs TTS straight to ALSA.
+      - Deployed three systemd services with global access through a Cloudflare Tunnel, consumed by a native SwiftUI iOS app built with zero third-party dependencies.
+  - name: Prowl (Job Application Tracker)
+    tools: [FastAPI, SQLAlchemy 2.0, PostgreSQL, React, TypeScript]
+    links:
+      - github.com/Lethanial-Leveille/job-tracker
+    dates: July 2026 – Present
+    bullets:
+      - Building a multi-user application tracker with a FastAPI and SQLAlchemy 2.0 backend (Alembic migrations, PostgreSQL) and a React, TypeScript, and Tailwind frontend, layered into thin routers, a service layer, and typed schemas.
+      - Integrated the Claude API to parse pasted job descriptions into structured fields and tailor resumes from a YAML bullet bank, rendering a one-page PDF through a locked Jinja and WeasyPrint template so the model cannot alter layout.
+      - "Deployed to a DigitalOcean droplet behind Caddy and a Cloudflare Tunnel with no open ports, and automated releases with GitHub Actions: every push to main rebuilds, migrates, and restarts the app."
+  - name: MotionSense
+    tools: [Python, scikit-learn, AWS, Raspberry Pi, Docker]
+    links:
+      - github.com/Lethanial-Leveille/motionsense
+    dates: March 2026 – April 2026
+    bullets:
+      - Engineered a wearable motion-classification system on a Raspberry Pi 5 and MPU6050 6-axis IMU, reading accelerometer and gyroscope data at 20 Hz over I2C.
+      - Trained a scikit-learn Random Forest on 1,074 labeled samples to reach 99.5% accuracy across three activity types, up from ~85% with hand-tuned thresholds.
+      - Built a serverless cloud pipeline (MQTT → AWS IoT Core → Lambda → DynamoDB → API Gateway) streaming classified readings to a Dockerized React dashboard.
