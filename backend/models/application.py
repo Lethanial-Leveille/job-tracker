@@ -88,6 +88,23 @@ class Application(Base):
     # Required identifying fields.
     organization: Mapped[str] = mapped_column(String(255), nullable=False)
     role_or_program: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    # The normalized role, e.g. "Software Engineer Intern". Postings title the
+    # same job fourteen different ways ("Summer 2027 Intern - Software Engineer",
+    # "Software Engineer, Internship", "Engineering Internship"), which makes the
+    # list unreadable at a glance; the parser picks one of a fixed set of values
+    # and this holds it, while role_or_program keeps the real posted title.
+    #
+    # Deliberately a plain VARCHAR, NOT a SqlEnum like type/status/priority: the
+    # set of role families is expected to change as Lee applies to new kinds of
+    # roles, and adding a value to a native Postgres enum needs an ALTER TYPE
+    # migration (see docs/decisions.md, the v3 enum gotcha). The allowed values
+    # are enforced at the API boundary by the Pydantic Literal instead, so adding
+    # one is a code change rather than a schema migration.
+    #
+    # Nullable because every row predating this column has no value, and because
+    # a posting that fits nothing sensible is better left empty than force-fit.
+    role_family: Mapped[str | None] = mapped_column(String(64), nullable=True)
     posting_url: Mapped[str] = mapped_column(String(2048), nullable=False)
 
     # Optional fields.

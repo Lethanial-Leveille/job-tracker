@@ -22,6 +22,7 @@ from models.application import (
     ApplicationType,
     Priority,
 )
+from schemas.roles import RoleFamily
 
 
 # --- Shared base -------------------------------------------------------------
@@ -47,6 +48,12 @@ class ApplicationBase(BaseModel):
     # Genuinely optional, no default value.
     deadline: date | None = None
     notes: str | None = None
+
+    # The tidy, groupable version of role_or_program, normally filled by the
+    # parser (schemas/roles.py explains why). Optional and nullable: a row added
+    # by hand may not have one, and the Literal means an unrecognized family is
+    # a 422 rather than silently stored, even though the column is a VARCHAR.
+    role_family: RoleFamily | None = None
 
 
 # --- Create ------------------------------------------------------------------
@@ -83,6 +90,7 @@ class ApplicationUpdate(BaseModel):
     priority: Priority | None = None
     deadline: date | None = None
     notes: str | None = None
+    role_family: RoleFamily | None = None
     # Re-settable input (unlike jd_parsed, which update omits): lets you paste a
     # JD onto an application created by hand so the tailoring button can use it.
     jd_text: str | None = None

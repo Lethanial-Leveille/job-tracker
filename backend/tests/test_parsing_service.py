@@ -11,6 +11,9 @@ The actual API call is verified by hand against a real posting, not here.
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+from pydantic import ValidationError
+
 from config import Settings
 from schemas.parsing import ParsedJob
 from services.parsing import parse_job_description
@@ -27,6 +30,7 @@ def test_returns_parsed_output_on_success(mock_anthropic: MagicMock) -> None:
         type="internship",
         organization="Acme Corp",
         role_or_program="Software Engineering Intern",
+        role_family="Software Engineer Intern",
     )
     # client.messages.parse(...).parsed_output -> our canned ParsedJob
     mock_client = MagicMock()
@@ -48,3 +52,19 @@ def test_returns_none_when_model_declines(mock_anthropic: MagicMock) -> None:
     result = parse_job_description("unparseable garbage", _fake_settings())
 
     assert result is None
+
+
+def test_role_family_is_constrained_to_the_canonical_set() -> None:
+    """A family outside schemas/roles.py must fail validation, not be stored.
+
+    The database column is a plain VARCHAR, so this Literal is the ONLY thing
+    stopping a free-text role family from landing in the data — which would
+    silently defeat the whole point of normalizing the field.
+    """
+    with pytest.raises(ValidationError):
+        ParsedJob(
+            type="internship",
+            organization="Acme Corp",
+            role_or_program="Software Engineering Intern",
+            role_family="Software Engineering Internship",  # not a canonical value
+        )

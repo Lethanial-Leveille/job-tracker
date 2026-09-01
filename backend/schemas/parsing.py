@@ -12,6 +12,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from schemas.roles import RoleFamily
+
 
 class ParsedJob(BaseModel):
     """Fields Claude extracts from a job or scholarship posting.
@@ -26,6 +28,11 @@ class ParsedJob(BaseModel):
     type: Literal["internship", "scholarship"]
     organization: str
     role_or_program: str
+    # The posted title normalized to one of a fixed set (schemas/roles.py). This
+    # is the one field Claude CLASSIFIES rather than extracts: the posting never
+    # states its role family, so the no-inference rule below cannot apply to it.
+    # role_or_program still holds the title exactly as posted.
+    role_family: RoleFamily
 
     # Optional: absent in many postings, so they default to None / empty.
     deadline: date | None = None
