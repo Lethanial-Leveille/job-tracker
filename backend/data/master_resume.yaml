@@ -59,15 +59,19 @@ experience:
     role: Software Engineering Intern
     location: Singapore
     dates: June 2026 – July 2026
-    # Bank grounded in your actual merged PRs (FuzzySequence api / front-end /
-    # landing-page). Keep ~3 strongest per application.
+    # Bank grounded in the Jul 31 2026 contribution report (merged PRs across
+    # FuzzySequence api / front-end / landing-page). Keep ~3 strongest per
+    # application. Every number here traces to that report.
     bullets:
-      - Shipped a Sales Navigator preview-and-import flow on the contact-ingestion API (TypeScript), letting users review and select staged candidates before any records are created, reusing a shared dedup and batch-insert core across import paths.
-      - Hardened the import pipeline against double-submits with a single-use atomic claim plus partial-write claim recovery and concurrency tests, so a retried or duplicated request cannot create duplicate contacts.
-      - Built onboarding-checklist UX in the React/TypeScript product app, including an impersonation-safe, cross-tab gate that defers premature step check-off until the user actually opens the tab.
-      - Launched go-to-market surfaces on the Next.js marketing site — Product Hunt launch banner, free-trial CTAs, and a Slack community section — reusing the existing design-system components.
-      - Added automated specs across the contacts module (service, controller, concurrency and claim-recovery cases) as part of the team's testing standards.
-      # TODO: add one quantified-impact bullet if you have a number (contacts imported, onboarding completion lift, etc.).
+      - Shipped features and fixes across three production repositories, spanning onboarding, contact import, inbox, enrichment, and analytics.
+      - "Unified the review-and-select step across all four contact import paths (CSV, natural language search, Sales Navigator URL, and post engagement) behind one shared component, so users confirm exactly who to import before any contact is created or charged."
+      - Built the backing import API in TypeScript with a scrape-only preview endpoint that stages candidates without inserting them, and hardened it with a single-use atomic claim plus claim recovery so a retried or duplicated request cannot create duplicate contacts.
+      - Cut roughly 30 phantom analytics events per minute of enrichment per user by scoping a background poll's event emission to foreground fetches, protecting the accuracy of the exact metric the feature was measured by.
+      - Raised diff coverage on the enrichment progress work from 36 percent to 100 percent against the CI gate by extracting tick-supersession rules out of a 6,500-line component into pure, unit-tested helpers.
+      - "Rebuilt inbox message-thread scrolling as a scroll state machine (prepend-restore, bottom-pinning, and paginated load-more), proven by four regression tests each confirmed failing against the pre-fix code, with the full inbox suite at 42 of 42."
+      - Built the app half of a three-repository first-touch attribution pipeline (marketing site to Next.js edge middleware to API), persisting signup source at all three account-creation sites including the two Google paths that carry 51 percent of recent signups.
+      - Launched the go-to-market surfaces for the team's Product Hunt launch on the Next.js marketing site, including the launch banner, free-trial CTAs, and a Slack community section, reusing the existing design-system components.
+      - Built onboarding-checklist UX in the React and TypeScript product app, including an impersonation-safe, cross-tab gate that defers premature step check-off until the user actually opens the tab.
 
 projects:
   - name: M.I.L.E.S.

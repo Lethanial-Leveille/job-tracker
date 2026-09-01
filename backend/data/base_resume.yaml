@@ -27,13 +27,6 @@ education:
     gpa: 3.77 / 4.00
     honors:
       - Dean's List
-    coursework:
-      - Data Structures and Algorithms
-      - Digital Logic
-      - Computer Organization
-      - Software Engineering
-      - Discrete Structures
-      - Linear Algebra
 
 skills:
   - category: Languages
@@ -51,9 +44,10 @@ experience:
     location: Singapore
     dates: June 2026 – July 2026
     bullets:
-      - Shipped a Sales Navigator preview-and-import flow on the contact-ingestion API in TypeScript, letting users review and select staged candidates before any records are created.
-      - Hardened the import pipeline against double-submits with a single-use atomic claim plus claim recovery and concurrency tests, so a retried request cannot create duplicate contacts.
-      - Built onboarding-checklist UX in the React/TypeScript product app with an impersonation-safe, cross-tab gate, and added specs across the contacts module to the team's testing standards.
+      - Unified all four contact import paths behind one shared review component, backed by a preview endpoint and single use atomic claim so retried requests cannot create duplicate contacts.
+      - Built the app side of a three repository first touch attribution pipeline, persisting signup source at all three account creation sites including the Google paths carrying 51 percent of signups.
+      - Rebuilt inbox thread scrolling as a scroll state machine handling prepend restore, bottom pinning, and paginated load more, covered by regression tests verified to fail before the fix.
+      - Scoped a background poll's event emission to foreground fetches, cutting roughly 30 spurious analytics events per user per minute and protecting the metric the feature was judged on.
 
 projects:
   - name: M.I.L.E.S.
