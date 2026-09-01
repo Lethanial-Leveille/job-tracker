@@ -72,6 +72,7 @@ experience:
       - Built the app half of a three-repository first-touch attribution pipeline (marketing site to Next.js edge middleware to API), persisting signup source at all three account-creation sites including the two Google paths that carry 51 percent of recent signups.
       - Launched the go-to-market surfaces for the team's Product Hunt launch on the Next.js marketing site, including the launch banner, free-trial CTAs, and a Slack community section, reusing the existing design-system components.
       - Built onboarding-checklist UX in the React and TypeScript product app, including an impersonation-safe, cross-tab gate that defers premature step check-off until the user actually opens the tab.
+      - Added automated specs across the contacts module (service, controller, concurrency, and claim-recovery cases) as part of the team's testing standards.
 
 projects:
   - name: M.I.L.E.S.
