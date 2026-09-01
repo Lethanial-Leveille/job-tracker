@@ -1,20 +1,18 @@
 import { useMemo, useState } from "react";
-import type { Application, Priority } from "../../lib/types";
+import type { Application } from "../../lib/types";
 import type { ApplicationsState } from "../../lib/useApplications";
 import { deleteApplication } from "../../lib/api";
 import { ApplicationsTable } from "./ApplicationsTable";
 import {
   ApplicationsToolbar,
-  type SortKey,
-  type TypeFilter,
+  matchesStatusFilter,
+  type StatusFilter,
 } from "./ApplicationsToolbar";
 import { ApplicationFormModal } from "./ApplicationFormModal";
 import { ApplicationDetail } from "./ApplicationDetail";
 import { AddOpportunity } from "./AddOpportunity";
 import { TailorPanel } from "./TailorPanel";
 import { Drawer } from "../layout/Drawer";
-
-const PRIORITY_RANK: Record<Priority, number> = { high: 0, medium: 1, low: 2 };
 
 // Deadline ascending with nulls last.
 function byDeadline(a: Application, b: Application): number {
@@ -34,8 +32,7 @@ export function ApplicationsPage({
   error,
   refetch,
 }: ApplicationsState) {
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [sort, setSort] = useState<SortKey>("deadline");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
 
   const [adding, setAdding] = useState(false); // full-screen add view
@@ -49,21 +46,16 @@ export function ApplicationsPage({
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
     const filtered = applications.filter((app) => {
-      if (typeFilter !== "all" && app.type !== typeFilter) return false;
       if (query) {
         const haystack = `${app.organization} ${app.role_or_program}`.toLowerCase();
         if (!haystack.includes(query)) return false;
       }
-      return true;
+      return matchesStatusFilter(app.status, statusFilter);
     });
-    return [...filtered].sort((a, b) => {
-      if (sort === "priority") {
-        const rank = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
-        return rank !== 0 ? rank : byDeadline(a, b);
-      }
-      return byDeadline(a, b);
-    });
-  }, [applications, typeFilter, sort, search]);
+    // Deadline order, always. Sorting by priority went away with the priority
+    // field, and nothing else competes with "what is due next".
+    return [...filtered].sort(byDeadline);
+  }, [applications, statusFilter, search]);
 
   // Resolve the selected/tailoring rows from the live list so they stay fresh
   // after a refetch.
@@ -102,7 +94,7 @@ export function ApplicationsPage({
             </span>
           </div>
           <p className="mt-1.5 text-sm text-ink-muted">
-            Every internship and scholarship you're tracking, in one pipeline.
+            Every internship you're tracking, in one pipeline.
           </p>
         </div>
 
@@ -126,10 +118,8 @@ export function ApplicationsPage({
       </header>
 
       <ApplicationsToolbar
-        typeFilter={typeFilter}
-        onTypeFilter={setTypeFilter}
-        sort={sort}
-        onSort={setSort}
+        statusFilter={statusFilter}
+        onStatusFilter={setStatusFilter}
       />
 
       {loading ? (

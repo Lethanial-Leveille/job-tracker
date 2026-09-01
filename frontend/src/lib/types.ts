@@ -3,6 +3,10 @@
 // if a column is added or an enum value changes on the backend, update it here
 // too. These are the exact shapes GET /applications returns.
 
+// "scholarship" is DORMANT: the tracker went jobs-only, so nothing in the UI
+// creates or filters by it any more. The value stays in the union because the
+// backend enum still has it and older rows may still carry it — dropping it
+// here would make those rows fail to typecheck for no gain.
 export type ApplicationType = "internship" | "scholarship";
 
 export type ApplicationStatus =

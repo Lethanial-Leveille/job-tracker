@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Application, ResumeVersion } from "../../lib/types";
-import { monogram, statusLabel, priorityLabel, typeLabel } from "../../lib/format";
+import { monogram, statusLabel } from "../../lib/format";
 import { listResumeVersions, renderResume } from "../../lib/api";
 import { DrawerHeader } from "../layout/Drawer";
 
@@ -91,7 +91,6 @@ export function ApplicationDetail({
       <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 py-5">
         {/* Chips */}
         <div className="flex flex-wrap gap-2">
-          <Pill>{typeLabel(application.type)}</Pill>
           <span
             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
               isOffer
@@ -102,7 +101,6 @@ export function ApplicationDetail({
             <span className={`size-1.5 rounded-full ${isOffer ? "bg-ink" : "bg-ink-soft"}`} />
             {statusLabel(application.status)}
           </span>
-          <Pill>Priority: {priorityLabel(application.priority)}</Pill>
         </div>
 
         {/* Facts */}
@@ -245,14 +243,6 @@ export function ApplicationDetail({
         </div>
       </div>
     </>
-  );
-}
-
-function Pill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center rounded-full border border-line-strong bg-surface-hover px-2.5 py-1 text-xs font-medium text-ink-soft">
-      {children}
-    </span>
   );
 }
 

@@ -4,9 +4,8 @@ import type {
   Application,
   ApplicationStatus,
   ApplicationType,
-  Priority,
 } from "../../lib/types";
-import { priorityLabel, statusLabel } from "../../lib/format";
+import { statusLabel } from "../../lib/format";
 import { deleteApplication, updateApplication } from "../../lib/api";
 
 // The edit modal for an existing application. Creating is handled by the
@@ -38,7 +37,6 @@ interface FormState {
   role_or_program: string;
   posting_url: string;
   status: ApplicationStatus;
-  priority: Priority;
   deadline: string; // "" means no deadline
   notes: string;
 }
@@ -52,7 +50,6 @@ function formFromApplication(app: Application): FormState {
     role_or_program: app.role_or_program,
     posting_url: app.posting_url,
     status: app.status,
-    priority: app.priority,
     deadline: app.deadline ?? "",
     notes: app.notes ?? "",
   };
@@ -77,7 +74,6 @@ const STATUS_OPTIONS: ApplicationStatus[] = [
   "missed_deadline",
 ];
 
-const PRIORITY_OPTIONS: Priority[] = ["low", "medium", "high"];
 
 const labelClass =
   "flex flex-col gap-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-muted";
@@ -214,7 +210,6 @@ export function ApplicationFormModal({
                 className={fieldClass}
               >
                 <option value="internship">Job</option>
-                <option value="scholarship">Scholarship</option>
               </select>
             </label>
 
@@ -229,22 +224,6 @@ export function ApplicationFormModal({
                 {STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>
                     {statusLabel(s)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className={labelClass}>
-              Priority
-              <select
-                name="priority"
-                value={form.priority}
-                onChange={handleChange}
-                className={fieldClass}
-              >
-                {PRIORITY_OPTIONS.map((p) => (
-                  <option key={p} value={p}>
-                    {priorityLabel(p)}
                   </option>
                 ))}
               </select>

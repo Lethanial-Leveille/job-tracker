@@ -3,8 +3,6 @@ import type { Application } from "../../lib/types";
 import { monogram } from "../../lib/format";
 import { ROW_GRID } from "./grid";
 import { StatusBadge } from "./StatusBadge";
-import { TypeBadge } from "./TypeBadge";
-import { PriorityIndicator } from "./PriorityIndicator";
 import { DeadlineCell } from "./DeadlineCell";
 
 interface Props {
@@ -56,16 +54,10 @@ export function ApplicationRow({ application, selected, onSelect }: Props) {
         {application.role_or_program}
       </span>
 
-      {/* Type */}
-      <TypeBadge type={application.type} />
-
       {/* Status */}
       <div>
         <StatusBadge status={application.status} />
       </div>
-
-      {/* Priority */}
-      <PriorityIndicator priority={application.priority} />
 
       {/* Deadline */}
       <DeadlineCell deadline={application.deadline} />

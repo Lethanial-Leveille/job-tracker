@@ -8,14 +8,7 @@ interface Props {
   onSelect: (id: string) => void;
 }
 
-const COLUMNS = [
-  "Organization",
-  "Role",
-  "Type",
-  "Status",
-  "Priority",
-  "Deadline",
-];
+const COLUMNS = ["Organization", "Role", "Status", "Deadline"];
 
 // The table container is a structural frame: crisp rounding, a real border, a
 // dark surface. The header row is muted uppercase labels — chrome, not data.

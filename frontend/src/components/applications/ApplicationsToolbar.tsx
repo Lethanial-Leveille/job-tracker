@@ -1,29 +1,40 @@
-import type { ApplicationType } from "../../lib/types";
+import type { ApplicationStatus } from "../../lib/types";
 
-export type TypeFilter = "all" | ApplicationType;
-export type SortKey = "deadline" | "priority";
+// What the list can be narrowed to. The point of this control is the question
+// Lee actually asks the list: "which of these have I already applied to?"
+export type StatusFilter = "all" | "not_applied" | "applied";
 
-interface Props {
-  typeFilter: TypeFilter;
-  onTypeFilter: (value: TypeFilter) => void;
-  sort: SortKey;
-  onSort: (value: SortKey) => void;
+// "Not applied" is the pre-submit set: found it, drafting for it, ready to send.
+// Everything from `applied` onward means it went out the door, however it ended.
+// `missed_deadline` is in NEITHER bucket on purpose — it was never applied to and
+// it can never be applied to, so it would be noise in the actionable list. It is
+// still reachable under "All".
+const NOT_APPLIED: ApplicationStatus[] = ["discovered", "drafting", "ready"];
+
+export function matchesStatusFilter(
+  status: ApplicationStatus,
+  filter: StatusFilter,
+): boolean {
+  if (filter === "all") return true;
+  const isPreSubmit = NOT_APPLIED.includes(status);
+  if (filter === "not_applied") return isPreSubmit;
+  return !isPreSubmit && status !== "missed_deadline";
 }
 
-const TYPE_TABS: { value: TypeFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "internship", label: "Jobs" },
-  { value: "scholarship", label: "Scholarships" },
-];
+interface Props {
+  statusFilter: StatusFilter;
+  onStatusFilter: (value: StatusFilter) => void;
+}
 
-const SORT_TABS: { value: SortKey; label: string }[] = [
-  { value: "deadline", label: "Deadline" },
-  { value: "priority", label: "Priority" },
+const STATUS_TABS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "not_applied", label: "Not applied" },
+  { value: "applied", label: "Applied" },
 ];
 
 // A small segmented control. The active segment is a grey lift, not purple —
-// filtering and sorting are not on the accent's short list. These controls
-// operate on real loaded data, so they genuinely work.
+// filtering is not on the accent's short list. These controls operate on real
+// loaded data, so they genuinely work.
 function Segmented<T extends string>({
   options,
   value,
@@ -34,14 +45,14 @@ function Segmented<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="inline-flex rounded-interactive border border-line bg-base p-1">
+    <div className="inline-flex items-center gap-1 rounded-interactive border border-line bg-surface p-1">
       {options.map((opt) => (
         <button
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            value === opt.value
+          className={`rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors ${
+            opt.value === value
               ? "bg-surface-hover text-ink"
               : "text-ink-muted hover:text-ink-soft"
           }`}
@@ -53,25 +64,14 @@ function Segmented<T extends string>({
   );
 }
 
-export function ApplicationsToolbar({
-  typeFilter,
-  onTypeFilter,
-  sort,
-  onSort,
-}: Props) {
+export function ApplicationsToolbar({ statusFilter, onStatusFilter }: Props) {
   return (
     <div className="flex items-center justify-between gap-4">
       <Segmented
-        options={TYPE_TABS}
-        value={typeFilter}
-        onChange={onTypeFilter}
+        options={STATUS_TABS}
+        value={statusFilter}
+        onChange={onStatusFilter}
       />
-      <div className="flex items-center gap-3">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
-          Sort
-        </span>
-        <Segmented options={SORT_TABS} value={sort} onChange={onSort} />
-      </div>
     </div>
   );
 }

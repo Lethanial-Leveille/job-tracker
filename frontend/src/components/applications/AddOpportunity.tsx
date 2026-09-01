@@ -3,10 +3,9 @@ import type {
   ApplicationStatus,
   ApplicationType,
   ParsedJob,
-  Priority,
 } from "../../lib/types";
 import { createApplication, parseJobDescription } from "../../lib/api";
-import { statusLabel, priorityLabel } from "../../lib/format";
+import { statusLabel } from "../../lib/format";
 
 // The full-screen "Add an opportunity" flow that replaces the create modal.
 // Three steps: Input (paste the posting) -> Parse (Claude reads it) -> Review
@@ -27,7 +26,6 @@ const STATUS_OPTIONS: ApplicationStatus[] = [
   "ready",
   "applied",
 ];
-const PRIORITY_OPTIONS: Priority[] = ["low", "medium", "high"];
 
 interface ReviewForm {
   type: ApplicationType;
@@ -35,7 +33,6 @@ interface ReviewForm {
   role_or_program: string;
   posting_url: string;
   status: ApplicationStatus;
-  priority: Priority;
   deadline: string;
   notes: string;
 }
@@ -46,10 +43,22 @@ const BLANK: ReviewForm = {
   role_or_program: "",
   posting_url: "",
   status: "discovered",
-  priority: "medium",
   deadline: "",
   notes: "",
 };
+
+// Postings often carry no deadline ("rolling", "until filled"), and an empty
+// deadline means the row sorts last and quietly falls off the bottom of the
+// list. So default to a self-imposed one a week out. Local time, not UTC:
+// toISOString() would roll the date backwards for anyone west of Greenwich,
+// which is every evening here.
+function defaultDeadline(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${day}`;
+}
 
 const labelClass =
   "flex flex-col gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted";
@@ -61,7 +70,10 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
   const [pasteText, setPasteText] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedJob | null>(null);
-  const [form, setForm] = useState<ReviewForm>(BLANK);
+  const [form, setForm] = useState<ReviewForm>(() => ({
+    ...BLANK,
+    deadline: defaultDeadline(),
+  }));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -77,7 +89,7 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
         type: p.type,
         organization: p.organization,
         role_or_program: p.role_or_program,
-        deadline: p.deadline ?? "",
+        deadline: p.deadline ?? defaultDeadline(),
       }));
       setStep("review");
     } catch (err: unknown) {
@@ -98,7 +110,6 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
         role_or_program: form.role_or_program,
         posting_url: form.posting_url,
         status: form.status,
-        priority: form.priority,
         deadline: form.deadline === "" ? null : form.deadline,
         notes: form.notes === "" ? null : form.notes,
         // Carry the parser's extras + the raw JD so the detail view can surface
@@ -155,7 +166,7 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
               Add an opportunity
             </h1>
             <p className="mx-auto mt-3.5 max-w-[460px] text-balance text-center text-[15px] leading-relaxed text-ink-soft">
-              Paste a job or scholarship description, or drop a link. Prowl reads
+              Paste a job description, or drop a link. Prowl reads
               it and fills in the details for you.
             </p>
 
@@ -163,7 +174,7 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               rows={11}
-              placeholder="Paste the full job or scholarship description here…"
+              placeholder="Paste the full job description here…"
               className="mt-9 min-h-[280px] w-full resize-y rounded-[14px] border border-line-strong bg-surface/60 px-6 py-5 text-sm leading-relaxed text-ink placeholder:text-ink-muted focus:border-accent focus:shadow-glow focus:outline-none"
             />
 
@@ -260,8 +271,7 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
                     className={fieldClass}
                   >
                     <option value="internship">Job</option>
-                    <option value="scholarship">Scholarship</option>
-                  </select>
+                      </select>
                 </label>
               </div>
 
@@ -296,20 +306,6 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
                     {STATUS_OPTIONS.map((s) => (
                       <option key={s} value={s}>
                         {statusLabel(s)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={labelClass}>
-                  Priority
-                  <select
-                    value={form.priority}
-                    onChange={(e) => set("priority", e.target.value as Priority)}
-                    className={fieldClass}
-                  >
-                    {PRIORITY_OPTIONS.map((p) => (
-                      <option key={p} value={p}>
-                        {priorityLabel(p)}
                       </option>
                     ))}
                   </select>

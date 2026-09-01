@@ -2,7 +2,7 @@
 // Keeping them here (not inline in components) means the label mappings are
 // testable and consistent everywhere.
 
-import type { ApplicationStatus, ApplicationType, Priority } from "./types";
+import type { ApplicationStatus } from "./types";
 
 // Two-letter avatar monogram from an org name: first letters of the first two
 // words, or the first two letters of a single word.
@@ -13,21 +13,11 @@ export function monogram(organization: string): string {
   return (words[0][0] + words[1][0]).toUpperCase();
 }
 
-// The label mapping agreed for v1: our enum stores "internship"; the UI shows
-// "Job". "scholarship" shows as-is, capitalized.
-export function typeLabel(type: ApplicationType): string {
-  return type === "internship" ? "Job" : "Scholarship";
-}
-
 // Humanize a status enum into sentence case: "technical_interview" ->
 // "Technical interview". We show the real granular status, never a lossy bucket.
 export function statusLabel(status: ApplicationStatus): string {
   const spaced = status.replace(/_/g, " ");
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
-export function priorityLabel(priority: Priority): string {
-  return priority.charAt(0).toUpperCase() + priority.slice(1);
 }
 
 export type Urgency = "overdue" | "soon" | "normal";
