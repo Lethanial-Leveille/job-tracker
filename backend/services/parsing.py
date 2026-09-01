@@ -100,30 +100,54 @@ Rules:
 
 
 def classify_role_families(
-    titles: list[str], settings: Settings
+    titles: list[str], settings: Settings, max_rounds: int = 3
 ) -> dict[int, str] | None:
     """Map each title's position to a role family, or None if Claude can't.
 
-    Returns a dict keyed by the title's index in `titles`. Any index the model
-    omits is simply absent, so the caller leaves that row alone rather than
-    guessing — an unclassified row is better than a wrongly classified one.
+    Returns a dict keyed by the title's index in `titles`. Any index still
+    missing after `max_rounds` is simply absent, so the caller leaves that row
+    alone rather than guessing — an unclassified row beats a wrong one.
+
+    Why the retry loop: the model sometimes answers for only part of the list and
+    stops cleanly (stop_reason "end_turn", well inside max_tokens), so this is
+    not truncation and a bigger token budget does not fix it. Observed live: 16
+    titles in, 8 answers back, indices 0-7. Each round re-asks ONLY for the
+    titles still missing, using their ORIGINAL indices, so answers always map
+    straight back and a partial reply costs one cheap extra call instead of a
+    half-filled table.
     """
     if not titles:
         return {}
 
     client = Anthropic(api_key=settings.anthropic_api_key)
-    numbered = "\n".join(f"{i}. {t}" for i, t in enumerate(titles))
-    response = client.messages.parse(
-        model=settings.anthropic_model,
-        max_tokens=2048,
-        system=_CLASSIFY_PROMPT,
-        messages=[{"role": "user", "content": numbered}],
-        output_format=_ClassifiedRoles,
-    )
-    result = response.parsed_output
-    if result is None:
-        return None
-    # Drop any index the model invented; only real rows can be updated.
-    return {
-        r.index: r.role_family for r in result.roles if 0 <= r.index < len(titles)
-    }
+    resolved: dict[int, str] = {}
+
+    for round_number in range(max_rounds):
+        missing = [i for i in range(len(titles)) if i not in resolved]
+        if not missing:
+            break
+
+        # Number by the ORIGINAL index, not by position in this round's subset,
+        # so a second-round answer needs no re-mapping to be applied.
+        numbered = "\n".join(f"{i}. {titles[i]}" for i in missing)
+        response = client.messages.parse(
+            model=settings.anthropic_model,
+            max_tokens=2048,
+            system=_CLASSIFY_PROMPT,
+            messages=[{"role": "user", "content": numbered}],
+            output_format=_ClassifiedRoles,
+        )
+        result = response.parsed_output
+        if result is None:
+            # A refusal on the first round means nothing to report; on a later
+            # round, keep what earlier rounds already resolved.
+            if round_number == 0:
+                return None
+            break
+
+        for entry in result.roles:
+            # Ignore an index the model invented or already answered.
+            if entry.index in missing:
+                resolved[entry.index] = entry.role_family
+
+    return resolved
