@@ -4,7 +4,9 @@ import type {
   Application,
   ApplicationStatus,
   ApplicationType,
+  RoleFamily,
 } from "../../lib/types";
+import { ROLE_FAMILIES } from "../../lib/types";
 import { statusLabel } from "../../lib/format";
 import { deleteApplication, updateApplication } from "../../lib/api";
 
@@ -35,6 +37,10 @@ interface FormState {
   type: ApplicationType;
   organization: string;
   role_or_program: string;
+  // "" means the row has no family yet (created before classification existed).
+  // Kept as a distinct empty option rather than defaulted, so opening an old row
+  // to edit one field cannot silently assign it a family Lee never chose.
+  role_family: RoleFamily | "";
   posting_url: string;
   status: ApplicationStatus;
   deadline: string; // "" means no deadline
@@ -48,6 +54,7 @@ function formFromApplication(app: Application): FormState {
     type: app.type,
     organization: app.organization,
     role_or_program: app.role_or_program,
+    role_family: app.role_family ?? "",
     posting_url: app.posting_url,
     status: app.status,
     deadline: app.deadline ?? "",
@@ -111,6 +118,9 @@ export function ApplicationFormModal({
       ...form,
       deadline: form.deadline === "" ? null : form.deadline,
       notes: form.notes === "" ? null : form.notes,
+      // "" is the form's "not set"; the API wants null. Sending "" would fail
+      // the RoleFamily literal and 422 the whole save.
+      role_family: form.role_family === "" ? null : form.role_family,
     };
 
     setSaving(true);
@@ -224,6 +234,23 @@ export function ApplicationFormModal({
                 {STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>
                     {statusLabel(s)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className={labelClass}>
+              Role family
+              <select
+                name="role_family"
+                value={form.role_family}
+                onChange={handleChange}
+                className={fieldClass}
+              >
+                <option value="">Not set</option>
+                {ROLE_FAMILIES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
                   </option>
                 ))}
               </select>

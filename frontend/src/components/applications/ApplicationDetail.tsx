@@ -105,6 +105,10 @@ export function ApplicationDetail({
 
         {/* Facts */}
         <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+          <Fact
+            label="Role"
+            value={application.role_family ?? application.role_or_program}
+          />
           <Fact label="Deadline" value={fmt(application.deadline)} />
           <Fact label="Added" value={fmt(application.created_at)} />
           <div className="col-span-2">

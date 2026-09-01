@@ -27,6 +27,23 @@ export type ApplicationStatus =
 
 export type Priority = "low" | "medium" | "high";
 
+// The canonical role families. Mirror of backend/schemas/roles.py — kept in sync
+// by hand like the rest of this file. Postings title the same job many ways, so
+// the parser classifies each into one of these and the list renders it, while
+// role_or_program keeps the title exactly as posted.
+export const ROLE_FAMILIES = [
+  "Software Engineer Intern",
+  "Embedded Engineer Intern",
+  "AI and ML Engineer Intern",
+  "Frontend Engineer Intern",
+  "Backend Engineer Intern",
+  "Data Engineer Intern",
+  "Hardware Engineer Intern",
+  "Other",
+] as const;
+
+export type RoleFamily = (typeof ROLE_FAMILIES)[number];
+
 // The parser's extras with no column of their own, stored in the jd_parsed blob
 // and surfaced in the detail drawer's "From the posting" section.
 export interface JdParsed {
@@ -41,6 +58,9 @@ export interface Application {
   type: ApplicationType;
   organization: string;
   role_or_program: string;
+  // The normalized role. Null on rows created before the parser started
+  // classifying, so every read site needs a fallback to role_or_program.
+  role_family: RoleFamily | null;
   posting_url: string;
   status: ApplicationStatus;
   priority: Priority;
@@ -59,6 +79,7 @@ export interface ParsedJob {
   type: ApplicationType;
   organization: string;
   role_or_program: string;
+  role_family: RoleFamily;
   deadline: string | null; // ISO date or null if the posting didn't state one
   salary: string | null;
   location: string | null;
@@ -76,6 +97,7 @@ export interface ApplicationCreateInput {
   organization: string;
   role_or_program: string;
   posting_url: string;
+  role_family?: RoleFamily | null;
   status?: ApplicationStatus;
   priority?: Priority;
   deadline?: string | null;

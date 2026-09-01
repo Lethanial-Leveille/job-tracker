@@ -49,9 +49,11 @@ export function ApplicationRow({ application, selected, onSelect }: Props) {
         </span>
       </div>
 
-      {/* Role or program */}
+      {/* Role: the normalized family, so the column scans cleanly. Rows added
+          before classification existed have none, so fall back to the posted
+          title rather than showing an empty cell. */}
       <span className="truncate text-sm text-ink-soft">
-        {application.role_or_program}
+        {application.role_family ?? application.role_or_program}
       </span>
 
       {/* Status */}

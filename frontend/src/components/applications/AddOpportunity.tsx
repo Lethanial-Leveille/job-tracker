@@ -3,7 +3,9 @@ import type {
   ApplicationStatus,
   ApplicationType,
   ParsedJob,
+  RoleFamily,
 } from "../../lib/types";
+import { ROLE_FAMILIES } from "../../lib/types";
 import { createApplication, parseJobDescription } from "../../lib/api";
 import { statusLabel } from "../../lib/format";
 
@@ -31,6 +33,7 @@ interface ReviewForm {
   type: ApplicationType;
   organization: string;
   role_or_program: string;
+  role_family: RoleFamily;
   posting_url: string;
   status: ApplicationStatus;
   deadline: string;
@@ -41,6 +44,9 @@ const BLANK: ReviewForm = {
   type: "internship",
   organization: "",
   role_or_program: "",
+  // Fourteen of the first sixteen applications were this, so it is the honest
+  // default for a row added by hand. The parser overwrites it on the paste path.
+  role_family: "Software Engineer Intern",
   posting_url: "",
   status: "discovered",
   deadline: "",
@@ -89,6 +95,7 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
         type: p.type,
         organization: p.organization,
         role_or_program: p.role_or_program,
+        role_family: p.role_family,
         deadline: p.deadline ?? defaultDeadline(),
       }));
       setStep("review");
@@ -110,6 +117,7 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
         role_or_program: form.role_or_program,
         posting_url: form.posting_url,
         status: form.status,
+        role_family: form.role_family,
         deadline: form.deadline === "" ? null : form.deadline,
         notes: form.notes === "" ? null : form.notes,
         // Carry the parser's extras + the raw JD so the detail view can surface
@@ -306,6 +314,20 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
                     {STATUS_OPTIONS.map((s) => (
                       <option key={s} value={s}>
                         {statusLabel(s)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={labelClass}>
+                  Role family
+                  <select
+                    value={form.role_family}
+                    onChange={(e) => set("role_family", e.target.value as RoleFamily)}
+                    className={fieldClass}
+                  >
+                    {ROLE_FAMILIES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
                       </option>
                     ))}
                   </select>
