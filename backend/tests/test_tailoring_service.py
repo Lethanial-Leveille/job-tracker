@@ -23,7 +23,7 @@ from schemas.resume import (
     Resume,
     SkillGroup,
 )
-from services.resume_render import count_pages
+from services.resume_render import count_lines_containing, count_pages
 from services.tailoring import fit_to_one_page, tailor_resume
 
 
@@ -169,3 +169,57 @@ def test_trimming_stops_rather_than_gutting_the_resume() -> None:
     assert len(fitted.projects) == 2
     assert all(len(p.bullets) == 2 for p in fitted.projects)
     assert len(fitted.experience[0].bullets) == 2
+
+
+def test_coursework_is_trimmed_to_a_single_line() -> None:
+    """Six real course names wrap to two lines; the tail is dropped until they fit.
+
+    Kept courses stay in their original order, because tailoring returns
+    coursework ranked by relevance to the job and dropping from the end is what
+    makes the survivors the relevant ones.
+    """
+    courses = [
+        "Data Structures and Algorithms",
+        "Software Engineering",
+        "Computer Organization",
+        "Discrete Structures",
+        "Linear Algebra",
+        "Digital Logic",
+    ]
+    resume = _resume_with({"experience": 2, "project": 2}, projects=2)
+    resume.education[0].coursework = list(courses)
+    assert count_lines_containing(resume, "Coursework") > 1  # the fixture must wrap
+
+    fitted, cuts = fit_to_one_page(resume)
+
+    assert count_lines_containing(fitted, "Coursework") == 1
+    kept = fitted.education[0].coursework
+    assert kept == courses[: len(kept)], "surviving courses must keep their order"
+    assert any("coursework" in c for c in cuts)
+
+
+def test_coursework_that_already_fits_is_left_alone() -> None:
+    resume = _resume_with({"experience": 2, "project": 2}, projects=2)
+    resume.education[0].coursework = ["Digital Logic", "Linear Algebra"]
+
+    fitted, cuts = fit_to_one_page(resume)
+
+    assert fitted.education[0].coursework == ["Digital Logic", "Linear Algebra"]
+    assert cuts == []
+
+
+def test_professional_layout_hides_coursework_so_nothing_is_trimmed() -> None:
+    """The professional template never renders coursework, so the line count is 0.
+
+    Without the zero case the trim loop would have no wrapped line to shrink and
+    could spin, so this pins that it simply does nothing.
+    """
+    resume = _resume_with({"experience": 2, "project": 2}, projects=2)
+    resume.career_stage = "professional"
+    resume.education[0].coursework = ["A" * 60] * 8
+
+    fitted, cuts = fit_to_one_page(resume)
+
+    assert count_lines_containing(fitted, "Coursework") == 0
+    assert fitted.education[0].coursework == ["A" * 60] * 8
+    assert cuts == []

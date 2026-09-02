@@ -43,6 +43,40 @@ def render_resume_pdf(resume: Resume) -> bytes:
     return HTML(string=html).write_pdf(stylesheets=[CSS(filename=str(_CSS_PATH))])
 
 
+def _walk(box):
+    """Every box in a laid-out tree, depth first."""
+    yield box
+    for child in getattr(box, "children", []):
+        yield from _walk(child)
+
+
+def _text_of(box) -> str:
+    return "".join(b.text for b in _walk(box) if type(b).__name__ == "TextBox")
+
+
+def count_lines_containing(resume: Resume, needle: str) -> int:
+    """How many rendered LINES the block containing `needle` occupies.
+
+    Same idea as count_pages, one level down. WeasyPrint's laid-out tree holds a
+    LineBox per visual line, so this is the real wrapped line count — the only
+    way to know, since whether a list of course names wraps depends on font
+    metrics and the exact strings, not on how many items there are.
+
+    Returns 0 when nothing matches, which includes the professional layout, where
+    coursework is not rendered at all.
+    """
+    html = _env.get_template("resume.html").render(r=resume)
+    document = HTML(string=html).render(stylesheets=[CSS(filename=str(_CSS_PATH))])
+    for page in document.pages:
+        for box in _walk(page._page_box):
+            children = getattr(box, "children", [])
+            # A block whose children are all LineBoxes is a run of wrapped text.
+            if children and all(type(c).__name__ == "LineBox" for c in children):
+                if needle in _text_of(box):
+                    return len(children)
+    return 0
+
+
 def count_pages(resume: Resume) -> int:
     """How many pages this Resume actually renders to.
 

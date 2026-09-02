@@ -27,7 +27,7 @@ from anthropic import Anthropic
 
 from config import Settings
 from schemas.resume import Resume
-from services.resume_render import count_pages
+from services.resume_render import count_lines_containing, count_pages
 
 logger = logging.getLogger(__name__)
 
@@ -143,12 +143,48 @@ def tailor_resume(
 _MIN_BULLETS_PER_ENTRY = 2
 _MIN_PROJECTS = 2
 
+# Coursework is a supporting detail, not a selling point, so it gets one line and
+# no more. Six courses wrapped to two on a real tailored resume, which spends a
+# whole line of the page on the least specific content it carries.
+_MAX_COURSEWORK_LINES = 1
+# Never trim it away to nothing here — an empty coursework line is the page-fit
+# loop's decision to make, not this one's.
+_MIN_COURSEWORK = 1
+
+
+def _trim_coursework_to_one_line(resume: Resume) -> list[str]:
+    """Drop the least relevant courses until the line stops wrapping. Mutates.
+
+    Tailoring returns coursework already ordered by relevance to the job, so the
+    courses at the end are the ones the job cares least about — the same logic
+    that makes the last bullet the right one to cut.
+
+    Measured rather than counted: whether six courses wrap depends on how long
+    their names are ("Data Structures and Algorithms" is three times the width of
+    "Digital Logic"), so a fixed cap of four would be wrong in both directions.
+    """
+    cuts: list[str] = []
+    while (
+        count_lines_containing(resume, "Coursework") > _MAX_COURSEWORK_LINES
+        and sum(len(e.coursework) for e in resume.education) > _MIN_COURSEWORK
+    ):
+        # Take from whichever entry has the most, so two schools stay balanced.
+        target = max(resume.education, key=lambda e: len(e.coursework))
+        if not target.coursework:
+            break
+        dropped = target.coursework.pop()
+        cuts.append(f"dropped coursework: {dropped}")
+    return cuts
+
 
 def fit_to_one_page(resume: Resume) -> tuple[Resume, list[str]]:
     """Trim `resume` until it renders to one page. Returns the copy and the cuts.
 
     Cut order, cheapest loss first:
 
+    0. Coursework down to a single line, applied ALWAYS rather than only on
+       overflow: it is the least specific content on the page and does not earn
+       a second line even when there is room.
     1. The LAST bullet of whichever entry has the most, down to a floor of two.
        Last is principled rather than arbitrary: tailoring returns each entry's
        bullets in its own relevance order, strongest first, so the last bullet of
@@ -165,6 +201,9 @@ def fit_to_one_page(resume: Resume) -> tuple[Resume, list[str]]:
     """
     work = resume.model_copy(deep=True)
     cuts: list[str] = []
+
+    # Always, whether or not the resume overflows: coursework earns one line.
+    cuts.extend(_trim_coursework_to_one_line(work))
 
     while count_pages(work) > 1:
         # 1. Trim the longest bullet list that is still above the floor. The sort
