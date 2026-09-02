@@ -33,13 +33,15 @@ education:
     gpa: 3.77 / 4.00
     honors:
       - Dean's List
+    # Only courses taken or currently being taken. Digital Logic and Intro to
+    # Software Engineering are Spring 2027 and deliberately omitted: a resume
+    # should not list courses that have not started. Ordered most relevant first,
+    # because the one-line trim in services/tailoring.py cuts from the end.
     coursework:
       - Data Structures and Algorithms
-      - Digital Logic
       - Computer Organization
-      - Software Engineering
       - Discrete Structures
-      - Linear Algebra
+      - Computational Linear Algebra
 
 skills:
   # Kept close to your current resume. See my message for extra technologies I
