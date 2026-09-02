@@ -43,6 +43,23 @@ def render_resume_pdf(resume: Resume) -> bytes:
     return HTML(string=html).write_pdf(stylesheets=[CSS(filename=str(_CSS_PATH))])
 
 
+def count_pages(resume: Resume) -> int:
+    """How many pages this Resume actually renders to.
+
+    The real, post-layout count: WeasyPrint lays the whole document out before
+    writing any bytes, so `document.pages` is measured rather than estimated.
+    Nothing else can answer this — line count depends on font metrics, wrapping,
+    and margins, so no word or character budget predicts it (a 27-word bullet and
+    a 24-word one routinely occupy the same three lines).
+
+    Rendering the layout is the expensive half of producing a PDF, but it costs
+    no API call and runs in a few hundred milliseconds, which is what makes a
+    measure-then-trim loop practical.
+    """
+    html = _env.get_template("resume.html").render(r=resume)
+    return len(HTML(string=html).render(stylesheets=[CSS(filename=str(_CSS_PATH))]).pages)
+
+
 def load_master(path: str | Path) -> Resume:
     """Load and validate a master resume YAML file into a Resume."""
     data = yaml.safe_load(Path(path).read_text())

@@ -21,10 +21,15 @@ because it can't write content; the tailorer can't invent because it's told not
 to and only ever sees the master's own facts.
 """
 
+import logging
+
 from anthropic import Anthropic
 
 from config import Settings
 from schemas.resume import Resume
+from services.resume_render import count_pages
+
+logger = logging.getLogger(__name__)
 
 # The prompt encodes the tailoring rules Lee asked for (one page, XYZ bullets,
 # reorder projects, trim tool lists to one line, no em dashes) AND the never-
@@ -76,6 +81,11 @@ def tailor_resume(
 ) -> Resume | None:
     """Tailor `master` to `job_description`, or None if Claude can't.
 
+    The result is guaranteed to render to one page where that is achievable
+    without gutting it: the model's draft is measured and trimmed by
+    `fit_to_one_page` before it is returned, because the model cannot see a
+    rendered page and consistently overshoots on volume. What was cut is logged.
+
     Returns None when the model declines or the reply is truncated before a
     complete object (the SDK surfaces both as parsed_output=None). Network or
     auth failures raise; the route decides how to present them.
@@ -95,10 +105,100 @@ def tailor_resume(
         output_format=Resume,
     )
     result = response.parsed_output
-    if result is not None:
-        # career_stage is a fixed rendering setting, not content. The model could
-        # omit it (it then defaults to "student") or guess it, so we overwrite it
-        # from the master — a professional resume must never silently revert to
-        # the student layout after tailoring.
-        result.career_stage = master.career_stage
-    return result
+    if result is None:
+        return None
+
+    # career_stage is a fixed rendering setting, not content. The model could
+    # omit it (it then defaults to "student") or guess it, so we overwrite it
+    # from the master — a professional resume must never silently revert to
+    # the student layout after tailoring.
+    result.career_stage = master.career_stage
+
+    # Measure before returning. The trim runs on the tailored draft, so the
+    # reviewable JSON and the eventual PDF are the same thing — a resume that
+    # looked fine in review and overflowed on download would defeat the point.
+    fitted, cuts = fit_to_one_page(result)
+    if cuts:
+        logger.info(
+            "Tailored resume ran long; trimmed to fit one page: %s", "; ".join(cuts)
+        )
+    return fitted
+
+
+# --- One-page fit ------------------------------------------------------------
+# The prompt asks for one page and the model cooperates on bullet LENGTH, but it
+# cannot see a rendered page, so it misjudges VOLUME. Measured on a real tailor
+# against a Stripe posting: every bullet landed inside the 20-to-28-word target
+# and the resume still came to two pages, because 13 bullets at that length do
+# not fit however well each one is written.
+#
+# So the guarantee is enforced here instead of asked for: render, measure, cut
+# the weakest thing, measure again. No API call is involved, so this is cheap and
+# deterministic, and it cannot make the resume worse in a way review would not
+# catch — every cut is a removal, never a rewrite.
+
+# How far trimming may go before it would start gutting the resume rather than
+# tightening it. Below these, a resume is better off overflowing and being fixed
+# by hand than silently reduced to a stub.
+_MIN_BULLETS_PER_ENTRY = 2
+_MIN_PROJECTS = 2
+
+
+def fit_to_one_page(resume: Resume) -> tuple[Resume, list[str]]:
+    """Trim `resume` until it renders to one page. Returns the copy and the cuts.
+
+    Cut order, cheapest loss first:
+
+    1. The LAST bullet of whichever entry has the most, down to a floor of two.
+       Last is principled rather than arbitrary: tailoring returns each entry's
+       bullets in its own relevance order, strongest first, so the last bullet of
+       the longest list is the least relevant line on the page. Ties go to a
+       project over a job, because work experience outranks a side project.
+    2. Coursework, which is one line of six course names and the least specific
+       content on the page.
+    3. The last project entirely, down to a floor of two, since projects arrive
+       in relevance order too.
+
+    If it still does not fit, it gives up and returns what it has along with the
+    cuts it made. Returning a two-page resume that the caller can see is honest;
+    quietly hacking it down to one page is not.
+    """
+    work = resume.model_copy(deep=True)
+    cuts: list[str] = []
+
+    while count_pages(work) > 1:
+        # 1. Trim the longest bullet list that is still above the floor. The sort
+        # key puts the longest list first and, at equal length, a project ahead of
+        # a job.
+        trimmable = [
+            (len(entry.bullets), is_project, label, entry)
+            for entry, is_project, label in (
+                [(e, 0, e.organization) for e in work.experience]
+                + [(p, 1, p.name) for p in work.projects]
+            )
+            if len(entry.bullets) > _MIN_BULLETS_PER_ENTRY
+        ]
+        if trimmable:
+            trimmable.sort(key=lambda t: (t[0], t[1]), reverse=True)
+            _, _, label, entry = trimmable[0]
+            entry.bullets.pop()
+            cuts.append(f"dropped the last bullet from {label}")
+            continue
+
+        # 2. Coursework: one line, and the least specific thing on the page.
+        if any(e.coursework for e in work.education):
+            for education in work.education:
+                education.coursework = []
+            cuts.append("dropped the coursework line")
+            continue
+
+        # 3. The least relevant project, whole.
+        if len(work.projects) > _MIN_PROJECTS:
+            dropped = work.projects.pop()
+            cuts.append(f"dropped the {dropped.name} project")
+            continue
+
+        # Nothing left that can be cut without gutting it.
+        break
+
+    return work, cuts
