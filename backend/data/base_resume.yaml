@@ -26,7 +26,8 @@ education:
     dates: Expected May 2029
     gpa: 3.77 / 4.00
     honors:
-      - Dean's List
+      # Per the Sep 2 2026 transcript: President's Honor Roll, not Dean's List.
+      - President's Honor Roll
 
 skills:
   - category: Languages

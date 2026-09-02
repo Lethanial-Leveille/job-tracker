@@ -32,7 +32,11 @@ education:
     dates: Expected May 2029
     gpa: 3.77 / 4.00
     honors:
-      - Dean's List
+      # Transcript (Sep 2 2026) shows "Named to President's Honor Roll" for
+      # Spring 2026 and no Dean's List. At UF these are different honors and this
+      # is the higher one (4.0 semester), so the earlier line was both wrong and
+      # underselling.
+      - President's Honor Roll
     # Only courses taken or currently being taken. Digital Logic and Intro to
     # Software Engineering are Spring 2027 and deliberately omitted: a resume
     # should not list courses that have not started. Ordered most relevant first,
