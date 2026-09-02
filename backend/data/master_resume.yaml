@@ -54,7 +54,11 @@ skills:
   - category: Languages
     items: [Python, C/C++, JavaScript, TypeScript, Swift, HTML/CSS, SQL]
   - category: Cloud & DevOps
-    items: [AWS (IoT Core, Lambda, DynamoDB, API Gateway), MongoDB, Docker, Docker Compose, Cloudflare Tunnel, n8n, Postman, Git/GitHub, MQTT]
+    # Quoted: YAML flow sequences split on commas, and parentheses do not
+    # protect them, so this was silently parsing as four items ("AWS (IoT
+    # Core", "Lambda", "DynamoDB", "API Gateway)"). It rendered correctly only
+    # because the template rejoins items with commas.
+    items: ["AWS (IoT Core, Lambda, DynamoDB, API Gateway)", MongoDB, Docker, Docker Compose, Cloudflare Tunnel, n8n, Postman, Git/GitHub, MQTT]
   - category: Frameworks & Libraries
     items: [React, Next.js, FastAPI, SQLAlchemy, SwiftUI, scikit-learn, Whisper.cpp, ElevenLabs]
   - category: Hardware & Embedded

@@ -114,6 +114,15 @@ def tailor_resume(
     # the student layout after tailoring.
     result.career_stage = master.career_stage
 
+    # Enforce never-invent before anything else looks at the draft, so a
+    # fabricated skill cannot survive into the PDF or a saved version.
+    invented = strip_invented_skills(master, result)
+    if invented:
+        logger.warning(
+            "Tailoring invented content not present in the master; removed: %s",
+            "; ".join(invented),
+        )
+
     # Measure before returning. The trim runs on the tailored draft, so the
     # reviewable JSON and the eventual PDF are the same thing — a resume that
     # looked fine in review and overflowed on download would defeat the point.
@@ -241,3 +250,97 @@ def fit_to_one_page(resume: Resume) -> tuple[Resume, list[str]]:
         break
 
     return work, cuts
+
+
+# --- Never-invent enforcement ------------------------------------------------
+# The system prompt forbids inventing in three separate sentences and the model
+# still does it: a Mastercard posting listing "Java, Python, C++, JavaScript"
+# among its requirements produced a resume claiming Java, which is nowhere in the
+# master, plus a "Concepts" skills category that does not exist. Non-determinism
+# means it holds most of the time and fails some of the time, which is the worst
+# case — a false claim on a resume Lee sends out.
+#
+# So the rule is checked rather than requested. Anything not traceable to the
+# master is removed. Removal, never substitution: this can make a resume thinner,
+# never wronger.
+
+
+def _normalize(value: str) -> str:
+    """Casefold and strip non-alphanumerics, so "Cloud & DevOps" == "cloud devops"."""
+    return "".join(c for c in value.casefold() if c.isalnum())
+
+
+def _split_parenthetical(item: str) -> tuple[str, set[str]]:
+    """"AWS (Lambda, DynamoDB)" -> ("aws", {"lambda", "dynamodb"})."""
+    base, _, rest = item.partition(" (")
+    inner = rest.rstrip(")") if rest else ""
+    examples = {_normalize(x) for x in inner.split(",") if x.strip()}
+    return _normalize(base), examples
+
+
+def _is_traceable(item: str, master_items: list[str]) -> bool:
+    """True when `item` is a master item, or a narrowing of one.
+
+    The narrowing case is required by the prompt itself, which tells the model to
+    shorten "AWS (IoT Core, Lambda, DynamoDB, API Gateway)" to "AWS (Lambda,
+    DynamoDB)". That is a legitimate trim, not an invention, so an item matches
+    when its base name matches and its parenthetical examples are a SUBSET of the
+    master's. A new example inside the parentheses is still an invention.
+    """
+    base, examples = _split_parenthetical(item)
+    for candidate in master_items:
+        candidate_base, candidate_examples = _split_parenthetical(candidate)
+        if base == candidate_base and examples <= candidate_examples:
+            return True
+    return False
+
+
+def strip_invented_skills(master: Resume, tailored: Resume) -> list[str]:
+    """Remove skills and tools with no basis in the master. Mutates `tailored`.
+
+    An item counts as traceable if it appears ANYWHERE in the master — a skills
+    row or any project's tools — because promoting a tool Lee really used into
+    the skills list is a presentation choice, while adding one he never listed is
+    a lie. Categories must match a master category: a whole invented group is how
+    "Concepts" appeared.
+    """
+    removed: list[str] = []
+
+    master_items = [item for group in master.skills for item in group.items]
+    master_items += [tool for project in master.projects for tool in project.tools]
+    master_categories = {_normalize(g.category): g.category for g in master.skills}
+
+    kept_groups = []
+    for group in tailored.skills:
+        if _normalize(group.category) not in master_categories:
+            removed.append(f"skills category '{group.category}' (not in master)")
+            continue
+        # Keep the master's spelling of the category, so tailoring cannot quietly
+        # rename a section either.
+        group.category = master_categories[_normalize(group.category)]
+        surviving = []
+        for item in group.items:
+            if _is_traceable(item, master_items):
+                surviving.append(item)
+            else:
+                removed.append(f"skill '{item}' in {group.category}")
+        group.items = surviving
+        kept_groups.append(group)
+    tailored.skills = kept_groups
+
+    for project in tailored.projects:
+        master_tools = [
+            tool
+            for master_project in master.projects
+            if master_project.name == project.name
+            for tool in master_project.tools
+        ]
+        surviving = []
+        for tool in project.tools:
+            if _is_traceable(tool, master_tools):
+                surviving.append(tool)
+            else:
+                removed.append(f"tool '{tool}' on {project.name}")
+        project.tools = surviving
+
+    return removed

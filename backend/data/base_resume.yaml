@@ -35,7 +35,8 @@ skills:
   - category: Frameworks & Libraries
     items: [React, Next.js, FastAPI, SQLAlchemy, SwiftUI, scikit-learn]
   - category: Cloud & DevOps
-    items: [AWS (Lambda, DynamoDB), Docker, PostgreSQL, Cloudflare Tunnel, Git/GitHub, Linux/systemd]
+    # Quoted so the parenthetical is one item; see master_resume.yaml.
+    items: ["AWS (Lambda, DynamoDB)", Docker, PostgreSQL, Cloudflare Tunnel, Git/GitHub, Linux/systemd]
   - category: Hardware & Embedded
     items: [Raspberry Pi 5, MPU6050 IMU, I2C, ONNX, Whisper.cpp]
 

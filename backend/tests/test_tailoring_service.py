@@ -24,7 +24,11 @@ from schemas.resume import (
     SkillGroup,
 )
 from services.resume_render import count_lines_containing, count_pages
-from services.tailoring import fit_to_one_page, tailor_resume
+from services.tailoring import (
+    fit_to_one_page,
+    strip_invented_skills,
+    tailor_resume,
+)
 
 
 def _fake_settings() -> Settings:
@@ -223,3 +227,95 @@ def test_professional_layout_hides_coursework_so_nothing_is_trimmed() -> None:
     assert count_lines_containing(fitted, "Coursework") == 0
     assert fitted.education[0].coursework == ["A" * 60] * 8
     assert cuts == []
+
+
+# --- Never-invent enforcement ------------------------------------------------
+
+
+def _invention_master() -> Resume:
+    return Resume(
+        contact=Contact(name="Lee"),
+        skills=[
+            SkillGroup(category="Languages", items=["Python", "C/C++", "JavaScript"]),
+            SkillGroup(
+                category="Cloud & DevOps",
+                items=["AWS (IoT Core, Lambda, DynamoDB, API Gateway)", "Docker"],
+            ),
+        ],
+        projects=[
+            Project(name="Prowl", tools=["FastAPI", "PostgreSQL"], bullets=["did a thing"])
+        ],
+    )
+
+
+def test_a_skill_from_the_job_description_is_removed() -> None:
+    """The real failure: a Mastercard posting listing "Java, Python, C++,
+    JavaScript" among its requirements produced a resume claiming Java, which
+    appears nowhere in the master."""
+    master = _invention_master()
+    tailored = master.model_copy(deep=True)
+    tailored.skills[0].items.insert(0, "Java")
+
+    removed = strip_invented_skills(master, tailored)
+
+    assert "Java" not in tailored.skills[0].items
+    assert any("Java" in r for r in removed)
+
+
+def test_an_invented_skills_category_is_removed_whole() -> None:
+    master = _invention_master()
+    tailored = master.model_copy(deep=True)
+    tailored.skills.append(SkillGroup(category="Concepts", items=["Data Structures"]))
+
+    strip_invented_skills(master, tailored)
+
+    assert [g.category for g in tailored.skills] == ["Languages", "Cloud & DevOps"]
+
+
+def test_shortening_a_parenthetical_list_is_allowed() -> None:
+    """The prompt itself tells the model to shorten
+    "AWS (IoT Core, Lambda, DynamoDB, API Gateway)" to "AWS (Lambda, DynamoDB)",
+    so that is a trim, not an invention, and must survive."""
+    master = _invention_master()
+    tailored = master.model_copy(deep=True)
+    tailored.skills[1].items[0] = "AWS (Lambda, DynamoDB)"
+
+    removed = strip_invented_skills(master, tailored)
+
+    assert tailored.skills[1].items[0] == "AWS (Lambda, DynamoDB)"
+    assert removed == []
+
+
+def test_a_new_example_inside_a_parenthetical_is_still_an_invention() -> None:
+    """Redshift is not in the master's AWS list, and hiding it inside parentheses
+    does not make it true."""
+    master = _invention_master()
+    tailored = master.model_copy(deep=True)
+    tailored.skills[1].items[0] = "AWS (Lambda, Redshift)"
+
+    strip_invented_skills(master, tailored)
+
+    assert tailored.skills[1].items == ["Docker"]
+
+
+def test_a_tool_used_on_a_project_may_be_promoted_into_skills() -> None:
+    """PostgreSQL is in the master, on a project rather than in a skills row.
+    Surfacing it is a presentation choice, not a false claim."""
+    master = _invention_master()
+    tailored = master.model_copy(deep=True)
+    tailored.skills[1].items.append("PostgreSQL")
+
+    removed = strip_invented_skills(master, tailored)
+
+    assert "PostgreSQL" in tailored.skills[1].items
+    assert removed == []
+
+
+def test_a_tool_not_on_that_project_is_removed() -> None:
+    master = _invention_master()
+    tailored = master.model_copy(deep=True)
+    tailored.projects[0].tools.append("Kubernetes")
+
+    strip_invented_skills(master, tailored)
+
+    assert tailored.projects[0].tools == ["FastAPI", "PostgreSQL"]
