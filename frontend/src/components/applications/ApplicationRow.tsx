@@ -1,22 +1,29 @@
 import type { KeyboardEvent } from "react";
-import type { Application } from "../../lib/types";
+import type { Application, ApplicationStatus } from "../../lib/types";
 import { monogram } from "../../lib/format";
 import { ROW_GRID } from "./grid";
-import { StatusBadge } from "./StatusBadge";
+import { StatusSelect } from "./StatusSelect";
 import { DeadlineCell } from "./DeadlineCell";
 
 interface Props {
   application: Application;
   selected: boolean;
   onSelect: (id: string) => void;
+  onStatusChange: (id: string, status: ApplicationStatus) => void;
 }
 
 // One table row. The whole row opens the detail drawer, so it acts as a button
-// (role + keyboard handling). It is a <div>, not a <button>, because it hosts a
-// second, independent control: the open-posting link. A link can't legally nest
-// inside a button, so the row is a clickable container and the link stops the
-// click from also opening the drawer.
-export function ApplicationRow({ application, selected, onSelect }: Props) {
+// (role + keyboard handling). It is a <div>, not a <button>, because it hosts
+// two further independent controls: the open-posting link and the status menu.
+// Neither a link nor a select can legally nest inside a button, so the row is a
+// clickable container and each inner control stops its own events from also
+// opening the drawer.
+export function ApplicationRow({
+  application,
+  selected,
+  onSelect,
+  onStatusChange,
+}: Props) {
   const open = () => onSelect(application.id);
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
@@ -56,9 +63,14 @@ export function ApplicationRow({ application, selected, onSelect }: Props) {
         {application.role_family ?? application.role_or_program}
       </span>
 
-      {/* Status */}
+      {/* Status: editable in place, so marking something Applied never means
+          opening the row and the edit form. */}
       <div>
-        <StatusBadge status={application.status} />
+        <StatusSelect
+          application={application}
+          onChange={onStatusChange}
+          chevronOnHover
+        />
       </div>
 
       {/* Deadline */}

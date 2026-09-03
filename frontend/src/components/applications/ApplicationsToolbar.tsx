@@ -1,29 +1,27 @@
 import type { ApplicationStatus } from "../../lib/types";
+import { isPreSubmit } from "./statuses";
 
 // What the list can be narrowed to. The point of this control is the question
 // Lee actually asks the list: "which of these have I already applied to?"
 export type StatusFilter = "all" | "not_applied" | "applied";
 
-// "Not applied" is the pre-submit set: found it, drafting for it, ready to send.
-// Everything from `applied` onward means it went out the door, however it ended.
-// `missed_deadline` is in NEITHER bucket on purpose — it was never applied to and
-// it can never be applied to, so it would be noise in the actionable list. It is
-// still reachable under "All".
-const NOT_APPLIED: ApplicationStatus[] = ["discovered", "drafting", "ready"];
-
+// `missed_deadline` is in NEITHER bucket on purpose — it was never applied to
+// and it can never be applied to, so it would be noise in the actionable list.
+// It is still reachable under "All".
 export function matchesStatusFilter(
   status: ApplicationStatus,
   filter: StatusFilter,
 ): boolean {
   if (filter === "all") return true;
-  const isPreSubmit = NOT_APPLIED.includes(status);
-  if (filter === "not_applied") return isPreSubmit;
-  return !isPreSubmit && status !== "missed_deadline";
+  if (filter === "not_applied") return isPreSubmit(status);
+  return !isPreSubmit(status) && status !== "missed_deadline";
 }
 
 interface Props {
   statusFilter: StatusFilter;
   onStatusFilter: (value: StatusFilter) => void;
+  grouped: boolean;
+  onGrouped: (value: boolean) => void;
 }
 
 const STATUS_TABS: { value: StatusFilter; label: string }[] = [
@@ -64,14 +62,39 @@ function Segmented<T extends string>({
   );
 }
 
-export function ApplicationsToolbar({ statusFilter, onStatusFilter }: Props) {
+export function ApplicationsToolbar({
+  statusFilter,
+  onStatusFilter,
+  grouped,
+  onGrouped,
+}: Props) {
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex flex-wrap items-center justify-between gap-4">
       <Segmented
         options={STATUS_TABS}
         value={statusFilter}
         onChange={onStatusFilter}
       />
+
+      {/* Grouping is opt-in, not the default. The flat list is ordered by
+          deadline, and grouping necessarily breaks that global ordering — so it
+          is a thing you reach for when looking at one company, not the way the
+          pipeline sits at rest. */}
+      <button
+        type="button"
+        onClick={() => onGrouped(!grouped)}
+        aria-pressed={grouped}
+        className={`inline-flex items-center gap-2 rounded-interactive border px-3 py-2 text-[13px] font-medium transition-colors ${
+          grouped
+            ? "border-line-strong bg-surface-hover text-ink"
+            : "border-line bg-surface text-ink-muted hover:text-ink-soft"
+        }`}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <path d="M4 6h16M7 12h13M7 18h13M4 12h.01M4 18h.01" />
+        </svg>
+        Group by company
+      </button>
     </div>
   );
 }

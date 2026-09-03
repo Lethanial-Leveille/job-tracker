@@ -7,6 +7,7 @@ import { clearToken, getToken } from "./auth";
 import type {
   Application,
   ApplicationCreateInput,
+  FitReport,
   ParsedJob,
   Resume,
   ResumeVersion,
@@ -105,10 +106,14 @@ export async function parseJobDescription(text: string): Promise<ParsedJob> {
 }
 
 // PATCH an existing application. The backend's update schema treats every field
-// as optional, so sending the full edited object is valid. Returns the row.
+// as optional and its service applies only the keys actually sent
+// (`model_dump(exclude_unset=True)`), so a body may carry one field or all of
+// them. Hence Partial<...>: the edit form sends the whole object, while a single
+// field change (flipping status from the row) sends just `{ status }` and leaves
+// everything else untouched. Returns the row.
 export async function updateApplication(
   id: string,
-  input: ApplicationCreateInput,
+  input: Partial<ApplicationCreateInput>,
 ): Promise<Application> {
   const res = await request(`/applications/${id}`, {
     method: "PATCH",
@@ -122,6 +127,17 @@ export async function updateApplication(
 // to parse — request() already confirmed it worked.
 export async function deleteApplication(id: string): Promise<void> {
   await request(`/applications/${id}`, { method: "DELETE" });
+}
+
+// POST to judge this application's stated requirements against your master
+// resume. POST, not GET, because it spends a paid API call and writes the result
+// back to the row. The cached result of the last run arrives on the application
+// itself as `fit_report`, so displaying an existing report costs nothing.
+export async function computeFit(applicationId: string): Promise<FitReport> {
+  const res = await request(`/applications/${applicationId}/fit`, {
+    method: "POST",
+  });
+  return res.json() as Promise<FitReport>;
 }
 
 // --- Resume tailoring -------------------------------------------------------

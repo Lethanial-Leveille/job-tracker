@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type {
+  Application,
   ApplicationStatus,
   ApplicationType,
   ParsedJob,
@@ -8,6 +9,7 @@ import type {
 import { ROLE_FAMILIES } from "../../lib/types";
 import { createApplication, parseJobDescription } from "../../lib/api";
 import { statusLabel } from "../../lib/format";
+import { findSimilarPosting, findUrlMatch } from "../../lib/dedupe";
 
 // The full-screen "Add an opportunity" flow that replaces the create modal.
 // Three steps: Input (paste the posting) -> Parse (Claude reads it) -> Review
@@ -17,6 +19,13 @@ import { statusLabel } from "../../lib/format";
 interface Props {
   onClose: () => void; // back to the list
   onSaved: () => void; // saved -> refetch + back to the list
+  // Leave the add flow and open an existing row. Used by the duplicate notice,
+  // so "you already have this" is a place you can go rather than a dead end.
+  onOpenExisting: (id: string) => void;
+  // The existing rows, for duplicate detection. Passed in rather than fetched
+  // here: useApplications already holds the list, and checking against memory
+  // is what makes the warning free and instant.
+  applications: Application[];
 }
 
 type Step = "input" | "parse" | "review";
@@ -71,9 +80,19 @@ const labelClass =
 const fieldClass =
   "rounded-interactive border border-line bg-base px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:shadow-glow focus:outline-none";
 
-export function AddOpportunity({ onClose, onSaved }: Props) {
+export function AddOpportunity({
+  onClose,
+  onSaved,
+  onOpenExisting,
+  applications,
+}: Props) {
   const [step, setStep] = useState<Step>("input");
   const [pasteText, setPasteText] = useState("");
+  // The posting link, now captured on the INPUT step rather than typed by hand
+  // at review. Moving it earlier is the whole duplicate feature: with the link
+  // in hand before the parse call, an already-tracked posting can be caught
+  // before spending that call, instead of after.
+  const [postingUrl, setPostingUrl] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedJob | null>(null);
   const [form, setForm] = useState<ReviewForm>(() => ({
@@ -82,6 +101,14 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
   }));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // The weaker post-parse match (same employer, similar title, different link).
+  // Held in state rather than derived, because it can only be computed once the
+  // parser has told us the organization and title.
+  const [similar, setSimilar] = useState<Application | null>(null);
+
+  // Derived, not state: recomputed each render straight from what you have
+  // typed. There is nothing to keep in sync and nothing to invalidate.
+  const urlDuplicate = findUrlMatch(applications, postingUrl);
 
   async function readWithProwl() {
     if (pasteText.trim() === "") return;
@@ -97,7 +124,18 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
         role_or_program: p.role_or_program,
         role_family: p.role_family,
         deadline: p.deadline ?? defaultDeadline(),
+        // Carried from the input step so the link never gets typed twice. Still
+        // editable at review.
+        posting_url: postingUrl.trim(),
       }));
+      // The second check, on employer + title. Catches the same job posted to
+      // two boards, which the URL check cannot see. Skipped when the URL check
+      // already matched, so you never get two warnings about one row.
+      setSimilar(
+        urlDuplicate
+          ? null
+          : findSimilarPosting(applications, p.organization, p.role_or_program),
+      );
       setStep("review");
     } catch (err: unknown) {
       setParseError(
@@ -192,27 +230,42 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
               <span className="h-px flex-1 bg-line" />
             </div>
 
-            {/* URL fetch is deferred (most job sites block automated fetches), so
-                this is intentionally disabled with an explanation. */}
+            {/* The link. This field used to be disabled behind a "URL reading is
+                coming soon" promise; it now does real work. Prowl still does not
+                FETCH the page (most job sites block that), but having the link
+                before the parse call is what lets an already-tracked posting be
+                caught for free, and it saves retyping the URL at review. */}
             <div className="relative">
               <svg className="pointer-events-none absolute left-4 top-1/2 size-[17px] -translate-y-1/2 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
                 <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
               </svg>
               <input
-                disabled
+                type="url"
+                value={postingUrl}
+                onChange={(e) => setPostingUrl(e.target.value)}
                 placeholder="https://careers.example.com/role/12345"
-                className="w-full cursor-not-allowed rounded-xl border border-line-strong bg-surface/40 py-4 pl-11 pr-4 text-sm text-ink-muted placeholder:text-ink-muted/70"
+                className="w-full rounded-xl border border-line-strong bg-surface/40 py-4 pl-11 pr-4 text-sm text-ink placeholder:text-ink-muted/70 focus:border-accent focus:shadow-glow focus:outline-none"
               />
             </div>
-            <p className="ml-1 mt-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 8h.01M11 12h1v4h1" />
-              </svg>
-              <span className="text-ink-soft">URL reading is coming soon</span> —
-              most job sites block automated fetches, so paste the text for now.
-            </p>
+
+            {urlDuplicate ? (
+              <DuplicateNotice
+                application={urlDuplicate}
+                heading="You're already tracking this posting"
+                detail="Same link as a row you already have."
+                onOpen={onOpenExisting}
+              />
+            ) : (
+              <p className="ml-1 mt-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8h.01M11 12h1v4h1" />
+                </svg>
+                Prowl checks this against what you're already tracking before
+                reading anything.
+              </p>
+            )}
 
             {parseError && (
               <p className="mt-4 rounded-interactive border border-line bg-surface px-3 py-2 text-sm text-ink">
@@ -229,7 +282,7 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
               <svg className="size-[17px] text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M13 2 3 14h7l-1 8 10-12h-7z" />
               </svg>
-              Read with Prowl
+              {urlDuplicate ? "Read it anyway" : "Read with Prowl"}
             </button>
             <p className="mt-4 text-center text-[12.5px] text-ink-muted">
               You'll review everything before it's saved.
@@ -260,6 +313,17 @@ export function AddOpportunity({ onClose, onSaved }: Props) {
                 Nothing is stored until you do.
               </p>
             </div>
+
+            {similar && (
+              <div className="mb-6">
+                <DuplicateNotice
+                  application={similar}
+                  heading="This looks like one you already have"
+                  detail="Same employer and a nearly identical title, under a different link."
+                  onOpen={onOpenExisting}
+                />
+              </div>
+            )}
 
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
@@ -435,6 +499,67 @@ function MiniKV({ label, value }: { label: string; value: string }) {
     <div className="flex flex-col gap-0.5">
       <span className="text-[10px] uppercase tracking-[0.1em] text-ink-muted">{label}</span>
       <span className="text-[13px] text-ink">{value}</span>
+    </div>
+  );
+}
+
+// Shown when the posting you're adding matches something already tracked. It is
+// deliberately NOT a blocker: reapplying next cycle, or to a second team at the
+// same company, is a real thing to do. It states what it found, offers the
+// existing row, and otherwise stays out of the way.
+//
+// Neutral greys, no purple: per docs/design.md the accent is reserved for the
+// primary action, selection, focus, and an offer. A warning is not on that list.
+function DuplicateNotice({
+  application,
+  heading,
+  detail,
+  onOpen,
+}: {
+  application: Application;
+  heading: string;
+  detail: string;
+  onOpen: (id: string) => void;
+}) {
+  const added = new Date(application.created_at).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  return (
+    <div className="mt-4 flex items-start gap-3.5 rounded-frame border border-line-strong bg-surface px-4 py-3.5">
+      <svg
+        className="mt-0.5 size-[18px] shrink-0 text-ink-soft"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7.5v5M12 16h.01" />
+      </svg>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13.5px] font-medium text-ink">{heading}</div>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-ink-soft">{detail}</p>
+        <div className="mt-2 truncate text-[12.5px] text-ink-soft">
+          <span className="text-ink">{application.organization}</span>
+          {" — "}
+          {application.role_or_program}
+        </div>
+        <div className="mt-0.5 text-[11.5px] text-ink-muted">
+          Added {added} · {statusLabel(application.status)}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onOpen(application.id)}
+        className="shrink-0 rounded-interactive border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
+      >
+        Open it
+      </button>
     </div>
   );
 }

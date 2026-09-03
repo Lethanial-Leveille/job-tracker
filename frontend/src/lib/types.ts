@@ -53,6 +53,30 @@ export interface JdParsed {
   key_requirements?: string[];
 }
 
+// --- Requirement matching ---------------------------------------------------
+// Mirror of backend/schemas/fit.py. Deliberately NOT a probability of getting
+// the job: it compares the posting's stated requirements against your master
+// resume, item by item, and shows the evidence for each call.
+
+// "unknown" is never produced by the model — the backend assigns it to any
+// requirement the model failed to answer for, so a dropped item can't quietly
+// read as met.
+export type RequirementVerdict = "met" | "partial" | "missing" | "unknown";
+
+export interface RequirementMatch {
+  requirement: string;
+  verdict: RequirementVerdict;
+  evidence: string | null;
+}
+
+export interface FitReport {
+  matches: RequirementMatch[];
+  met_count: number;
+  partial_count: number;
+  total: number;
+  computed_at: string; // ISO datetime
+}
+
 export interface Application {
   id: string;
   type: ApplicationType;
@@ -68,6 +92,9 @@ export interface Application {
   notes: string | null;
   jd_parsed: JdParsed | null; // parser extras (salary, summary, requirements…)
   jd_text: string | null; // the raw pasted JD, used as tailoring input
+  // The cached requirement-match report, or null if never computed for this
+  // row. Written only by POST /applications/{id}/fit, never by create or edit.
+  fit_report: FitReport | null;
   created_at: string; // ISO datetime
   updated_at: string; // ISO datetime
 }

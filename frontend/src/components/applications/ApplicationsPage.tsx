@@ -8,11 +8,8 @@ import {
   matchesStatusFilter,
   type StatusFilter,
 } from "./ApplicationsToolbar";
-import { ApplicationFormModal } from "./ApplicationFormModal";
-import { ApplicationDetail } from "./ApplicationDetail";
+import { ApplicationDetailPage } from "./ApplicationDetailPage";
 import { AddOpportunity } from "./AddOpportunity";
-import { TailorPanel } from "./TailorPanel";
-import { Drawer } from "../layout/Drawer";
 
 // Deadline ascending with nulls last.
 function byDeadline(a: Application, b: Application): number {
@@ -22,26 +19,29 @@ function byDeadline(a: Application, b: Application): number {
   return a.deadline < b.deadline ? -1 : 1;
 }
 
-// The command-center screen. It shows the pipeline table, and orchestrates the
-// four overlays/views the redesign introduced: the full-screen Add flow, the
-// detail drawer (row click), the tailor drawer (stacked over detail), and the
-// edit modal (from the detail drawer).
+// The command-center screen. It is a three-way view swap, not a stack: you are
+// looking at the list, at one application, or at the add flow. Never at one on
+// top of another.
+//
+// This replaced an arrangement of two stacked drawers plus a modal, where
+// closing the tailor panel dropped you onto the detail panel rather than the
+// list, and the edit modal opened over both. One layer means Back has exactly
+// one meaning everywhere.
 export function ApplicationsPage({
   applications,
   loading,
   error,
   refetch,
+  setStatus,
+  saveError,
+  dismissSaveError,
 }: ApplicationsState) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
+  const [grouped, setGrouped] = useState(false);
 
   const [adding, setAdding] = useState(false); // full-screen add view
-  const [selectedId, setSelectedId] = useState<string | null>(null); // detail drawer
-  const [editing, setEditing] = useState<Application | null>(null); // edit modal
-  const [tailoring, setTailoring] = useState<Application | null>(null); // tailor drawer
-  // Bumped when a tailored version is saved, so the open detail drawer refetches
-  // its versions list.
-  const [detailRefresh, setDetailRefresh] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null); // detail view
 
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -57,8 +57,9 @@ export function ApplicationsPage({
     return [...filtered].sort(byDeadline);
   }, [applications, statusFilter, search]);
 
-  // Resolve the selected/tailoring rows from the live list so they stay fresh
-  // after a refetch.
+  // Resolve the selected row from the live list so it stays fresh after a
+  // refetch. A row deleted out from under us resolves to null, which falls
+  // through to the list.
   const selected = applications.find((a) => a.id === selectedId) ?? null;
 
   async function handleDelete(app: Application) {
@@ -68,15 +69,40 @@ export function ApplicationsPage({
     refetch();
   }
 
-  // The Add flow is a full screen: it replaces the list entirely (sidebar stays).
+  // The Add flow replaces the list entirely (sidebar stays).
   if (adding) {
     return (
       <AddOpportunity
+        applications={applications}
         onClose={() => setAdding(false)}
         onSaved={() => {
           refetch();
           setAdding(false);
         }}
+        // Leaving the add flow straight into the row you already had, so a
+        // duplicate warning ends somewhere useful.
+        onOpenExisting={(id) => {
+          setAdding(false);
+          setSelectedId(id);
+        }}
+      />
+    );
+  }
+
+  // One application, also full screen.
+  if (selected) {
+    return (
+      // key by id so moving between applications rebuilds the page from
+      // scratch. Without it React reuses the instance, and the Overview tab's
+      // form state (seeded once from props) would keep showing the previous
+      // row's values.
+      <ApplicationDetailPage
+        key={selected.id}
+        application={selected}
+        onBack={() => setSelectedId(null)}
+        onSaved={refetch}
+        onDelete={handleDelete}
+        onStatusChange={setStatus}
       />
     );
   }
@@ -120,7 +146,24 @@ export function ApplicationsPage({
       <ApplicationsToolbar
         statusFilter={statusFilter}
         onStatusFilter={setStatusFilter}
+        grouped={grouped}
+        onGrouped={setGrouped}
       />
+
+      {/* A failed write, not a failed load: the table below is still correct, so
+          this is a banner over a working list rather than a replacement for it. */}
+      {saveError && (
+        <div className="flex items-center justify-between gap-4 rounded-frame border border-line-strong bg-surface px-4 py-3 text-sm text-ink">
+          <span>{saveError}</span>
+          <button
+            type="button"
+            onClick={dismissSaveError}
+            className="shrink-0 rounded-interactive px-2 py-1 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <StatePanel>Loading applications…</StatePanel>
@@ -137,54 +180,8 @@ export function ApplicationsPage({
           applications={visible}
           selectedId={selectedId}
           onSelect={(id) => setSelectedId(id)}
-        />
-      )}
-
-      {/* Detail drawer — opens on row click. */}
-      <Drawer
-        open={selected !== null}
-        onClose={() => setSelectedId(null)}
-        labelledBy="detail-title"
-      >
-        {selected && (
-          <ApplicationDetail
-            key={`${selected.id}-${detailRefresh}`}
-            application={selected}
-            onClose={() => setSelectedId(null)}
-            onEdit={(app) => {
-              setSelectedId(null);
-              setEditing(app);
-            }}
-            onTailor={(app) => setTailoring(app)}
-            onDelete={handleDelete}
-          />
-        )}
-      </Drawer>
-
-      {/* Tailor drawer — stacks over the detail drawer. */}
-      <Drawer
-        open={tailoring !== null}
-        onClose={() => setTailoring(null)}
-        elevated
-      >
-        {tailoring && (
-          <TailorPanel
-            application={tailoring}
-            onClose={() => setTailoring(null)}
-            onSaved={() => setDetailRefresh((n) => n + 1)}
-          />
-        )}
-      </Drawer>
-
-      {/* Edit modal — reached from the detail drawer's Edit button. */}
-      {editing && (
-        <ApplicationFormModal
-          application={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            refetch();
-            setEditing(null);
-          }}
+          onStatusChange={setStatus}
+          grouped={grouped}
         />
       )}
     </div>

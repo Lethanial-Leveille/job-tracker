@@ -1,11 +1,18 @@
-import type { Application } from "../../lib/types";
+import type { Application, ApplicationStatus } from "../../lib/types";
+import { monogram } from "../../lib/format";
 import { ROW_GRID } from "./grid";
 import { ApplicationRow } from "./ApplicationRow";
+import { groupByOrganization } from "./grouping";
 
 interface Props {
   applications: Application[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onStatusChange: (id: string, status: ApplicationStatus) => void;
+  // Break the rows into per-employer sections. Off by default: the flat list is
+  // sorted by deadline, and that ordering answers the question the list exists
+  // to answer.
+  grouped?: boolean;
 }
 
 const COLUMNS = ["Organization", "Role", "Status", "Deadline"];
@@ -13,7 +20,23 @@ const COLUMNS = ["Organization", "Role", "Status", "Deadline"];
 // The table container is a structural frame: crisp rounding, a real border, a
 // dark surface. The header row is muted uppercase labels — chrome, not data.
 // Rows carry the actual information and stay high contrast.
-export function ApplicationsTable({ applications, selectedId, onSelect }: Props) {
+export function ApplicationsTable({
+  applications,
+  selectedId,
+  onSelect,
+  onStatusChange,
+  grouped,
+}: Props) {
+  const renderRow = (application: Application) => (
+    <ApplicationRow
+      key={application.id}
+      application={application}
+      selected={application.id === selectedId}
+      onSelect={onSelect}
+      onStatusChange={onStatusChange}
+    />
+  );
+
   return (
     <div className="overflow-hidden rounded-frame border border-line-strong bg-surface">
       {/* Column header */}
@@ -27,17 +50,31 @@ export function ApplicationsTable({ applications, selectedId, onSelect }: Props)
         <span aria-hidden="true" />
       </div>
 
-      {/* Rows */}
-      <div className="divide-y divide-line">
-        {applications.map((application) => (
-          <ApplicationRow
-            key={application.id}
-            application={application}
-            selected={application.id === selectedId}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
+      {/* Rows, flat or in per-employer sections. */}
+      {grouped ? (
+        <div>
+          {groupByOrganization(applications).map((group) => (
+            <div key={group.key}>
+              <div className="flex items-center gap-2.5 border-b border-line bg-base/40 px-5 py-2">
+                <span className="grid size-6 shrink-0 place-items-center rounded-md border border-line bg-surface text-[10px] font-semibold text-ink-soft">
+                  {monogram(group.label)}
+                </span>
+                <span className="truncate text-[12.5px] font-medium text-ink">
+                  {group.label}
+                </span>
+                <span className="text-[11px] tabular-nums text-ink-muted">
+                  {group.applications.length}
+                </span>
+              </div>
+              <div className="divide-y divide-line">
+                {group.applications.map(renderRow)}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="divide-y divide-line">{applications.map(renderRow)}</div>
+      )}
     </div>
   );
 }
