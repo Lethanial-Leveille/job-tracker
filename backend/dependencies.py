@@ -7,7 +7,9 @@ services/auth.py, because it needs FastAPI (Depends, HTTPException, the request
 header) — services stay HTTP-ignorant.
 """
 
-from fastapi import Depends, HTTPException, status
+import secrets
+
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -51,3 +53,38 @@ def get_current_user(
         raise unauthorized
 
     return user
+
+
+def verify_service_token(
+    x_service_token: str | None = Header(default=None),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """Gate for automation (n8n) endpoints: require the shared service token.
+
+    This is the second, separate auth path — the user's JWT goes through
+    get_current_user above; n8n has no user, it authenticates with one shared
+    secret in the X-Service-Token header. Kept in a distinct header (not
+    Authorization: Bearer) so the two paths never get confused for each other.
+
+    Returns None, not a user: automation isn't a person. A route protects
+    itself by listing this in `dependencies=[Depends(verify_service_token)]`;
+    the ingestion service is what resolves which user owns the rows it writes.
+    """
+    forbidden = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or missing service token",
+    )
+
+    # Token unset in this environment → the door is bolted shut. Reject every
+    # call rather than treating "no configured secret" as "anything matches".
+    if settings.n8n_service_token is None:
+        raise forbidden
+
+    if x_service_token is None:
+        raise forbidden
+
+    # Constant-time compare: takes the same time whether the mismatch is in the
+    # first character or the last, so an attacker can't recover the token by
+    # timing responses. compare_digest is the standard tool for secret checks.
+    if not secrets.compare_digest(x_service_token, settings.n8n_service_token):
+        raise forbidden

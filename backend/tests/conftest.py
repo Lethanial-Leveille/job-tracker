@@ -17,7 +17,9 @@ from database import Base
 # create_all below actually builds it. Same reason alembic's env.py imports it.
 # The noqa silences "imported but unused" — the import's side effect IS the use.
 import models.application  # noqa: F401
+import models.ingested_email  # noqa: F401
 import models.resume_version  # noqa: F401
+import models.status_suggestion  # noqa: F401
 import models.user  # noqa: F401
 from models.user import User
 

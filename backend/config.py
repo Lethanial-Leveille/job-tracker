@@ -67,6 +67,19 @@ class Settings(BaseSettings):
     # in the auth service will use.
     access_token_expire_minutes: int = 60 * 24 * 7
 
+    # --- Automation (n8n) ---------------------------------------------------
+    # Shared secret the n8n instance sends on every webhook/ingest call, in the
+    # X-Service-Token header, so the tracker knows a write came from my own
+    # automation and not a stranger. This is the service token the v3 auth work
+    # deferred to "when the first webhook exists" — that moment is now.
+    #
+    # Deliberately Optional[None], NOT required like jwt_secret: the app boots
+    # fine without it (important because deploy auto-ships on push — a required
+    # field would crash prod until the env var is set on the droplet). The auth
+    # dependency treats "unset" as "reject every call", so leaving it None bolts
+    # the webhook door shut rather than leaving it open.
+    n8n_service_token: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:
