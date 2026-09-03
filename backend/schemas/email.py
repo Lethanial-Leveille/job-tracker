@@ -21,7 +21,7 @@ determined downstream, by counting how many applications survive narrowing.
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class IncomingEmail(BaseModel):
@@ -91,3 +91,57 @@ class EmailClassification(BaseModel):
     # job (it has to agree with how applications were stored), so tidying here
     # would just make two places responsible for the same thing.
     role_hint: str | None = None
+
+
+# --- The webhook contract ----------------------------------------------------
+# What n8n on the Raspberry Pi POSTs, and what it gets back. This is the seam
+# between two machines, so it is written to be boring: no nesting beyond one
+# list, no fields that need interpreting, and a response n8n can log verbatim.
+
+
+class EmailIngestRequest(BaseModel):
+    """A batch of messages from one mailbox.
+
+    `mailbox` is how the request names its owner. The service token
+    authenticates the MACHINE — n8n has no user and verify_service_token
+    deliberately returns nobody — so the mailbox address is what decides whose
+    applications these messages may touch. Each n8n Gmail node reads exactly one
+    mailbox, so it already knows this without being told.
+
+    Worth being clear-eyed about: anyone holding the service token could claim
+    any mailbox. The token IS the trust boundary, on infrastructure owned end to
+    end, and that is an accepted trade rather than an oversight.
+    """
+
+    mailbox: str = Field(min_length=3, max_length=320)
+
+    # Capped at 10. Classification is a model call per message and the endpoint
+    # answers synchronously, so an unbounded batch could outlast n8n's HTTP
+    # timeout, get retried mid-flight, and pay for the same work twice. Ten
+    # keeps a batch well inside the timeout, and nothing is lost by splitting:
+    # the rolling two day window redelivers whatever did not fit.
+    messages: list[IncomingEmail] = Field(min_length=1, max_length=10)
+
+
+class MessageResult(BaseModel):
+    """What happened to one message, echoed back for n8n's logs."""
+
+    message_id: str
+    result: str
+
+
+class EmailIngestResponse(BaseModel):
+    """A summary n8n can log without interpreting.
+
+    Deliberately returns 200 even when individual messages fail. A per-message
+    failure is not a failed REQUEST: the batch was received and handled, and
+    anything that failed is already scheduled for redelivery by the overlap
+    window. Answering non-200 would make n8n retry the whole batch, re-billing
+    every message that already succeeded.
+    """
+
+    received: int
+    stored: int  # newly recorded this call
+    suggestions_created: int
+    retry: int  # not classified; the next poll will bring them back
+    results: list[MessageResult]
