@@ -28,6 +28,18 @@ export function ContactFields({ value, onChange }: Props) {
         <Field label="GitHub" value={value.github ?? ""} onChange={(v) => patch({ github: v })} />
         <Field label="Website" value={value.website ?? ""} onChange={(v) => patch({ website: v })} />
       </div>
+
+      {/* Never printed on the resume. Postings routinely require this and a
+          resume has no other place to say it, so requirement checks can only
+          answer honestly once it is filled in. */}
+      <div className="mt-3">
+        <Field
+          label="Work authorization (not printed on your resume)"
+          value={value.work_authorization ?? ""}
+          onChange={(v) => patch({ work_authorization: v })}
+          placeholder="US citizen, no sponsorship required"
+        />
+      </div>
     </SectionCard>
   );
 }

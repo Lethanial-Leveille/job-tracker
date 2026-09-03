@@ -40,7 +40,21 @@ from pydantic import BaseModel
 
 
 class Contact(BaseModel):
-    """Header block. Fixed identity — tailoring never touches any of this."""
+    """Fixed identity facts. Tailoring never touches any of this.
+
+    Most of these render into the PDF header. `work_authorization` does NOT —
+    templates/resume.html names the fields it prints (location, phone, email,
+    and the link line), so a field absent from that list is stored and never
+    shown. It lives here because it is an identity fact like the rest, and being
+    inside Contact means the tailoring prompt's "never change identity facts"
+    rule already protects it for free.
+
+    It exists because postings routinely require it ("must have the right to
+    work without visa sponsorship") and a resume otherwise has NO way to answer
+    that. Judging such a requirement against a resume that structurally cannot
+    state it returns "missing" for every candidate forever, which is not
+    strictness, just the wrong document.
+    """
 
     name: str
     location: str | None = None
@@ -49,6 +63,8 @@ class Contact(BaseModel):
     linkedin: str | None = None
     github: str | None = None
     website: str | None = None
+    # Free text, e.g. "US citizen, no sponsorship required". Never rendered.
+    work_authorization: str | None = None
 
 
 class Education(BaseModel):

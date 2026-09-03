@@ -61,7 +61,15 @@ export interface JdParsed {
 // "unknown" is never produced by the model — the backend assigns it to any
 // requirement the model failed to answer for, so a dropped item can't quietly
 // read as met.
-export type RequirementVerdict = "met" | "partial" | "missing" | "unknown";
+// "unstated" is for eligibility facts a resume cannot answer (work
+// authorization, clearance). It is not a softer "missing" — missing means you do
+// not meet it, unstated means nobody can tell from this document.
+export type RequirementVerdict =
+  | "met"
+  | "partial"
+  | "missing"
+  | "unstated"
+  | "unknown";
 
 export interface RequirementMatch {
   requirement: string;
@@ -73,6 +81,7 @@ export interface FitReport {
   matches: RequirementMatch[];
   met_count: number;
   partial_count: number;
+  unstated_count: number;
   total: number;
   computed_at: string; // ISO datetime
 }
@@ -150,6 +159,9 @@ export interface Contact {
   linkedin?: string | null;
   github?: string | null;
   website?: string | null;
+  // Never rendered into the PDF. Stored so postings that require the right to
+  // work without sponsorship can actually be answered.
+  work_authorization?: string | null;
 }
 
 export interface Education {

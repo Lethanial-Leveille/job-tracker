@@ -11,6 +11,7 @@ Three things matter here and none of them are the model's judgement:
   - the retry re-asks only for what is still missing, by original index
 """
 
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 from config import Settings
@@ -149,6 +150,56 @@ def test_returns_none_when_model_declines(mock_anthropic: MagicMock) -> None:
     mock_anthropic.return_value = client
 
     assert assess_requirements(_master(), ["Python"], _fake_settings()) is None
+
+
+@patch("services.matching.Anthropic")
+def test_unstated_is_counted_separately_from_missing(
+    mock_anthropic: MagicMock,
+) -> None:
+    """The distinction that made the first live run wrong.
+
+    "Right to work without visa sponsorship" is not a skill the resume failed to
+    show — it is a fact no resume normally states. Counting it as "missing" told
+    Lee he did not meet a requirement he does meet. It gets its own count so the
+    headline can leave it out of the denominator.
+    """
+    mock_anthropic.return_value = _reply(
+        RequirementVerdict(index=0, verdict="met", evidence="Enrolled at UF"),
+        RequirementVerdict(
+            index=1, verdict="unstated", evidence="Confirm your work authorization"
+        ),
+    )
+
+    report = assess_requirements(
+        _master(),
+        ["Currently enrolled in a Bachelor's program", "Right to work without sponsorship"],
+        _fake_settings(),
+    )
+
+    assert report is not None
+    assert report.met_count == 1
+    assert report.unstated_count == 1
+    # Still in `total`; the UI subtracts unstated to get the denominator.
+    assert report.total == 2
+
+
+@patch("services.matching.Anthropic")
+def test_todays_date_is_supplied_for_timing_requirements(
+    mock_anthropic: MagicMock,
+) -> None:
+    """"Must be returning to studies afterwards" cannot be judged from a
+    graduation date alone — there is nothing to compare it against, and the
+    model has no reliable clock. The date is passed in rather than assumed."""
+    client = _reply(RequirementVerdict(index=0, verdict="met", evidence="Grad 2029"))
+    mock_anthropic.return_value = client
+
+    assess_requirements(
+        _master(), ["Must be returning to studies after the internship"], _fake_settings()
+    )
+
+    prompt = client.messages.parse.call_args.kwargs["messages"][0]["content"]
+    assert "TODAY'S DATE:" in prompt
+    assert date.today().isoformat() in prompt
 
 
 def test_no_requirements_is_an_empty_report_not_a_failure() -> None:

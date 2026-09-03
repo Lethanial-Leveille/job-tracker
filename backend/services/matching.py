@@ -17,6 +17,7 @@ requirement, the honest answer is "missing" with no citation.
 """
 
 import logging
+from datetime import date
 
 from anthropic import Anthropic
 
@@ -43,19 +44,45 @@ one posting. For each requirement, return its index and one verdict:
   adjacent: a required framework where the resume shows a different framework in
   the same language; three years asked for where the resume shows one.
 - "missing": nothing in the resume supports it. Leave `evidence` null.
+- "unstated": ELIGIBILITY ONLY (see below) — the resume does not cover this and
+  no resume normally would. Say what the candidate needs to confirm in
+  `evidence`.
 
-Rules:
-- Return one entry per requirement, with the SAME index you were given.
-- Judge ONLY against what the resume actually says. Never credit a skill because
-  it is implied, adjacent, or commonly held. If it is not in the resume, it is
-  not met.
-- `evidence` must quote or closely paraphrase something actually present in the
-  resume. Never invent a project, tool, metric, or claim to justify a verdict.
+There are TWO KINDS of requirement and they are judged differently. Deciding
+which kind you are looking at is the first thing to do.
+
+CAPABILITY requirements — skills, tools, technologies, kinds of experience.
+Judge these strictly against what the resume shows.
+- Never credit a skill because it is implied, adjacent, or commonly held. If the
+  resume does not show it, it is "missing".
+- Never answer "unstated" for a capability requirement. A skill the resume omits
+  is missing, not unstated.
 - Be strict. An honest "missing" is useful; a generous "met" is not. When torn
   between "met" and "partial", choose "partial". When torn between "partial" and
   "missing", choose "missing".
-- Requirements about degree, graduation timing, and authorization are judged the
-  same way: against what the resume states, not what seems likely.
+
+ELIGIBILITY requirements — enrollment, degree program, graduation timing,
+returning to study after the internship, work authorization, location. These are
+plain facts about the person rather than evidence of skill, and a resume states
+them directly. DERIVE the answer from the facts the resume states. Working out a
+consequence of a stated fact is arithmetic, not inference about unstated
+ability, and the strictness rule above does not apply to it.
+- "Currently enrolled in a Bachelor's/Master's program": met when the education
+  section shows a degree in progress. Cite it.
+- "Must be returning to studies after the internship": met when the expected
+  graduation date falls AFTER the upcoming internship period. Today's date is
+  given below; compare it against the expected graduation date and say so.
+- "Right to work without visa sponsorship", "must hold a security clearance",
+  and similar status facts: judge against `contact.work_authorization` when the
+  resume states it. When the resume says nothing about it, answer "unstated" and
+  say what needs confirming. Do NOT answer "missing" — a blank field is not
+  evidence that the candidate lacks the right.
+
+Rules for every verdict:
+- Return one entry per requirement, with the SAME index you were given.
+- `evidence` must quote or closely paraphrase something actually present in the
+  resume, or state plainly what is missing from it. Never invent a project,
+  tool, metric, date, or claim to justify a verdict.
 - Keep each `evidence` to one sentence."""
 
 
@@ -91,6 +118,11 @@ def assess_requirements(
     resolved: dict[int, tuple[str, str | None]] = {}
 
     resume_json = master.model_dump_json(indent=2)
+    # Timing requirements ("must be returning to studies afterwards") cannot be
+    # judged without knowing when now is — the resume gives a graduation date
+    # and nothing to compare it against. The model has no reliable clock, so the
+    # date is supplied rather than assumed.
+    today = date.today().isoformat()
 
     for round_number in range(max_rounds):
         missing = [i for i in range(len(requirements)) if i not in resolved]
@@ -107,7 +139,11 @@ def assess_requirements(
             messages=[
                 {
                     "role": "user",
-                    "content": f"RESUME:\n{resume_json}\n\nREQUIREMENTS:\n{numbered}",
+                    "content": (
+                        f"TODAY'S DATE: {today}\n\n"
+                        f"RESUME:\n{resume_json}\n\n"
+                        f"REQUIREMENTS:\n{numbered}"
+                    ),
                 }
             ],
             output_format=RequirementVerdicts,

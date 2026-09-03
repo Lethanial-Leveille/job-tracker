@@ -24,6 +24,7 @@ const VERDICT_LABEL: Record<RequirementVerdict, string> = {
   met: "Met",
   partial: "Partial",
   missing: "Missing",
+  unstated: "Your call",
   unknown: "Not assessed",
 };
 
@@ -87,12 +88,17 @@ export function FitSection({ application, onComputed, report }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         {report ? (
           <div className="flex items-baseline gap-2.5">
+            {/* Requirements the resume cannot answer are out of the
+                denominator. Counting them as failures would report a gap you
+                have not actually got. */}
             <span className="text-2xl font-semibold tabular-nums text-ink">
-              {report.met_count} of {report.total}
+              {report.met_count} of {report.total - report.unstated_count}
             </span>
             <span className="text-[13px] text-ink-soft">
               requirements met
               {report.partial_count > 0 && `, ${report.partial_count} partial`}
+              {report.unstated_count > 0 &&
+                `, ${report.unstated_count} for you to confirm`}
             </span>
           </div>
         ) : (
@@ -162,7 +168,8 @@ function VerdictChip({ verdict }: { verdict: RequirementVerdict }) {
         ? "bg-ink-soft"
         : verdict === "missing"
           ? "border border-ink-muted"
-          : "border border-dashed border-ink-muted";
+          : // unstated and unknown: nothing was decided, so nothing is filled in
+            "border border-dashed border-ink-muted";
 
   return (
     <span className="mt-px inline-flex w-[104px] shrink-0 items-center gap-1.5 text-[11.5px] font-medium text-ink-soft">
