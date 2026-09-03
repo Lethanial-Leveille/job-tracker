@@ -82,7 +82,19 @@ class FitReport(BaseModel):
     # Requirements the resume cannot answer. Counted separately so the headline
     # can exclude them: "3 of 4 met, 1 needs your input" is honest, while
     # folding them into the denominator would read as a failure you did not earn.
-    unstated_count: int
+    #
+    # DEFAULTED, and every field added here in future must be too. This model
+    # does double duty: it is the API response shape AND the validator for the
+    # `applications.fit_report` JSON column, so stored blobs written by older
+    # code are still read through it. Adding this field without a default made
+    # every previously computed report fail validation, which 500'd not just
+    # that row's update but the whole applications list, since one bad row
+    # fails `list[ApplicationRead]` for all of them.
+    #
+    # 0 is also the correct value for those old reports rather than a
+    # placeholder: they were computed before "unstated" was a possible verdict,
+    # so none of their matches can be unstated.
+    unstated_count: int = 0
     total: int
     computed_at: datetime
 

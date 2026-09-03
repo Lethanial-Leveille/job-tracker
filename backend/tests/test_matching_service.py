@@ -209,3 +209,29 @@ def test_no_requirements_is_an_empty_report_not_a_failure() -> None:
     assert report is not None
     assert report.total == 0
     assert report.met_count == 0
+
+
+def test_a_report_stored_before_unstated_existed_still_reads() -> None:
+    """Regression: FitReport validates the stored `fit_report` JSON column, not
+    just fresh API responses, so a field added without a default breaks every
+    report already in the database — and because one bad row fails
+    `list[ApplicationRead]`, it takes the entire applications list down with it.
+
+    Any field added to FitReport from now on needs a default for the same reason.
+    """
+    from schemas.fit import FitReport
+
+    legacy = {
+        "matches": [
+            {"requirement": "Python", "verdict": "met", "evidence": "Built X"}
+        ],
+        "met_count": 3,
+        "partial_count": 0,
+        "total": 5,
+        "computed_at": "2026-09-03T16:00:00",
+    }
+
+    report = FitReport.model_validate(legacy)
+
+    assert report.unstated_count == 0
+    assert report.met_count == 3
