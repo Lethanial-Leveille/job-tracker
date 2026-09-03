@@ -30,7 +30,14 @@ Rules:
 - Set `type` to "scholarship" for scholarships, awards, grants, and fellowships;
   otherwise "internship".
 - `summary` is a one or two sentence plain description of the role or program.
-- `key_requirements` are the stated eligibility or qualification bullet points.
+- `key_requirements` are the HARD requirements only: the "You have",
+  "Required", "Minimum qualifications", or "Basic qualifications" list, plus any
+  stated eligibility rule (enrollment, graduation timing, work authorization).
+- `preferred_qualifications` is the SEPARATE "We prefer", "Preferred
+  qualifications", "Nice to have", or "Bonus points" list. Never merge these two
+  into one list, and never repeat an item in both. If a posting has only one
+  list of qualifications, treat it as key_requirements and leave
+  preferred_qualifications empty.
 - `role_or_program` is the title EXACTLY as posted, including any team or suffix
   ("Software Engineer Intern / Basketball Operations", "Software Engineer, Internship").
   It is REQUIRED and cannot be null, so the "leave it null" rule above does not

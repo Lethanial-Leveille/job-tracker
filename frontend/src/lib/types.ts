@@ -50,7 +50,11 @@ export interface JdParsed {
   summary?: string | null;
   salary?: string | null;
   location?: string | null;
+  // The hard requirements ("You have", "Minimum qualifications").
   key_requirements?: string[];
+  // The "We prefer" list, kept separate. Absent on rows stored before the
+  // parser started splitting the two.
+  preferred_qualifications?: string[];
 }
 
 // --- Requirement matching ---------------------------------------------------
@@ -71,10 +75,15 @@ export type RequirementVerdict =
   | "unstated"
   | "unknown";
 
+// Whether an item gates the application or differentiates it. Judged the same
+// way; reported separately.
+export type RequirementKind = "required" | "preferred";
+
 export interface RequirementMatch {
   requirement: string;
   verdict: RequirementVerdict;
   evidence: string | null;
+  kind: RequirementKind;
 }
 
 export interface FitReport {
@@ -82,7 +91,11 @@ export interface FitReport {
   met_count: number;
   partial_count: number;
   unstated_count: number;
+  // Required items only, so the headline never shifts meaning.
   total: number;
+  preferred_met_count: number;
+  preferred_partial_count: number;
+  preferred_total: number;
   computed_at: string; // ISO datetime
 }
 
@@ -121,6 +134,7 @@ export interface ParsedJob {
   location: string | null;
   summary: string | null;
   key_requirements: string[];
+  preferred_qualifications: string[];
 }
 
 // The body we send to POST /applications. Mirror of the backend ApplicationCreate

@@ -115,14 +115,17 @@ def compute_fit(
     # like a perfect score.
     parsed = application.jd_parsed or {}
     requirements = parsed.get("key_requirements") or []
-    if not requirements:
+    # Absent on every row stored before the parser split the two lists, and on
+    # postings that simply have no "we prefer" section.
+    preferred = parsed.get("preferred_qualifications") or []
+    if not requirements and not preferred:
         raise HTTPException(
             status_code=400,
             detail="This posting has no extracted requirements to check",
         )
 
     master = Resume.model_validate(master_row.resume_json)
-    report = assess_requirements(master, requirements, settings)
+    report = assess_requirements(master, requirements, settings, preferred=preferred)
     if report is None:
         raise HTTPException(
             status_code=502, detail="Could not assess the requirements"

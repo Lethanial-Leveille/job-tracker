@@ -235,3 +235,58 @@ def test_a_report_stored_before_unstated_existed_still_reads() -> None:
 
     assert report.unstated_count == 0
     assert report.met_count == 3
+
+
+@patch("services.matching.Anthropic")
+def test_preferred_items_are_counted_apart_from_required(
+    mock_anthropic: MagicMock,
+) -> None:
+    """The headline must stay on the hard requirements.
+
+    Folding preferences into the same total turns "2 of 2 required met" into
+    "2 of 4", which reads as a weak fit for someone who clears every gate. The
+    preferred list is reported as its own line instead.
+    """
+    mock_anthropic.return_value = _reply(
+        RequirementVerdict(index=0, verdict="met", evidence="Enrolled"),
+        RequirementVerdict(index=1, verdict="met", evidence="C++ in M.I.L.E.S."),
+        RequirementVerdict(index=2, verdict="met", evidence="Python throughout"),
+        RequirementVerdict(index=3, verdict="missing"),
+    )
+
+    report = assess_requirements(
+        _master(),
+        ["Pursuing a Bachelor's degree", "Proficiency in C++"],
+        _fake_settings(),
+        preferred=["Proficiency in Python", "Hardware-in-the-Loop experience"],
+    )
+
+    assert report is not None
+    assert report.met_count == 2
+    assert report.total == 2
+    assert report.preferred_met_count == 1
+    assert report.preferred_total == 2
+    # Every item is still present and labelled, in the order given.
+    assert [m.kind for m in report.matches] == [
+        "required",
+        "required",
+        "preferred",
+        "preferred",
+    ]
+
+
+@patch("services.matching.Anthropic")
+def test_a_posting_with_only_preferred_items_still_assesses(
+    mock_anthropic: MagicMock,
+) -> None:
+    mock_anthropic.return_value = _reply(
+        RequirementVerdict(index=0, verdict="met", evidence="Python throughout"),
+    )
+
+    report = assess_requirements(
+        _master(), [], _fake_settings(), preferred=["Proficiency in Python"]
+    )
+
+    assert report is not None
+    assert report.total == 0
+    assert report.preferred_met_count == 1

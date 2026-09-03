@@ -1,5 +1,10 @@
 import { useState } from "react";
-import type { Application, FitReport, RequirementVerdict } from "../../lib/types";
+import type {
+  Application,
+  FitReport,
+  RequirementKind,
+  RequirementVerdict,
+} from "../../lib/types";
 import { computeFit } from "../../lib/api";
 
 // How well your master resume answers this posting's stated requirements.
@@ -41,7 +46,8 @@ export function FitSection({ application, onComputed, report }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const requirements = application.jd_parsed?.key_requirements ?? [];
-  const hasRequirements = requirements.length > 0;
+  const preferred = application.jd_parsed?.preferred_qualifications ?? [];
+  const hasRequirements = requirements.length + preferred.length > 0;
 
   // The report is a function of this posting AND your master resume, and the
   // master changes as you edit it. Rather than guess at staleness, show when it
@@ -71,23 +77,38 @@ export function FitSection({ application, onComputed, report }: Props) {
   }
 
   // One shape for both states: unchecked rows carry no verdict and no evidence.
-  const rows: {
+  type Row = {
     requirement: string;
     verdict: RequirementVerdict | null;
     evidence: string | null;
-  }[] = report
+    kind: RequirementKind;
+  };
+  const rows: Row[] = report
     ? report.matches
-    : requirements.map((requirement) => ({
-        requirement,
-        verdict: null,
-        evidence: null,
-      }));
+    : [
+        ...requirements.map((requirement) => ({
+          requirement,
+          verdict: null,
+          evidence: null,
+          kind: "required" as const,
+        })),
+        ...preferred.map((requirement) => ({
+          requirement,
+          verdict: null,
+          evidence: null,
+          kind: "preferred" as const,
+        })),
+      ];
+
+  const requiredRows = rows.filter((r) => r.kind === "required");
+  const preferredRows = rows.filter((r) => r.kind === "preferred");
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {report ? (
-          <div className="flex items-baseline gap-2.5">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-baseline gap-2.5">
             {/* Requirements the resume cannot answer are out of the
                 denominator. Counting them as failures would report a gap you
                 have not actually got. */}
@@ -95,15 +116,29 @@ export function FitSection({ application, onComputed, report }: Props) {
               {report.met_count} of {report.total - report.unstated_count}
             </span>
             <span className="text-[13px] text-ink-soft">
-              requirements met
+              required met
               {report.partial_count > 0 && `, ${report.partial_count} partial`}
               {report.unstated_count > 0 &&
                 `, ${report.unstated_count} for you to confirm`}
             </span>
+            </div>
+            {report.preferred_total > 0 && (
+              // A second line, never folded into the headline: nearly every
+              // applicant clears the hard bar, so this is the half that
+              // actually separates candidates, but missing a preference is not
+              // the same kind of fact as missing a requirement.
+              <span className="text-[12.5px] text-ink-muted">
+                {report.preferred_met_count} of {report.preferred_total} preferred
+                {report.preferred_partial_count > 0 &&
+                  `, ${report.preferred_partial_count} partial`}
+              </span>
+            )}
           </div>
         ) : (
           <span className="text-[12.5px] text-ink-soft">
-            {requirements.length} requirements on file, not checked yet.
+            {requirements.length} required
+            {preferred.length > 0 && ` and ${preferred.length} preferred`}, not
+            checked yet.
           </span>
         )}
 
@@ -123,28 +158,24 @@ export function FitSection({ application, onComputed, report }: Props) {
         </p>
       )}
 
-      {/* The requirements are listed here whether or not they have been
-          checked, so this section is their single home. Checking decorates the
-          same list with a verdict and the evidence behind it, rather than
-          printing a second copy of it further down the page. */}
-      <div className="flex flex-col gap-2">
-        {rows.map((row, i) => (
-          <div
-            key={i}
-            className="flex items-start gap-3 rounded-frame border border-line bg-surface px-3.5 py-3"
-          >
-            {row.verdict && <VerdictChip verdict={row.verdict} />}
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] leading-snug text-ink">{row.requirement}</p>
-              {row.evidence && (
-                <p className="mt-1 text-[12px] leading-relaxed text-ink-soft">
-                  {row.evidence}
-                </p>
-              )}
-            </div>
+      {/* Listed here whether or not they have been checked, so this section is
+          their single home. Checking decorates the same list with a verdict and
+          the evidence behind it, rather than printing a second copy further
+          down the page. */}
+      <RequirementList rows={requiredRows} />
+      {preferredRows.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-[0.13em] text-ink-muted">
+            Preferred
+            <span className="h-px flex-1 bg-line" />
           </div>
-        ))}
-      </div>
+          <p className="-mt-1 text-[11.5px] text-ink-muted">
+            Not required. This is usually what separates candidates, and the best
+            guide to what to emphasize when you tailor.
+          </p>
+          <RequirementList rows={preferredRows} />
+        </div>
+      )}
 
       {report && (
         <p className="text-[11px] text-ink-muted">
@@ -152,6 +183,38 @@ export function FitSection({ application, onComputed, report }: Props) {
           Editing your master can change this.
         </p>
       )}
+    </div>
+  );
+}
+
+function RequirementList({
+  rows,
+}: {
+  rows: {
+    requirement: string;
+    verdict: RequirementVerdict | null;
+    evidence: string | null;
+  }[];
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {rows.map((row, i) => (
+        <div
+          key={i}
+          className="flex items-start gap-3 rounded-frame border border-line bg-surface px-3.5 py-3"
+        >
+          {row.verdict && <VerdictChip verdict={row.verdict} />}
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] leading-snug text-ink">{row.requirement}</p>
+            {row.evidence && (
+              <p className="mt-1 text-[12px] leading-relaxed text-ink-soft">
+                {row.evidence}
+              </p>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

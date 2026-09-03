@@ -60,6 +60,13 @@ Judge these strictly against what the resume shows.
 - Be strict. An honest "missing" is useful; a generous "met" is not. When torn
   between "met" and "partial", choose "partial". When torn between "partial" and
   "missing", choose "missing".
+- BUT: when a requirement names its own examples and the resume shows those
+  examples, it is "met", not "partial". "Familiarity with software testing
+  fundamentals (unit testing, integration testing, regression testing)" is met
+  by a resume showing unit, integration, and regression tests. Do not demand
+  formality, vocabulary, or breadth the requirement did not ask for. The
+  strictness above is about not crediting things the resume never shows, not
+  about withholding credit for exactly what was asked.
 
 ELIGIBILITY requirements — enrollment, degree program, graduation timing,
 returning to study after the internship, work authorization, location. These are
@@ -91,6 +98,7 @@ def assess_requirements(
     requirements: list[str],
     settings: Settings,
     max_rounds: int = 2,
+    preferred: list[str] | None = None,
 ) -> FitReport | None:
     """Judge each requirement against the master resume.
 
@@ -111,7 +119,16 @@ def assess_requirements(
     rather than dropped. Dropping it would shrink the denominator and quietly
     inflate how well you match.
     """
-    if not requirements:
+    # Required and preferred are judged IDENTICALLY and in one call — the same
+    # question is being asked of both, and a second call would double the cost
+    # to answer it. They are combined here and split apart again by index at the
+    # end, which is also why the model is never told which is which: knowing an
+    # item is merely preferred would invite it to grade that item more leniently.
+    preferred = preferred or []
+    all_items = [*requirements, *preferred]
+    kinds: list[str] = ["required"] * len(requirements) + ["preferred"] * len(preferred)
+
+    if not all_items:
         return FitReport.from_matches([])
 
     client = Anthropic(api_key=settings.anthropic_api_key)
@@ -125,13 +142,13 @@ def assess_requirements(
     today = date.today().isoformat()
 
     for round_number in range(max_rounds):
-        missing = [i for i in range(len(requirements)) if i not in resolved]
+        missing = [i for i in range(len(all_items)) if i not in resolved]
         if not missing:
             break
 
         # Numbered by ORIGINAL index, not by position within this round's
         # subset, so a second-round answer needs no re-mapping to be applied.
-        numbered = "\n".join(f"{i}. {requirements[i]}" for i in missing)
+        numbered = "\n".join(f"{i}. {all_items[i]}" for i in missing)
         response = client.messages.parse(
             model=settings.anthropic_model,
             max_tokens=2048,
@@ -161,22 +178,23 @@ def assess_requirements(
             if entry.index in missing:
                 resolved[entry.index] = (entry.verdict, entry.evidence)
 
-    if len(resolved) < len(requirements):
+    if len(resolved) < len(all_items):
         logger.warning(
             "Requirement matching answered %d of %d after %d rounds",
             len(resolved),
-            len(requirements),
+            len(all_items),
             max_rounds,
         )
 
     matches = []
-    for i, requirement in enumerate(requirements):
+    for i, item in enumerate(all_items):
         verdict, evidence = resolved.get(i, ("unknown", None))
         matches.append(
             RequirementMatch(
-                requirement=requirement,
+                requirement=item,
                 verdict=verdict,  # type: ignore[arg-type]  # "unknown" is StoredVerdict-only
                 evidence=evidence,
+                kind=kinds[i],  # type: ignore[arg-type]
             )
         )
 

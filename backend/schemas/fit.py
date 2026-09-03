@@ -38,6 +38,11 @@ ModelVerdict = Literal["met", "partial", "missing", "unstated"]
 # denominator stays honest instead of a dropped item silently reading as met.
 StoredVerdict = Literal["met", "partial", "missing", "unstated", "unknown"]
 
+# Whether an item gates the application or merely differentiates it. Judged
+# identically; reported separately, because missing a preference is not the same
+# kind of fact as missing a requirement.
+RequirementKind = Literal["required", "preferred"]
+
 
 class RequirementVerdict(BaseModel):
     """One requirement, judged. `index` ties the answer back to its input.
@@ -65,6 +70,10 @@ class RequirementMatch(BaseModel):
     requirement: str
     verdict: StoredVerdict
     evidence: str | None = None
+    # Defaulted, per the stored-JSON rule in CLAUDE.md: reports written before
+    # preferred qualifications existed contain only hard requirements, so
+    # "required" is both the safe default and the correct one for them.
+    kind: RequirementKind = "required"
 
 
 class FitReport(BaseModel):
@@ -77,6 +86,10 @@ class FitReport(BaseModel):
     """
 
     matches: list[RequirementMatch]
+    # These four describe the REQUIRED items only. They keep that meaning for
+    # reports stored before preferred qualifications existed, whose matches all
+    # default to kind="required" — so the headline number never silently shifts
+    # meaning on old data.
     met_count: int
     partial_count: int
     # Requirements the resume cannot answer. Counted separately so the headline
@@ -96,15 +109,28 @@ class FitReport(BaseModel):
     # so none of their matches can be unstated.
     unstated_count: int = 0
     total: int
+    # The preferred list, counted apart so it can be reported as a second line
+    # rather than dragging down the headline. Defaulted for the same reason as
+    # `kind` above.
+    preferred_met_count: int = 0
+    preferred_partial_count: int = 0
+    preferred_total: int = 0
     computed_at: datetime
 
     @classmethod
     def from_matches(cls, matches: list[RequirementMatch]) -> "FitReport":
+        required = [m for m in matches if m.kind == "required"]
+        preferred = [m for m in matches if m.kind == "preferred"]
         return cls(
             matches=matches,
-            met_count=sum(1 for m in matches if m.verdict == "met"),
-            partial_count=sum(1 for m in matches if m.verdict == "partial"),
-            unstated_count=sum(1 for m in matches if m.verdict == "unstated"),
-            total=len(matches),
+            met_count=sum(1 for m in required if m.verdict == "met"),
+            partial_count=sum(1 for m in required if m.verdict == "partial"),
+            unstated_count=sum(1 for m in required if m.verdict == "unstated"),
+            total=len(required),
+            preferred_met_count=sum(1 for m in preferred if m.verdict == "met"),
+            preferred_partial_count=sum(
+                1 for m in preferred if m.verdict == "partial"
+            ),
+            preferred_total=len(preferred),
             computed_at=datetime.now(UTC),
         )

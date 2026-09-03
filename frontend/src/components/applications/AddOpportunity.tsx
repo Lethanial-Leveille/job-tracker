@@ -172,6 +172,7 @@ export function AddOpportunity({
               location: parsed.location,
               summary: parsed.summary,
               key_requirements: parsed.key_requirements,
+              preferred_qualifications: parsed.preferred_qualifications,
             }
           : null,
         jd_text: pasteText.trim() === "" ? null : pasteText,
