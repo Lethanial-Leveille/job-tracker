@@ -6,7 +6,9 @@ from database import get_db
 from dependencies import get_current_user
 from models.user import User
 from schemas.application import ApplicationCreate, ApplicationRead, ApplicationUpdate
+from schemas.fit import FitReport
 from schemas.parsing import ParsedJob, ParseRequest
+from schemas.resume import Resume
 from services.application import (
     create_application,
     delete_application,
@@ -14,7 +16,9 @@ from services.application import (
     list_applications,
     update_application,
 )
+from services.matching import assess_requirements
 from services.parsing import parse_job_description
+from services.resume import get_master
 
 # dependencies=[Depends(get_current_user)] protects EVERY route in this router by
 # default — you can't forget to guard one. Handlers that need the owner also
@@ -78,6 +82,58 @@ def update(
     if result is None:
         raise HTTPException(status_code=404, detail="Application not found")
     return result
+
+
+@router.post("/{application_id}/fit", response_model=FitReport)
+def compute_fit(
+    application_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> FitReport:
+    """Judge this posting's stated requirements against the user's master resume.
+
+    POST, not GET, for two reasons: it spends a paid API call, and it writes the
+    result back to the row. GET is expected to be safe and repeatable, and this
+    is neither. Callers that just want the last computed report read `fit_report`
+    off the application itself — no call, no cost.
+    """
+    application = get_application(db, application_id, user.id)
+    if application is None:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    master_row = get_master(db, user.id)
+    if master_row is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Create your master resume before checking requirements",
+        )
+
+    # The requirements come from the parser's stored extras. A row added by hand
+    # has no jd_parsed at all, which is not an error — there is simply nothing to
+    # judge against, and saying so beats returning an empty report that reads
+    # like a perfect score.
+    parsed = application.jd_parsed or {}
+    requirements = parsed.get("key_requirements") or []
+    if not requirements:
+        raise HTTPException(
+            status_code=400,
+            detail="This posting has no extracted requirements to check",
+        )
+
+    master = Resume.model_validate(master_row.resume_json)
+    report = assess_requirements(master, requirements, settings)
+    if report is None:
+        raise HTTPException(
+            status_code=502, detail="Could not assess the requirements"
+        )
+
+    # Cache it on the row so reopening the application costs nothing.
+    application.fit_report = report.model_dump(mode="json")
+    application.fit_computed_at = report.computed_at
+    db.commit()
+
+    return report
 
 
 @router.delete("/{application_id}", status_code=status.HTTP_204_NO_CONTENT)

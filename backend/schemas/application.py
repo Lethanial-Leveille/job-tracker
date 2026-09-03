@@ -17,6 +17,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from schemas.fit import FitReport
+
 from models.application import (
     ApplicationStatus,
     ApplicationType,
@@ -112,5 +114,9 @@ class ApplicationRead(ApplicationBase):
     id: str
     jd_parsed: dict | None = None
     jd_text: str | None = None
+    # The cached requirement-match report, or null if it has not been computed
+    # for this application yet. Read-only: it is written by POST /{id}/fit, not
+    # by create or update, so no human-typed schema carries it.
+    fit_report: FitReport | None = None
     created_at: datetime
     updated_at: datetime

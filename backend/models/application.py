@@ -120,6 +120,20 @@ class Application(Base):
     # re-settable via update (you can paste a JD onto an app created by hand).
     jd_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # The requirement-match report (schemas/fit.py), cached here after it is
+    # computed. Same JSON-blob call as jd_parsed and MasterResume.resume_json:
+    # it is a document read and written whole, never queried across its insides.
+    #
+    # A CACHE, not a record: recomputing overwrites it. That is fine because the
+    # report is a pure function of this posting's requirements and your master
+    # resume as it stands, so an old one has no value once the master changes.
+    # fit_computed_at is what makes staleness visible — the master is edited
+    # constantly, and a report from before an edit may no longer be true.
+    fit_report: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    fit_computed_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
+
     # Timestamps, always UTC. updated_at re-stamps on every modification via
     # the onupdate hook.
     created_at: Mapped[datetime] = mapped_column(
