@@ -10,6 +10,10 @@ interface Props {
   selected: boolean;
   onSelect: (id: string) => void;
   onStatusChange: (id: string, status: ApplicationStatus) => void;
+  // Rendered underneath an employer heading. The heading already names the
+  // company, so repeating it here would print it twice in a row AND waste the
+  // widest column on something constant across the whole group.
+  grouped?: boolean;
 }
 
 // One table row. The whole row opens the detail drawer, so it acts as a button
@@ -23,6 +27,7 @@ export function ApplicationRow({
   selected,
   onSelect,
   onStatusChange,
+  grouped,
 }: Props) {
   const open = () => onSelect(application.id);
 
@@ -46,15 +51,27 @@ export function ApplicationRow({
           : "border-l-transparent hover:bg-surface-hover"
       }`}
     >
-      {/* Organization: monogram avatar + name */}
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-interactive border border-line bg-surface text-xs font-semibold text-ink-soft">
-          {monogram(application.organization)}
-        </span>
-        <span className="truncate text-sm font-semibold text-ink">
-          {application.organization}
-        </span>
-      </div>
+      {/* Ungrouped: the employer, with its monogram. Grouped: the POSTED title
+          instead, indented under the heading. Grouping exists for the case of
+          several positions at one company, so this column has to say which
+          position — the company is the one thing every row in the group shares. */}
+      {grouped ? (
+        <div className="flex min-w-0 items-center gap-3 pl-6">
+          <span className="h-4 w-px shrink-0 bg-line-strong" />
+          <span className="truncate text-sm font-medium text-ink">
+            {application.role_or_program}
+          </span>
+        </div>
+      ) : (
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-interactive border border-line bg-surface text-xs font-semibold text-ink-soft">
+            {monogram(application.organization)}
+          </span>
+          <span className="truncate text-sm font-semibold text-ink">
+            {application.organization}
+          </span>
+        </div>
+      )}
 
       {/* Role: the normalized family, so the column scans cleanly. Rows added
           before classification existed have none, so fall back to the posted

@@ -9,7 +9,7 @@ import type {
 import { ROLE_FAMILIES } from "../../lib/types";
 import { createApplication, parseJobDescription } from "../../lib/api";
 import { statusLabel } from "../../lib/format";
-import { findSimilarPosting, findUrlMatch } from "../../lib/dedupe";
+import { findByOrganization, findSimilarPosting, findUrlMatch } from "../../lib/dedupe";
 
 // The full-screen "Add an opportunity" flow that replaces the create modal.
 // Three steps: Input (paste the posting) -> Parse (Claude reads it) -> Review
@@ -105,6 +105,8 @@ export function AddOpportunity({
   // Held in state rather than derived, because it can only be computed once the
   // parser has told us the organization and title.
   const [similar, setSimilar] = useState<Application | null>(null);
+  // Others at the same employer, shown when the stronger checks find nothing.
+  const [sameEmployer, setSameEmployer] = useState<Application[]>([]);
 
   // Derived, not state: recomputed each render straight from what you have
   // typed. There is nothing to keep in sync and nothing to invalidate.
@@ -131,10 +133,14 @@ export function AddOpportunity({
       // The second check, on employer + title. Catches the same job posted to
       // two boards, which the URL check cannot see. Skipped when the URL check
       // already matched, so you never get two warnings about one row.
-      setSimilar(
-        urlDuplicate
-          ? null
-          : findSimilarPosting(applications, p.organization, p.role_or_program),
+      const match = urlDuplicate
+        ? null
+        : findSimilarPosting(applications, p.organization, p.role_or_program);
+      setSimilar(match);
+      // Only when nothing stronger fired, so one posting never produces two
+      // notices about the same row.
+      setSameEmployer(
+        urlDuplicate || match ? [] : findByOrganization(applications, p.organization),
       );
       setStep("review");
     } catch (err: unknown) {
@@ -322,6 +328,36 @@ export function AddOpportunity({
                   detail="Same employer and a nearly identical title, under a different link."
                   onOpen={onOpenExisting}
                 />
+              </div>
+            )}
+
+            {sameEmployer.length > 0 && (
+              <div className="mb-6 rounded-frame border border-line bg-surface px-4 py-3">
+                <div className="text-[12.5px] text-ink-soft">
+                  You already track{" "}
+                  <span className="text-ink">
+                    {sameEmployer.length}{" "}
+                    {sameEmployer.length === 1 ? "application" : "applications"}
+                  </span>{" "}
+                  at {form.organization}. Not necessarily a duplicate — check it
+                  is not the same one.
+                </div>
+                <ul className="mt-2 flex flex-col gap-1">
+                  {sameEmployer.map((app) => (
+                    <li key={app.id} className="flex items-center gap-2 text-[12px]">
+                      <button
+                        type="button"
+                        onClick={() => onOpenExisting(app.id)}
+                        className="truncate text-left text-ink-soft underline decoration-line underline-offset-2 transition-colors hover:text-ink"
+                      >
+                        {app.role_or_program}
+                      </button>
+                      <span className="shrink-0 text-ink-muted">
+                        {statusLabel(app.status)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 

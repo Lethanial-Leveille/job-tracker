@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Application } from "./types";
 import {
+  findByOrganization,
   findSimilarPosting,
   findUrlMatch,
   normalizeOrganization,
@@ -98,6 +99,31 @@ describe("findSimilarPosting", () => {
 
   it("does not warn across companies", () => {
     expect(findSimilarPosting(list, "Meta", "Software Engineer Intern")).toBeNull();
+  });
+});
+
+describe("findByOrganization", () => {
+  // The backstop for two real misses: pasting the URL of a later step in an
+  // application flow (a different page, so URL matching cannot fire), and the
+  // parser returning no usable job title (so title matching scores zero).
+  const list = [
+    app("Arm", "Intern Program - Engineering Pathways"),
+    app("Arm Limited", "Hardware Engineer Intern"),
+    app("Stripe", "Backend Engineer Intern"),
+  ];
+
+  it("finds every row at one employer across spellings", () => {
+    expect(findByOrganization(list, "Arm")).toHaveLength(2);
+  });
+
+  it("still finds them when the incoming title is useless", () => {
+    // "not stated" is what the parser used to emit for a page with no title.
+    expect(findSimilarPosting(list, "Arm", "not stated")).toBeNull();
+    expect(findByOrganization(list, "Arm").length).toBeGreaterThan(0);
+  });
+
+  it("returns nothing for an employer you do not track", () => {
+    expect(findByOrganization(list, "Nvidia")).toHaveLength(0);
   });
 });
 

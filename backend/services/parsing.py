@@ -33,6 +33,12 @@ Rules:
 - `key_requirements` are the stated eligibility or qualification bullet points.
 - `role_or_program` is the title EXACTLY as posted, including any team or suffix
   ("Software Engineer Intern / Basketball Operations", "Software Engineer, Internship").
+  It is REQUIRED and cannot be null, so the "leave it null" rule above does not
+  apply to it. Never answer with a placeholder like "not stated", "unknown", or
+  "N/A" — those become the row's title in the list and are worse than a rough
+  guess. If the text carries no distinct job title (an application form, a
+  program landing page), use the program or page heading instead, for example
+  "Intern Program - Engineering Pathways".
 - `role_family` is the one field you CLASSIFY rather than extract. Choose the
   single closest value from the allowed set. This is not inference about the
   posting's contents, so it is exempt from the no-inference rule above: every

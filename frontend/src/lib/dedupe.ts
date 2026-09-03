@@ -200,6 +200,29 @@ function roleSimilarity(a: string, b: string): number {
   return shared / Math.min(left.size, right.size);
 }
 
+// Every application already tracked at one employer, regardless of role.
+//
+// The weakest signal of the three, and the one that catches what the other two
+// structurally cannot. Two real cases from live use:
+//   - You paste the URL of a later STEP in an application flow rather than the
+//     posting itself. That is a genuinely different page, so no amount of URL
+//     normalization will match it.
+//   - The parser cannot find a job title, so there is nothing for the title
+//     similarity check to compare against and it scores zero.
+// In both, "you already track 2 things at Arm" is still worth saying. It is
+// shown as information, never as a duplicate warning — several roles at one
+// company is normal, which is exactly why grouping exists.
+export function findByOrganization(
+  applications: Application[],
+  organization: string,
+): Application[] {
+  const orgKey = normalizeOrganization(organization);
+  if (orgKey === "") return [];
+  return applications.filter(
+    (app) => normalizeOrganization(app.organization) === orgKey,
+  );
+}
+
 // The weaker signal, for the case the URL check structurally cannot catch: the
 // same job posted to two different boards, so two different links. Runs after
 // parsing, since the organization and title come from the parser.
