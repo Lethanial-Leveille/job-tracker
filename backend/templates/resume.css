@@ -124,9 +124,15 @@ section {
   margin-bottom: 1.5pt;
 }
 
+/* 112pt is a measured value, not a guess, and it is a narrow window. Below it
+   the longest label ("Frameworks & Libraries:") wraps onto a second line and
+   reads as a phantom extra skills row. Above it the label column steals width
+   from the items, so the long Cloud & DevOps row wraps instead and costs the
+   same line back — 126pt pushed the resume to two pages for exactly that
+   reason. Re-measure with count_pages() if a longer category name is added. */
 .skill-label {
   font-weight: 700;
-  width: 104pt;
+  width: 112pt;
   flex-shrink: 0;
 }
 
