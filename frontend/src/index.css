@@ -42,8 +42,14 @@
   --radius-frame: 6px; /* cards, table container, nav */
   --radius-interactive: 10px; /* buttons, inputs */
 
-  /* The one glow token. Subtle violet emphasis, not a neon bloom. Applied only
-   * to purple elements in their active/focus/hover states. */
+  /* The one glow token. Subtle violet emphasis, not a neon bloom.
+   *
+   * INTERACTION STATES ONLY: `focus:`, `focus-within:`, or `hover:`. Never a
+   * bare `shadow-glow`. It drifted to 27 usages, most of them always-on, which
+   * put a permanent aura on every primary button, both logos, two spinners and
+   * the selected table row — exactly the ambient decoration docs/design.md rules
+   * out, and the single biggest reason the UI read as generated. A bare
+   * `shadow-glow` in a diff is a bug. */
   --shadow-glow: 0 0 20px -6px rgba(139, 92, 246, 0.45);
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",

@@ -243,7 +243,7 @@ export function DetailOverview({ application, onSaved, onDelete }: Props) {
                 type="button"
                 onClick={save}
                 disabled={saving || !dirty}
-                className="rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink shadow-glow transition-colors hover:bg-accent-hover disabled:opacity-60"
+                className="rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink transition-shadow transition-colors hover:bg-accent-hover hover:shadow-glow disabled:opacity-60"
               >
                 {saving ? "Saving…" : "Save changes"}
               </button>

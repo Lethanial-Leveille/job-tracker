@@ -7,7 +7,7 @@ import type { ShellProps } from "./shell";
 import { CareerStageToggle } from "./CareerStageToggle";
 
 const primaryBtn =
-  "rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink shadow-glow transition-colors hover:bg-accent-hover active:bg-accent-press disabled:opacity-60 disabled:shadow-none";
+  "rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink transition-shadow transition-colors hover:bg-accent-hover hover:shadow-glow active:bg-accent-press disabled:opacity-60";
 
 export function ResumeEditor({
   sections,

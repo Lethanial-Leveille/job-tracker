@@ -161,7 +161,7 @@ export function LoginPage({ onLoggedIn }: Props) {
           <button
             type="submit"
             disabled={submitting}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-interactive bg-accent py-3 text-sm font-medium text-white shadow-glow transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-interactive bg-accent py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 hover:shadow-glow disabled:opacity-50"
           >
             {submitting ? "Signing in…" : "Sign in"}
             {!submitting && <span aria-hidden="true">→</span>}
@@ -204,7 +204,7 @@ export function LoginPage({ onLoggedIn }: Props) {
 // Sidebar's LogoMark — one of the few sanctioned purple elements).
 function LogoMark() {
   return (
-    <span className="grid size-11 place-items-center rounded-interactive bg-accent shadow-glow">
+    <span className="grid size-11 place-items-center rounded-interactive bg-accent">
       <svg width="22" height="22" viewBox="0 0 18 18" aria-hidden="true">
         <path
           d="M9 2 15 5.5V12.5L9 16 3 12.5V5.5Z"

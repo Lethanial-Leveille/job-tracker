@@ -10,7 +10,7 @@ export function StatusBadge({ status }: { status: ApplicationStatus }) {
 
   if (status === "offer") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-ink shadow-glow">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-ink">
         <span className="size-1.5 rounded-full bg-ink" />
         {label}
       </span>

@@ -182,7 +182,7 @@ export function TailorTab({ application, onStatusChange }: Props) {
             type="button"
             onClick={() => generate(jd)}
             disabled={generating || jd.trim() === ""}
-            className="shrink-0 rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink shadow-glow transition-colors hover:bg-accent-hover disabled:opacity-60"
+            className="shrink-0 rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink transition-shadow transition-colors hover:bg-accent-hover hover:shadow-glow disabled:opacity-60"
           >
             {generating ? "Tailoring…" : tailored ? "Regenerate" : "Generate tailored resume"}
           </button>
@@ -196,7 +196,7 @@ export function TailorTab({ application, onStatusChange }: Props) {
 
       {generating && !tailored && (
         <div className="flex flex-col items-center gap-4 rounded-frame border border-line bg-surface py-14 text-center">
-          <div className="size-11 animate-spin rounded-full border-2 border-line-strong border-t-accent shadow-glow motion-reduce:animate-none" />
+          <div className="size-11 animate-spin rounded-full border-2 border-line-strong border-t-accent motion-reduce:animate-none" />
           <div>
             <p className="text-[15px] font-medium text-ink">Drafting your resume</p>
             <p className="mt-1 text-[12.5px] text-ink-muted">
@@ -266,7 +266,7 @@ export function TailorTab({ application, onStatusChange }: Props) {
                 <button
                   type="button"
                   onClick={() => onStatusChange(application.id, "applied")}
-                  className="rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink shadow-glow transition-colors hover:bg-accent-hover"
+                  className="rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink transition-shadow transition-colors hover:bg-accent-hover hover:shadow-glow"
                 >
                   Mark as applied
                 </button>
