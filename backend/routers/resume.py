@@ -17,6 +17,9 @@ happens once, and re-rendering after an edit costs nothing. The frontend holds
 the Resume JSON between the two calls.
 """
 
+from typing import Literal
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
@@ -28,7 +31,7 @@ from schemas.resume import Resume, TailorRequest
 from schemas.resume_version import ResumeVersionCreate, ResumeVersionRead
 from services.application import get_application
 from services.resume import get_master, upsert_master
-from services.resume_render import render_resume_pdf
+from services.resume_render import render_resume_pdf, resume_filename
 from services.resume_version import list_resume_versions, save_resume_version
 from services.tailoring import tailor_resume
 
@@ -97,18 +100,43 @@ def tailor(
 
 
 @router.post("/render")
-def render(resume: Resume) -> Response:
+def render(
+    resume: Resume,
+    company: str | None = None,
+    grad_date: Literal["primary", "alternate"] | None = None,
+) -> Response:
     # Returns raw PDF bytes, so we hand back a bare Response instead of a model:
     # FastAPI JSON-encodes anything else it's given. Content-Disposition
     # "attachment" makes the browser download the file rather than display it.
     # No settings dependency — rendering is pure and hits no API. A WeasyPrint
     # failure propagates as a 500 (a real bug, not an expected condition like
     # tailor's None), so it isn't dressed up as a friendly error.
+    #
+    # `company` and `grad_date` are QUERY params, not fields on Resume, on
+    # purpose: Resume is the one shape shared by the master file, tailoring, and
+    # the renderer, so a per-download presentation choice does not belong in it.
+    #
+    # `grad_date` overrides which of two true graduation dates prints (see
+    # Education.dates_alternate). It is an explicit switch and never inferred:
+    # tailoring is forbidden from choosing it, because guessing a program's
+    # eligibility rules out of posting text and guessing wrong means printing a
+    # date the user did not intend.
+    if grad_date is not None:
+        resume = resume.model_copy(update={"grad_date_variant": grad_date})
     pdf_bytes = render_resume_pdf(resume)
+    filename = resume_filename(resume, company)
+    # RFC 6266: an ASCII `filename` for old clients plus a percent-encoded
+    # `filename*` for everything modern. resume_filename() has already folded the
+    # value to ASCII and stripped quotes, so the quoted form cannot be escaped.
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="resume.pdf"'},
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{filename}"; '
+                f"filename*=UTF-8''{quote(filename)}"
+            )
+        },
     )
 
 

@@ -112,3 +112,62 @@ def test_tailor_returns_400_when_no_master(
 
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Create your master resume before tailoring"
+
+
+# --- Download filename + graduation-date override -----------------------------
+# "resume.pdf" arrives in a recruiter's inbox identical to everyone else's, so
+# the download is named Lastname_Firstname_Resume.pdf, plus the company when the
+# resume was tailored for one.
+
+
+def _renderable() -> dict:
+    return {
+        "contact": {"name": "Lethanial L. Leveille"},
+        "education": [
+            {
+                "institution": "University of Florida",
+                "degree": "B.S. Computer Engineering",
+                "dates": "Expected May 2028",
+                "dates_alternate": "Expected May 2029",
+            }
+        ],
+    }
+
+
+def test_render_names_the_download_lastname_firstname(client) -> None:
+    r = client.post("/resume/render", json=_renderable())
+    assert r.status_code == 200
+    assert 'filename="Leveille_Lethanial_Resume.pdf"' in r.headers["content-disposition"]
+
+
+def test_render_appends_the_company_when_given(client) -> None:
+    r = client.post("/resume/render?company=Stripe", json=_renderable())
+    assert (
+        'filename="Leveille_Lethanial_Resume_Stripe.pdf"'
+        in r.headers["content-disposition"]
+    )
+
+
+def test_a_company_name_cannot_inject_a_response_header(client) -> None:
+    # Company names come from parsed job postings, so they are untrusted text
+    # interpolated into a quoted header value. The allowlist in _slug is what
+    # stops a quote from closing the string early.
+    r = client.post('/resume/render?company=Evil", X-Injected: yes', json=_renderable())
+    assert r.status_code == 200
+    assert "x-injected" not in {k.lower() for k in r.headers}
+    assert r.headers["content-disposition"].count('"') == 2
+
+
+def test_grad_date_override_switches_which_date_prints(client) -> None:
+    # The default prints 2028; the explicit switch prints 2029. Same resume body,
+    # so any difference in the PDF comes from the override alone.
+    primary = client.post("/resume/render", json=_renderable()).content
+    alternate = client.post(
+        "/resume/render?grad_date=alternate", json=_renderable()
+    ).content
+    assert primary != alternate
+
+
+def test_an_unknown_grad_date_value_is_rejected(client) -> None:
+    r = client.post("/resume/render?grad_date=whenever", json=_renderable())
+    assert r.status_code == 422
