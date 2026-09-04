@@ -17,11 +17,15 @@ requirement, the honest answer is "missing" with no citation.
 """
 
 import logging
-from datetime import date
+from datetime import date, datetime
+
+from sqlalchemy import or_, select
+from sqlalchemy.orm import Session
 
 from anthropic import Anthropic
 
 from config import Settings
+from models.application import Application
 from schemas.fit import (
     FitReport,
     RequirementMatch,
@@ -199,3 +203,43 @@ def assess_requirements(
         )
 
     return FitReport.from_matches(matches)
+
+
+# --- Stale-report invalidation -----------------------------------------------
+# `fit_report` is a CACHE keyed on nothing (see models/application.py): it is a
+# pure function of a posting's requirements and the master resume AS IT STOOD
+# when it ran. So editing the master silently invalidates every stored report,
+# and nothing notices — the UI keeps showing verdicts that quote resume text
+# which no longer exists. That is worse than showing none, because a stale
+# report looks exactly like a fresh one.
+#
+# Clearing rather than recomputing is deliberate. Recomputing 30+ applications
+# is 30+ paid model calls fired without the user asking, and hard rule #1 says
+# nothing happens on Lee's behalf that he did not ask for. Clearing costs
+# nothing, cannot be wrong, and the UI already renders "not checked" with a
+# Recheck button for exactly this state.
+
+
+def clear_stale_fit_reports(
+    db: Session, user_id: str, master_updated_at: datetime
+) -> int:
+    """Drop every cached fit report computed BEFORE the master last changed.
+
+    Returns how many were cleared. Reports computed after the edit are left
+    alone, so re-running this is cheap and does not throw away fresh work.
+    """
+    stale = db.execute(
+        select(Application).where(
+            Application.user_id == user_id,
+            Application.fit_report.is_not(None),
+            or_(
+                Application.fit_computed_at.is_(None),
+                Application.fit_computed_at < master_updated_at,
+            ),
+        )
+    ).scalars().all()
+    for app in stale:
+        app.fit_report = None
+        app.fit_computed_at = None
+    db.commit()
+    return len(stale)

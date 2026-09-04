@@ -290,3 +290,74 @@ def test_a_posting_with_only_preferred_items_still_assesses(
     assert report is not None
     assert report.total == 0
     assert report.preferred_met_count == 1
+
+
+# --- Stale fit-report invalidation --------------------------------------------
+# A fit report is a cache computed against the master resume as it stood at the
+# time. Editing the master invalidates every stored report, and a stale one
+# looks exactly like a fresh one in the UI, so failing to clear is worse than
+# never having run the sync.
+
+from datetime import UTC, datetime, timedelta  # noqa: E402
+
+from models.application import Application  # noqa: E402
+from schemas.application import ApplicationCreate  # noqa: E402
+from services.application import create_application  # noqa: E402
+from services.matching import clear_stale_fit_reports  # noqa: E402
+
+
+def _app_with_report(db, user_id: str, computed_at, org="Apple") -> Application:
+    app = create_application(
+        db,
+        ApplicationCreate(
+            type="internship",
+            organization=org,
+            role_or_program="SWE Intern",
+            posting_url=f"https://example.com/{org}",
+        ),
+        user_id,
+    )
+    app.fit_report = {"verdicts": []}
+    app.fit_computed_at = computed_at
+    db.commit()
+    return app
+
+
+def test_a_report_older_than_the_master_edit_is_cleared(db, user) -> None:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    app = _app_with_report(db, user.id, now - timedelta(hours=2))
+    assert clear_stale_fit_reports(db, user.id, now) == 1
+    db.refresh(app)
+    assert app.fit_report is None
+    assert app.fit_computed_at is None
+
+
+def test_a_report_newer_than_the_master_edit_is_kept(db, user) -> None:
+    # Re-running the sync must not throw away work done since the edit.
+    now = datetime.now(UTC).replace(tzinfo=None)
+    app = _app_with_report(db, user.id, now + timedelta(hours=1))
+    assert clear_stale_fit_reports(db, user.id, now) == 0
+    db.refresh(app)
+    assert app.fit_report is not None
+
+
+def test_a_report_with_no_timestamp_is_treated_as_stale(db, user) -> None:
+    # Rows predate fit_computed_at; unknown age means it cannot be trusted.
+    now = datetime.now(UTC).replace(tzinfo=None)
+    app = _app_with_report(db, user.id, None)
+    assert clear_stale_fit_reports(db, user.id, now) == 1
+    db.refresh(app)
+    assert app.fit_report is None
+
+
+def test_another_user_s_reports_are_untouched(db, user) -> None:
+    from models.user import User
+
+    other = User(email="other@example.com", password_hash="placeholder-not-a-hash")
+    db.add(other)
+    db.commit()
+    now = datetime.now(UTC).replace(tzinfo=None)
+    theirs = _app_with_report(db, other.id, now - timedelta(hours=2), org="Other")
+    assert clear_stale_fit_reports(db, user.id, now) == 0
+    db.refresh(theirs)
+    assert theirs.fit_report is not None

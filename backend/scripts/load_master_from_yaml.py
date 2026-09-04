@@ -30,6 +30,7 @@ seeded): pass it to be explicit about whose master you are loading into.
 
 import os
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Put backend/ on the import path so `from database import ...` works when run
@@ -40,6 +41,7 @@ from sqlalchemy import select  # noqa: E402
 
 from database import SessionLocal  # noqa: E402
 from models.user import User  # noqa: E402
+from services.matching import clear_stale_fit_reports  # noqa: E402
 from services.resume import get_master, upsert_master  # noqa: E402
 from services.resume_render import load_master  # noqa: E402
 
@@ -150,6 +152,18 @@ def main() -> None:
         # route does. The service handles create-vs-replace.
         upsert_master(db, user.id, incoming)
         print(f"\nLoaded master resume from {MASTER_PATH.name} into {user.email} (id {user.id}).")
+
+        # Every stored fit report was computed against the PREVIOUS master, so
+        # loading a new one silently invalidates all of them. Clearing here
+        # rather than leaving it as a separate step you have to remember: a
+        # stale report is indistinguishable from a fresh one in the UI, which
+        # makes forgetting this worse than never having run the sync.
+        cleared = clear_stale_fit_reports(db, user.id, datetime.now(UTC))
+        if cleared:
+            print(
+                f"Cleared {cleared} fit report(s) computed against the old master. "
+                "Open an application and hit Recheck to recompute the ones you care about."
+            )
 
 
 if __name__ == "__main__":
