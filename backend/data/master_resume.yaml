@@ -150,6 +150,7 @@ experience:
       - "Launched the go-to-market surfaces for the team's Product Hunt launch on the Next.js marketing site, including the launch banner, free-trial calls to action, and a Slack community section, reusing the existing design system."
       - "Built onboarding checklist behavior in the React and TypeScript app, including an impersonation-safe, cross-tab gate that stops a setup step from checking itself off before the user has actually opened it."
       - "Added automated tests across the contacts module (service, controller, concurrency, and claim-recovery cases) as part of the team's testing standards."
+      - "Rebuilt inbox message-thread scrolling as a scroll state machine handling prepend-restore, bottom-pinning, and paginated load-more, proven by four regression tests each confirmed failing against the pre-fix code."
       - "Shipped a Sales Navigator preview-and-import flow on the contact-ingestion API (TypeScript), letting users review and select staged candidates before any records are created, reusing a shared dedup and batch-insert core across import paths."
       - "Hardened the import pipeline against double-submits with a single-use atomic claim plus partial-write claim recovery and concurrency tests, so a retried or duplicated request cannot create duplicate contacts."
 
