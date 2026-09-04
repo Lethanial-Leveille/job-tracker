@@ -103,7 +103,7 @@ education:
 
 skills:
   - category: Languages
-    items: [Python, C/C++, JavaScript, TypeScript, Swift, HTML/CSS, SQL]
+    items: [Python, C++, JavaScript, TypeScript, Swift, HTML/CSS, SQL]
   - category: Frameworks & Libraries
     # NestJS and Mongoose confirmed Sep 2026 from the Fuzzy api package.json
     # (@nestjs/core 10.4, @nestjs/mongoose 10.1); Next.js 15 and React 19 from
@@ -134,7 +134,7 @@ experience:
       - "Rebuilt four inconsistent contact import flows into one shared review step so users confirm exactly who gets added **before anyone is imported or charged**, with a preview endpoint that stages candidates and idempotent submits so a retry cannot charge twice."
       - "Traced a background poll firing **~30 phantom analytics events per user per minute**, inflating the exact adoption metric the feature was judged on, and scoped it to fire only while the user is on the page."
       - "Built the app half of a cross-domain signup attribution pipeline spanning three repositories (marketing site, Next.js edge middleware, NestJS API), capturing source at all three account-creation paths including the Google OAuth paths carrying **51% of signups**."
-      - "Rebuilt the inbox message thread as a **scroll state machine** that holds your place when older messages load in above you, killing flicker on open and a race where a slow request overwrote a different conversation, with regression tests each verified failing first."
+      - "Rebuilt the inbox message thread as a scroll state machine that holds your place when older messages load in above you, killing flicker on open and a race where a slow request overwrote a different conversation, with regression tests each verified failing first."
       - "Raised **diff coverage from 36% to 100%** against the CI gate by extracting the timing-sensitive decision logic out of a 6,500 line component into pure, unit-tested helpers."
       # --- bench: true, but rewrite in the plain style above before printing ---
       - "Shipped features and fixes across three production repositories in a 7 week internship: a Next.js and React product app, a NestJS and MongoDB API, and the marketing site."
@@ -156,7 +156,7 @@ projects:
       - "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first working version, by streaming ElevenLabs TTS straight to ALSA instead of buffering the full reply."
       - "Traced months of failed voice recognition to four compounding defects (the mic never registered speech as loud enough to trigger, a corrupted enrollment sample, gain leaving 7 of 16 bits unused, and a loop that could not exit), reaching **zero false rejections across 94 attempts** after replacing the trigger with webrtcvad and a 300 ms pre-roll buffer."
       - "Built hybrid memory retrieval over a 233-memory corpus, fusing keyword search with semantic vector search through **reciprocal rank fusion at 31 ms per query**, so two differently-scaled rankings vote without either being rescaled onto the other."
-      - "Shipped a JWT-authenticated FastAPI backend (REST and WebSocket) and a **zero-dependency SwiftUI iOS client**, deployed as three systemd services reachable globally through a Cloudflare Tunnel with no open ports."
+      - "Shipped a JWT-authenticated FastAPI backend (REST and WebSocket) and a zero-dependency SwiftUI iOS client, deployed as three systemd services reachable globally through a Cloudflare Tunnel with no open ports."
       # --- bench: true, but rewrite in the plain style above before printing ---
       - "Added custom wake-word detection via openWakeWord (90.4% recall), on-device Whisper.cpp speech-to-text, and speaker verification through 256-dimensional voice embeddings (cosine similarity, 0.65 threshold)."
       - "Migrated the assistant off hand-parsed bracket action tags onto native Claude tool use behind a single tool registry (six live tools), bounding the follow-up loop and deleting the 50-character lookahead buffer that had sat directly on the path to first audio."
@@ -173,10 +173,10 @@ projects:
     links: []
     dates: July 2026 – Present
     bullets:
-      - "Built the job tracker I apply with: it parses a pasted posting into structured fields and tailors my resume against it with the Claude API, rendering a one page PDF through a **locked Jinja template the model cannot alter**."
-      - "**Cut a routine status update from five interactions to two** with an in-place editable cell driven by an optimistic update that patches a single field and rolls back on failure."
+      - "Built the job tracker I apply with: it parses a pasted posting into structured fields and tailors my resume against it with the Claude API, rendering a one page PDF through a locked Jinja template the model cannot alter."
+      - "Cut a routine status update from **five interactions to two** with an in-place editable cell driven by an optimistic update that patches a single field and rolls back on failure."
       - "Added duplicate detection that blocks an already-tracked posting **before it reaches the paid parsing call**, matching on a URL normalized to strip tracking parameters while preserving job-board ids, then on employer and title similarity."
-      - "Automated releases with GitHub Actions so **every push to main rebuilds, migrates, and restarts** the app on a DigitalOcean droplet behind Caddy and a Cloudflare Tunnel with no open ports."
+      - "Automated releases with GitHub Actions so every push to main rebuilds, migrates, and restarts the app on a DigitalOcean droplet behind Caddy and a Cloudflare Tunnel with no open ports."
       # --- bench: true, but rewrite in the plain style above before printing ---
       - "Let the tailoring model choose which fragment of each bullet to emphasize for a given job, then capped it at one span per bullet in application code rather than in the prompt, because models over-emphasize and bold covering half a page stops being a highlight."
       - "Read each posting's eligibility text to suggest which graduation date to print, citing the phrase it matched so the suggestion can be judged rather than trusted, and left the switch manual because a wrong automatic flip prints a date the user never chose."
@@ -201,8 +201,8 @@ projects:
     dates: March 2026 – April 2026
     bullets:
       - "Raised activity classification accuracy **from ~85% to 99.5%** by replacing hand-tuned thresholds with a scikit-learn Random Forest (100 trees, 80/20 split) trained on 1,074 labeled samples across three activity types."
-      - "Built the wearable capture path on a Raspberry Pi 5 and MPU6050 6-axis IMU sampling accelerometer and gyroscope at **20 Hz over I2C**, reducing each 1-second sliding window to six statistical features."
-      - "Streamed classified readings through a **fully serverless pipeline** (MQTT to AWS IoT Core to Lambda to DynamoDB to API Gateway) into a Dockerized React and Recharts dashboard."
+      - "Built the wearable capture path on a Raspberry Pi 5 and MPU6050 6-axis IMU sampling accelerometer and gyroscope at 20 Hz over I2C, reducing each 1-second sliding window to six statistical features."
+      - "Streamed classified readings through a fully serverless pipeline (MQTT to AWS IoT Core to Lambda to DynamoDB to API Gateway) into a Dockerized React and Recharts dashboard."
   - name: Life OS
     tools: [n8n, Docker Compose, Cloudflare Tunnel, GitHub GraphQL API, Notion API, Claude API, Gmail API, JavaScript, Raspberry Pi 5]
     links: []
