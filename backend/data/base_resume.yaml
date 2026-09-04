@@ -22,9 +22,11 @@ career_stage: student
 grad_date_variant: primary
 
 contact:
-  # No location: the header is one row of phone | email | linkedin | github.
+  # Header is one row: email | linkedin | github. Phone removed Sep 2026 —
+  # recruiters reach out by email or LinkedIn, and the number only ever mattered
+  # for the application form, which asks for it separately anyway.
   name: Lethanial L. Leveille
-  phone: (754) 422-6402
+  phone: null
   email: leveillelethanial@gmail.com
   linkedin: linkedin.com/in/lethanial-lee-leveille
   github: github.com/Lethanial-Leveille
@@ -57,36 +59,40 @@ experience:
     location: Singapore
     dates: June 2026 – July 2026
     bullets:
-      - "Rebuilt 4 inconsistent contact import flows into 1 shared review step so users confirm exactly who gets added **before anyone is imported or charged**, with a preview endpoint that stages candidates and idempotent submits so a retry cannot charge twice."
-      - "Traced a background poll firing **~30 phantom analytics events per user per minute**, inflating the exact adoption metric the feature was judged on, and scoped it to fire only while the user is on the page."
-      - "Built the app half of a cross-domain signup attribution pipeline spanning three repositories (marketing site, Next.js edge middleware, NestJS API), capturing source at all three account-creation paths including the Google OAuth paths carrying **51% of signups**."
-      - "Rebuilt the inbox message thread as a scroll state machine that holds your place when older messages load in above you, killing flicker on open and a race where a slow request overwrote a different conversation, with regression tests each verified failing first."
+      - "Rebuilt 4 inconsistent contact import flows into 1 shared review step so users confirm exactly who gets added **before anyone is imported or charged**, backed by a preview endpoint that stages candidates without creating any records."
+      - "Traced a background poll firing **~30 phantom analytics events per user per minute**, permanently inflating the exact adoption metric the feature was judged on, and scoped emission to foreground fetches so a silent watch tick can no longer write events."
+      - "Built the app half of a cross-domain signup attribution pipeline across 3 repositories, capturing marketing source at all 3 account-creation paths including the Google OAuth paths that carry **51% of signups** and previously recorded nothing at all."
+      - "Rebuilt the inbox message thread as a scroll state machine, fixing 4 distinct failures: flicker on open, lost reading position when older messages load in above you, a race where a slow request overwrote a different conversation, and duplicate page loads."
+      - "Found and fixed a **4% duplicate rate** in contact imports (40 duplicates per 1,000 records) by making the pipeline idempotent at the database level with a single-use atomic claim, verified with concurrency tests covering partial write recovery."
 
 projects:
-  - name: M.I.L.E.S.
+  # Function first, codename in parentheses: "M.I.L.E.S." alone tells a recruiter
+  # nothing, and its expansion (Modular Intelligent Learning and Execution
+  # System) is a backronym that tells them no more while costing half a line.
+  - name: Voice AI Assistant (M.I.L.E.S.)
     tools: [Python, FastAPI, Claude API, Whisper.cpp, SwiftUI]
-    links: []
+    links: [github.com/Lethanial-Leveille/miles]
     dates: April 2026 – Present
     bullets:
-      - "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first working version, by streaming ElevenLabs TTS straight to ALSA instead of buffering the full reply."
-      - "Traced months of failed voice recognition to four compounding defects (the mic never registered speech as loud enough to trigger, a corrupted enrollment sample, gain leaving 7 of 16 bits unused, and a loop that could not exit), reaching **zero false rejections across 94 attempts**."
-      - "Shipped a JWT-authenticated FastAPI backend (REST and WebSocket) and a zero-dependency SwiftUI iOS client, deployed as three systemd services reachable globally through a Cloudflare Tunnel with no open ports."
-  - name: Prowl (Job Application Tracker)
+      - "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first working version, by streaming ElevenLabs TTS straight to ALSA, with Whisper.cpp transcription and openWakeWord detection at 90.4% recall."
+      - "Traced months of failed voice recognition to 4 compounding defects: a mic trigger that never fired, a corrupted enrollment sample, gain leaving 7 of 16 bits unused, and a loop that could not exit. Reached **zero false rejections across 94 attempts**."
+      - "Shipped a JWT-authenticated FastAPI backend (REST and WebSocket) and a zero-dependency SwiftUI iOS client with Face ID and Keychain-stored tokens, deployed as 3 systemd services reachable globally through a Cloudflare Tunnel with no open ports."
+  - name: Job Application Tracker (Prowl)
     tools: [FastAPI, SQLAlchemy 2.0, PostgreSQL, React, TypeScript]
-    links: []
+    links: [github.com/Lethanial-Leveille/job-tracker]
     dates: July 2026 – Present
     bullets:
-      - "Built the job tracker I apply with: it parses a pasted posting into structured fields and tailors my resume against it with the Claude API, rendering a one page PDF through a locked Jinja template the model cannot alter."
-      - "Cut a routine status update from **five interactions to two** with an in-place editable cell driven by an optimistic update that patches a single field and rolls back on failure."
-      - "Automated releases with GitHub Actions so every push to main rebuilds, migrates, and restarts the app on a DigitalOcean droplet behind Caddy and a Cloudflare Tunnel with no open ports."
-  - name: MotionSense
+      - "Built the job tracker I apply with: it parses a pasted posting with the Claude API and tailors my resume against it, rendering a one page PDF through a locked Jinja and WeasyPrint template so the model rewrites content but never layout."
+      - "Cut a routine status update from **5 interactions to 2** with an in-place editable cell driven by an optimistic update that rolls back on failure, and trimmed a 14-value status enum to a 6-value working set in the UI rather than by migration."
+      - "Automated releases with **GitHub Actions** so every push to main rebuilds, migrates, and restarts the app on a DigitalOcean droplet behind Caddy and a Cloudflare Tunnel, connecting as a least-privilege deploy user limited to 1 scoped sudo command."
+  - name: Wearable Motion Classifier (MotionSense)
     tools: [Python, scikit-learn, AWS, Raspberry Pi, Docker]
-    links: []
+    links: [github.com/Lethanial-Leveille/motionsense]
     dates: March 2026 – April 2026
     bullets:
-      - "Raised activity classification accuracy **from ~85% to 99.5%** by replacing hand-tuned thresholds with a scikit-learn Random Forest (100 trees, 80/20 split) trained on 1,074 labeled samples across three activity types."
-      - "Built the wearable capture path on a Raspberry Pi 5 and MPU6050 6-axis IMU sampling accelerometer and gyroscope at 20 Hz over I2C, reducing each 1-second sliding window to six statistical features."
-      - "Streamed classified readings through a fully serverless pipeline (MQTT to AWS IoT Core to Lambda to DynamoDB to API Gateway) into a Dockerized React and Recharts dashboard."
+      - "Raised activity classification accuracy **from ~85% to 99.5%** by replacing hand-tuned thresholds with a scikit-learn Random Forest (100 trees, 80/20 split) trained on 1,074 labeled samples across 3 activity types from raw accelerometer and gyroscope data."
+      - "Built the wearable capture path on a Raspberry Pi 5 and MPU6050 6-axis IMU sampling accelerometer and gyroscope at 20 Hz over I2C, reducing each 1-second sliding window to the 6 statistical features the model is trained on."
+      - "Streamed classified readings from the wearable through a fully serverless pipeline (MQTT to AWS IoT Core to Lambda to DynamoDB to API Gateway), surfacing them in a Dockerized React and Recharts dashboard."
 
 skills:
   - category: Languages
