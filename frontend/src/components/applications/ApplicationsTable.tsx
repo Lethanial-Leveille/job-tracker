@@ -1,5 +1,4 @@
 import type { Application, ApplicationStatus } from "../../lib/types";
-import { monogram } from "../../lib/format";
 import { ROW_GRID } from "./grid";
 import { ApplicationRow } from "./ApplicationRow";
 import { groupByOrganization } from "./grouping";
@@ -30,14 +29,18 @@ export function ApplicationsTable({
   onStatusChange,
   grouped,
 }: Props) {
-  const renderRow = (application: Application) => (
+  // `underHeading` is per-row, not per-table: in the grouped view an employer
+  // with a single application renders WITHOUT a heading, so that row must still
+  // show the company name. Passing the table-wide `grouped` flag straight
+  // through would blank the employer on exactly the rows nothing else names.
+  const renderRow = (application: Application, underHeading = grouped) => (
     <ApplicationRow
       key={application.id}
       application={application}
       selected={application.id === selectedId}
       onSelect={onSelect}
       onStatusChange={onStatusChange}
-      grouped={grouped}
+      grouped={underHeading}
     />
   );
 
@@ -59,25 +62,39 @@ export function ApplicationsTable({
         <div>
           {groupByOrganization(applications).map((group) => (
             <div key={group.key}>
-              <div className="flex items-center gap-2.5 border-y border-line bg-base px-5 py-2.5">
-                <span className="grid size-6 shrink-0 place-items-center rounded-md border border-line bg-surface text-[10px] font-semibold text-ink-soft">
-                  {monogram(group.label)}
-                </span>
-                <span className="truncate text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-soft">
-                  {group.label}
-                </span>
-                <span className="rounded-full border border-line px-1.5 text-[10px] tabular-nums text-ink-muted">
-                  {group.applications.length}
-                </span>
-              </div>
+              {/* A heading over ONE row organises nothing: it just repeats the
+                  employer above a row that would have said it anyway, and adds
+                  a count of "1". Employers with a single application render as
+                  an ordinary row instead, so the section headings that remain
+                  all mean something — several roles at one company, which is
+                  the only case grouping exists for. */}
+              {group.applications.length > 1 && (
+                <div className="flex items-center gap-2.5 border-y border-line bg-base px-5 py-2">
+                  <span className="truncate text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-soft">
+                    {group.label}
+                  </span>
+                  <span className="text-[10px] tabular-nums text-ink-muted">
+                    {group.applications.length}
+                  </span>
+                </div>
+              )}
               <div className="divide-y divide-line">
-                {group.applications.map(renderRow)}
+                {group.applications.map((a) =>
+                  renderRow(a, group.applications.length > 1),
+                )}
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="divide-y divide-line">{applications.map(renderRow)}</div>
+        // Called through an arrow, NOT passed to map directly: map hands the
+        // array INDEX as its second argument, which would land in
+        // `underHeading` and make every row after the first think it sits under
+        // a heading, blanking the employer. tsc -b caught this; tsc --noEmit
+        // did not.
+        <div className="divide-y divide-line">
+          {applications.map((a) => renderRow(a))}
+        </div>
       )}
     </div>
   );

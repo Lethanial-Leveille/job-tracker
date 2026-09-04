@@ -1,6 +1,5 @@
 import type { KeyboardEvent } from "react";
 import type { Application, ApplicationStatus } from "../../lib/types";
-import { monogram } from "../../lib/format";
 import { ROW_GRID } from "./grid";
 import { StatusSelect } from "./StatusSelect";
 import { DeadlineCell } from "./DeadlineCell";
@@ -45,16 +44,16 @@ export function ApplicationRow({
       onClick={open}
       onKeyDown={onKeyDown}
       aria-label={`Open ${application.organization} — ${application.role_or_program}`}
-      className={`${ROW_GRID} group w-full cursor-pointer border-l-2 px-5 py-3.5 text-left transition-colors focus:outline-none focus-visible:bg-surface-hover ${
+      className={`${ROW_GRID} group w-full cursor-pointer border-l-2 px-5 py-2.5 text-left transition-colors focus:outline-none focus-visible:bg-surface-hover ${
         selected
-          ? "border-l-accent bg-accent-subtle shadow-glow"
+          ? "border-l-accent bg-accent-subtle"
           : "border-l-transparent hover:bg-surface-hover"
       }`}
     >
-      {/* Ungrouped: the employer, with its monogram. Grouped: the POSTED title
-          instead, indented under the heading. Grouping exists for the case of
-          several positions at one company, so this column has to say which
-          position — the company is the one thing every row in the group shares. */}
+      {/* Ungrouped: the employer. Grouped: the POSTED title instead, indented
+          under the heading. Grouping exists for the case of several positions at
+          one company, so this column has to say which position; the company is
+          the one thing every row in the group already shares. */}
       {grouped ? (
         <div className="flex min-w-0 items-center gap-3 pl-6">
           <span className="h-4 w-px shrink-0 bg-line-strong" />
@@ -63,10 +62,10 @@ export function ApplicationRow({
           </span>
         </div>
       ) : (
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-interactive border border-line bg-surface text-xs font-semibold text-ink-soft">
-            {monogram(application.organization)}
-          </span>
+        // No monogram. A two-letter badge sitting directly beside the word it
+        // abbreviates carries no information when every row has one; it was
+        // weight, not signal, and dropping it is most of what tightens the row.
+        <div className="flex min-w-0 items-center">
           <span className="truncate text-sm font-semibold text-ink">
             {application.organization}
           </span>
