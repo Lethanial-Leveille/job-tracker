@@ -6,39 +6,40 @@
 # length — nothing is added. When the master gains a fact worth leading with,
 # copy it down here by hand; nothing syncs automatically.
 #
+# Bullets carry ONE **bold** span each, rendered by the `bold` filter in
+# services/resume_render.py. Bold the RESULT or the hard technical noun, never
+# the problem: read every bolded fragment on the page in sequence and it should
+# sound like a highlight reel. (Tailored resumes let Claude re-place the span per
+# job; this file is the untailored one, so the spans are chosen by hand.)
+#
 # Render it with:
 #   python scripts/build_base_resume.py
 
 career_stage: student
+# "primary" prints Expected May 2028. Flip to "alternate" for programs that only
+# accept underclassmen; both dates are true (94 credit hours against a 128-credit
+# degree). See Education.dates_alternate in backend/schemas/resume.py.
+grad_date_variant: primary
 
 contact:
+  # No location: the header is one row of phone | email | linkedin | github.
   name: Lethanial L. Leveille
-  location: Hollywood, FL
   phone: (754) 422-6402
   email: leveillelethanial@gmail.com
   linkedin: linkedin.com/in/lethanial-lee-leveille
   github: github.com/Lethanial-Leveille
 
 education:
-  - institution: University of Florida – Herbert Wertheim College of Engineering
+  - institution: University of Florida, Herbert Wertheim College of Engineering
     degree: Bachelor of Science in Computer Engineering
     location: Gainesville, FL
-    dates: Expected May 2029
-    gpa: 3.77 / 4.00
-    honors:
-      # Per the Sep 2 2026 transcript: President's Honor Roll, not Dean's List.
-      - President's Honor Roll
-
-skills:
-  - category: Languages
-    items: [Python, C/C++, TypeScript, JavaScript, Swift, SQL]
-  - category: Frameworks & Libraries
-    items: [React, Next.js, FastAPI, SQLAlchemy, SwiftUI, scikit-learn]
-  - category: Cloud & DevOps
-    # Quoted so the parenthetical is one item; see master_resume.yaml.
-    items: ["AWS (Lambda, DynamoDB)", Docker, PostgreSQL, Cloudflare Tunnel, Git/GitHub, Linux/systemd]
-  - category: Hardware & Embedded
-    items: [Raspberry Pi 5, MPU6050 IMU, I2C, ONNX, Whisper.cpp]
+    dates: Expected May 2028
+    dates_alternate: Expected May 2029
+    gpa: "3.77"
+    # President's Honor Roll (Spring 2026) is real and lives in master_resume.yaml.
+    # Dropped here to hold the two-line education grid; first thing back if a
+    # line frees up.
+    honors: []
 
 experience:
   - organization: Fuzzy AI
@@ -46,36 +47,43 @@ experience:
     location: Singapore
     dates: June 2026 – July 2026
     bullets:
-      - Unified all four contact import paths behind one shared review component, backed by a preview endpoint and single use atomic claim so retried requests cannot create duplicate contacts.
-      - Built the app side of a three repository first touch attribution pipeline, persisting signup source at all three account creation sites including the Google paths carrying 51 percent of signups.
-      - Rebuilt inbox thread scrolling as a scroll state machine handling prepend restore, bottom pinning, and paginated load more, covered by regression tests verified to fail before the fix.
-      - Scoped a background poll's event emission to foreground fetches, cutting roughly 30 spurious analytics events per user per minute and protecting the metric the feature was judged on.
+      - "Rebuilt four inconsistent contact import flows into one shared review step so users confirm exactly who gets added **before anyone is imported or charged**, with a preview endpoint that stages candidates and idempotent submits so a retry cannot charge twice."
+      - "Traced a background poll firing **~30 phantom analytics events per user per minute**, inflating the exact adoption metric the feature was judged on, and scoped it to fire only while the user is on the page."
+      - "Built the app half of a cross-domain signup attribution pipeline spanning three repositories (marketing site, Next.js edge middleware, NestJS API), capturing source at all three account-creation paths including the Google OAuth paths carrying **51% of signups**."
+      - "Rebuilt the inbox message thread as a **scroll state machine** that holds your place when older messages load in above you, killing flicker on open and a race where a slow request overwrote a different conversation, with regression tests each verified failing first."
 
 projects:
   - name: M.I.L.E.S.
-    tools: [Python, FastAPI, Claude API, Whisper.cpp, SQLite]
-    links:
-      - github.com/Lethanial-Leveille/miles
+    tools: [Python, FastAPI, Claude API, Whisper.cpp, SwiftUI]
+    links: []
     dates: April 2026 – Present
     bullets:
-      - Architected a voice-activated AI assistant on a Raspberry Pi 5 with custom wake-word detection (openWakeWord, 90.4% recall), on-device Whisper.cpp speech-to-text, and speaker verification through 256-dimensional voice embeddings.
-      - Built a JWT-authenticated FastAPI backend (REST and WebSocket) with persistent SQLite memory and Claude API streaming, cutting time-to-first-audio to ~520ms by piping ElevenLabs TTS straight to ALSA.
-      - Deployed three systemd services with global access through a Cloudflare Tunnel, consumed by a native SwiftUI iOS app built with zero third-party dependencies.
+      - "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first working version, by streaming ElevenLabs TTS straight to ALSA instead of buffering the full reply."
+      - "Traced months of failed voice recognition to four compounding defects (the mic never registered speech as loud enough to trigger, a corrupted enrollment sample, gain leaving 7 of 16 bits unused, and a loop that could not exit), reaching **zero false rejections across 94 attempts**."
+      - "Shipped a JWT-authenticated FastAPI backend (REST and WebSocket) and a **zero-dependency SwiftUI iOS client**, deployed as three systemd services reachable globally through a Cloudflare Tunnel with no open ports."
   - name: Prowl (Job Application Tracker)
     tools: [FastAPI, SQLAlchemy 2.0, PostgreSQL, React, TypeScript]
-    links:
-      - github.com/Lethanial-Leveille/job-tracker
+    links: []
     dates: July 2026 – Present
     bullets:
-      - Building a multi-user application tracker with a FastAPI and SQLAlchemy 2.0 backend (Alembic migrations, PostgreSQL) and a React, TypeScript, and Tailwind frontend, layered into thin routers, a service layer, and typed schemas.
-      - Integrated the Claude API to parse pasted job descriptions into structured fields and tailor resumes from a YAML bullet bank, rendering a one-page PDF through a locked Jinja and WeasyPrint template so the model cannot alter layout.
-      - "Deployed to a DigitalOcean droplet behind Caddy and a Cloudflare Tunnel with no open ports, and automated releases with GitHub Actions: every push to main rebuilds, migrates, and restarts the app."
+      - "Built the job tracker I apply with: it parses a pasted posting into structured fields and tailors my resume against it with the Claude API, rendering a one page PDF through a **locked Jinja template the model cannot alter**."
+      - "**Cut a routine status update from five interactions to two** with an in-place editable cell driven by an optimistic update that patches a single field and rolls back on failure."
+      - "Automated releases with GitHub Actions so **every push to main rebuilds, migrates, and restarts** the app on a DigitalOcean droplet behind Caddy and a Cloudflare Tunnel with no open ports."
   - name: MotionSense
     tools: [Python, scikit-learn, AWS, Raspberry Pi, Docker]
-    links:
-      - github.com/Lethanial-Leveille/motionsense
+    links: []
     dates: March 2026 – April 2026
     bullets:
-      - Engineered a wearable motion-classification system on a Raspberry Pi 5 and MPU6050 6-axis IMU, reading accelerometer and gyroscope data at 20 Hz over I2C.
-      - Trained a scikit-learn Random Forest on 1,074 labeled samples to reach 99.5% accuracy across three activity types, up from ~85% with hand-tuned thresholds.
-      - Built a serverless cloud pipeline (MQTT → AWS IoT Core → Lambda → DynamoDB → API Gateway) streaming classified readings to a Dockerized React dashboard.
+      - "Raised activity classification accuracy **from ~85% to 99.5%** by replacing hand-tuned thresholds with a scikit-learn Random Forest (100 trees, 80/20 split) trained on 1,074 labeled samples across three activity types."
+      - "Built the wearable capture path on a Raspberry Pi 5 and MPU6050 6-axis IMU sampling accelerometer and gyroscope at **20 Hz over I2C**, reducing each 1-second sliding window to six statistical features."
+      - "Streamed classified readings through a **fully serverless pipeline** (MQTT to AWS IoT Core to Lambda to DynamoDB to API Gateway) into a Dockerized React and Recharts dashboard."
+
+skills:
+  - category: Languages
+    items: [Python, C/C++, TypeScript, JavaScript, Swift, SQL]
+  - category: Frameworks & Libraries
+    items: [React, Next.js, FastAPI, NestJS, SQLAlchemy, SwiftUI]
+  - category: Cloud & DevOps
+    items: ["AWS (Lambda, DynamoDB)", Docker, PostgreSQL, GitHub Actions, Cloudflare Tunnel, Linux/systemd]
+  - category: Hardware & Embedded
+    items: [Raspberry Pi 5, MPU6050 IMU, I2C, Whisper.cpp, ONNX]
