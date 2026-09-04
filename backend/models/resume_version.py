@@ -39,8 +39,17 @@ class ResumeVersion(Base):
 
     # The link to the application this version was tailored for. String(36) to
     # match applications.id; the ForeignKey names the target column.
+    #
+    # ondelete="CASCADE" because a saved version is meaningless without the
+    # posting it was tailored against, and without it the database REFUSES the
+    # delete: every application you had ever saved a resume for became
+    # undeletable with an opaque 500. The cascade lives on the CONSTRAINT rather
+    # than only in the ORM so it holds for any caller, including a migration or
+    # a psql session that never loads these classes.
     application_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("applications.id"), nullable=False
+        String(36),
+        ForeignKey("applications.id", ondelete="CASCADE"),
+        nullable=False,
     )
 
     # The tailored resume itself, stored as the dict from Resume.model_dump().

@@ -10,7 +10,7 @@ from datetime import UTC, date, datetime
 from uuid import uuid4
 
 from sqlalchemy import JSON, Date, DateTime, Enum as SqlEnum, ForeignKey, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
 
@@ -144,6 +144,34 @@ class Application(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
+    )
+
+    # What happens to the rows that point HERE when this one is deleted. Declared
+    # in the ORM as well as on the constraints (see the ForeignKeys in
+    # resume_version.py and status_suggestion.py) because the two layers cover
+    # different callers: the constraint holds for psql and migrations, this holds
+    # for the app — and notably for the test suite, which runs on SQLite, where
+    # foreign keys are not enforced at all unless PRAGMA foreign_keys is on. With
+    # only the constraint, the cascade would be untestable here.
+    #
+    # Targets are strings so this module does not import the child modules and
+    # create an import cycle.
+    #
+    # No passive_deletes: SQLAlchemy loads the children and deletes them one by
+    # one rather than deferring to the database. That is a few extra queries,
+    # and it is the portable choice — passive_deletes would silently do nothing
+    # on SQLite. Revisit only if an application ever accumulates enough versions
+    # for the load to matter.
+    resume_versions: Mapped[list["ResumeVersion"]] = relationship(  # noqa: F821
+        "ResumeVersion",
+        cascade="all, delete-orphan",
+    )
+    # No cascade: a suggestion came from a real inbound email, so it outlives the
+    # application it pointed at. SQLAlchemy nulls the child's foreign key on
+    # parent delete, which is exactly the "could not be resolved" state the
+    # column already models, and matches the SET NULL on the constraint.
+    status_suggestions: Mapped[list["StatusSuggestion"]] = relationship(  # noqa: F821
+        "StatusSuggestion",
     )
 
     def __repr__(self) -> str:

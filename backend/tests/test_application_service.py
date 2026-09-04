@@ -172,3 +172,62 @@ def test_delete_application_returns_none_for_another_users_row(db, user):
     assert delete_application(db, created.id, other.id) is None
     # And it still exists for the real owner — the delete didn't go through.
     assert get_application(db, created.id, user.id) is not None
+
+
+# --- Deleting an application with dependents ----------------------------------
+# A saved resume version used to make its application undeletable: the foreign
+# key had no ON DELETE rule, Postgres refused the delete, and the route turned
+# that into an opaque 500. Since a version is only ever saved for applications
+# you actually worked on, the bug hit exactly the rows most worth deleting.
+
+
+def test_deleting_an_application_takes_its_resume_versions_with_it(db, user) -> None:
+    from models.resume_version import ResumeVersion
+
+    app = _make(db, user.id, organization="Palantir Technologies")
+    db.add(
+        ResumeVersion(
+            user_id=user.id,
+            application_id=app.id,
+            resume_json={"contact": {"name": "Lethanial L. Leveille"}},
+            job_description="Build backend services in Python.",
+        )
+    )
+    db.commit()
+
+    assert delete_application(db, app.id, user.id) is not None
+    assert db.query(ResumeVersion).filter_by(application_id=app.id).count() == 0
+
+
+def test_deleting_an_application_keeps_its_status_suggestions(db, user) -> None:
+    from datetime import UTC, datetime
+
+    # The opposite rule: an inbound email really arrived, so the suggestion
+    # survives with a null link rather than vanishing with its target.
+    from models.ingested_email import IngestedEmail
+    from models.status_suggestion import StatusSuggestion
+
+    app = _make(db, user.id, organization="Palantir Technologies")
+    email = IngestedEmail(
+        user_id=user.id,
+        message_id="msg-1",
+        received_at=datetime.now(UTC).replace(tzinfo=None),
+        from_email="recruiting@palantir.com",
+    )
+    db.add(email)
+    db.flush()
+    row = StatusSuggestion(
+        user_id=user.id,
+        application_id=app.id,
+        suggested_status="rejected",
+        reason="Thanks for applying, we are moving forward with others.",
+        source_email_id=email.id,
+    )
+    db.add(row)
+    db.commit()
+    suggestion_id = row.id
+
+    assert delete_application(db, app.id, user.id) is not None
+    survivor = db.get(StatusSuggestion, suggestion_id)
+    assert survivor is not None
+    assert survivor.application_id is None

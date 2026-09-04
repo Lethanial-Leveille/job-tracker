@@ -67,8 +67,17 @@ class StatusSuggestion(Base):
     # neither the plausible-transition filter nor the role hint could separate
     # them). A suggestion with no target physically cannot flip a status. The
     # column enforces the policy instead of relying on a service to honor it.
+    # ondelete="SET NULL", NOT cascade: this column is already nullable because
+    # null means "could not be resolved to one application", and a deleted
+    # application lands a suggestion in exactly that state. The inbound email is
+    # still real evidence that arrived, so it survives as an unresolved
+    # suggestion rather than disappearing with the row it happened to point at.
+    # Without an explicit rule Postgres defaults to NO ACTION, which would block
+    # the delete the same way resume_versions did.
     application_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("applications.id"), nullable=True
+        String(36),
+        ForeignKey("applications.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     # The shortlist when application_id is null: the application ids that
