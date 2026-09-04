@@ -69,12 +69,24 @@ class Contact(BaseModel):
 
 class Education(BaseModel):
     """A school. `coursework` is tailorable (surface courses relevant to a job);
-    the rest (institution, degree, gpa) is fixed fact."""
+    the rest (institution, degree, gpa) is fixed fact.
+
+    `dates_alternate` exists because a student can have two graduation dates that
+    are BOTH true. Lee has 94 credit hours against a 128-credit degree, so he can
+    finish in 2028 or take the extra year to 2029, and which one he leads with
+    depends on the posting: some programs only accept underclassmen. Holding both
+    here (rather than keeping a second copy of the whole resume) means the two
+    dates cannot drift apart, and the rest of the resume is shared by
+    construction. Which one PRINTS is `Resume.grad_date_variant`.
+    """
 
     institution: str
     degree: str
     location: str | None = None
     dates: str | None = None          # freeform, e.g. "Expected May 2029"
+    # Optional second graduation date. None (the default) means this school has
+    # only one, and `grad_date_variant` then has nothing to switch to.
+    dates_alternate: str | None = None
     gpa: str | None = None            # e.g. "3.73 / 4.00"
     # Pydantic copies list defaults per-instance, so the usual mutable-default
     # trap (every instance sharing one list) does not apply here.
@@ -116,10 +128,11 @@ class Resume(BaseModel):
     """A complete resume. Section order here is the order the renderer prints.
 
     What tailoring MAY change: rewrite `summary`; reorder/select `projects` and
-    `experience` entries; select/reorder/rephrase `bullets`; select `coursework`
-    and reorder `skills`. What it may NOT change: any name, org, role, date,
-    degree, gpa, or project name — and it may never add a bullet, skill, or
-    number that isn't already in the master (hard rule #2, never invent).
+    `experience` entries; select/reorder/rephrase `bullets`, including where each
+    one places its single **bold** span; select `coursework` and reorder `skills`.
+    What it may NOT change: any name, org, role, date, degree, gpa, or project
+    name — and it may never add a bullet, skill, or number that isn't already in
+    the master (hard rule #2, never invent).
     """
 
     # Rendering ARRANGEMENT, not content: "student" puts education first with GPA
@@ -130,6 +143,14 @@ class Resume(BaseModel):
     # never change it — it's a fixed setting like the contact block, and the
     # tailoring service forces it back from the master to guarantee that.
     career_stage: Literal["student", "professional"] = "student"
+    # Which graduation date prints, when an Education carries two (see
+    # Education.dates_alternate). "primary" prints `dates`; "alternate" prints
+    # `dates_alternate`, falling back to `dates` for any school that has no
+    # alternate. Like career_stage this is a fixed SETTING, not content: tailoring
+    # must never choose it, and tailor_resume() forces it back from the master.
+    # Defaults to "primary" so a resume saved before this field existed is
+    # unaffected.
+    grad_date_variant: Literal["primary", "alternate"] = "primary"
     contact: Contact
     summary: str | None = None        # the one free-text spot tailoring may rewrite
     education: list[Education] = []
