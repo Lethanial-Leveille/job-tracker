@@ -153,15 +153,48 @@ export async function tailorResume(text: string): Promise<Resume> {
   return res.json() as Promise<Resume>;
 }
 
-// POST a reviewed Resume and get back the rendered PDF as a Blob (binary, not
-// JSON), which the caller turns into a download.
-export async function renderResume(resume: Resume): Promise<Blob> {
-  const res = await request("/resume/render", {
+// POST a reviewed Resume and get back the rendered PDF plus the name to save it
+// under. The FILENAME COMES FROM THE SERVER, in Content-Disposition, rather than
+// being built here: the Lastname_Firstname_Resume_Company convention is a rule
+// about the resume, so it belongs next to the renderer that knows the contact
+// name, and building it in both places would let them drift.
+//
+// `company` tags a tailored download with the employer it was tailored for.
+// `gradDate` picks which of two true graduation dates prints ("alternate" is the
+// later one, for programs that only accept underclassmen); omitted, the resume's
+// own setting stands.
+export interface RenderedResume {
+  blob: Blob;
+  filename: string;
+}
+
+// Pulls filename="..." out of a Content-Disposition header. Deliberately reads
+// the plain `filename` and not RFC 6266's `filename*`: the server already folds
+// the value to ASCII, so the two always agree and the simple one needs no
+// percent-decoding. Falls back if the header is missing or malformed.
+function filenameFrom(header: string | null): string {
+  const match = header?.match(/filename="([^"]+)"/);
+  return match?.[1] ?? "resume.pdf";
+}
+
+export async function renderResume(
+  resume: Resume,
+  company?: string,
+  gradDate?: "primary" | "alternate",
+): Promise<RenderedResume> {
+  const params = new URLSearchParams();
+  if (company) params.set("company", company);
+  if (gradDate) params.set("grad_date", gradDate);
+  const query = params.toString();
+  const res = await request(`/resume/render${query ? `?${query}` : ""}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(resume),
   });
-  return res.blob();
+  return {
+    blob: await res.blob(),
+    filename: filenameFrom(res.headers.get("Content-Disposition")),
+  };
 }
 
 // GET an application's saved tailored resume versions, newest first.

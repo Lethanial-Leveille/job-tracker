@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Application, ApplicationStatus, Resume, ResumeVersion } from "../../lib/types";
 import {
   listResumeVersions,
@@ -6,6 +6,7 @@ import {
   saveResumeVersion,
   tailorResume,
 } from "../../lib/api";
+import { gradDateHint } from "../../lib/gradHint";
 import { isPreSubmit } from "./statuses";
 
 // The Tailor tab: draft a resume for this application, review it, download or
@@ -42,6 +43,17 @@ export function TailorTab({ application, onStatusChange }: Props) {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [tailored, setTailored] = useState<Resume | null>(null);
+  // Which of two true graduation dates prints. Off means 2028 (the default);
+  // on means the later date, for programs that only accept underclassmen. It is
+  // a per-download choice and deliberately NOT remembered or inferred: tailoring
+  // is forbidden from picking it, because guessing an eligibility rule out of
+  // posting text and guessing wrong prints a date you did not intend.
+  const [laterGradDate, setLaterGradDate] = useState(false);
+  // Read straight from the posting already in memory: no call, no cost. It only
+  // suggests, and cites what it matched so the suggestion can be judged.
+  const gradHint = useMemo(() => gradDateHint(application), [application]);
+  const hintDisagrees =
+    gradHint !== null && (gradHint.suggest === "alternate") !== laterGradDate;
   const [downloading, setDownloading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -104,11 +116,18 @@ export function TailorTab({ application, onStatusChange }: Props) {
     else setDownloading(true);
     setActionError(null);
     try {
-      const blob = await renderResume(resume);
+      // Pass the employer so the file arrives as
+      // Leveille_Lethanial_Resume_Stripe.pdf, and use the server's name rather
+      // than inventing one here — the convention lives with the renderer.
+      const { blob, filename } = await renderResume(
+        resume,
+        application.organization,
+        laterGradDate ? "alternate" : undefined,
+      );
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `resume-${application.organization}.pdf`;
+      link.download = filename;
       link.click();
       URL.revokeObjectURL(url);
     } catch (err: unknown) {
@@ -194,11 +213,39 @@ export function TailorTab({ application, onStatusChange }: Props) {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="text-[12px] text-ink-muted">
-              {saved
-                ? `Saved to ${application.organization}.`
-                : actionError ?? "Nothing is saved until you say so."}
+              {/* The hint outranks the idle message only while it disagrees with
+                  the current setting, so it reads as something to act on rather
+                  than a permanent badge you stop seeing. */}
+              {hintDisagrees && !saved && !actionError
+                ? `This posting suggests the ${
+                    gradHint?.suggest === "alternate" ? "later" : "earlier"
+                  } grad date: "${gradHint?.evidence}"`
+                : saved
+                  ? `Saved to ${application.organization}.`
+                  : actionError ?? "Nothing is saved until you say so."}
             </span>
-            <div className="flex flex-wrap gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <label
+                className="flex cursor-pointer items-center gap-1.5 text-[12px] text-ink-muted"
+                title={
+                  gradHint
+                    ? `Posting says: "${gradHint.evidence}"`
+                    : "This posting says nothing about class standing."
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={laterGradDate}
+                  onChange={(e) => setLaterGradDate(e.target.checked)}
+                  className="size-3.5 accent-accent"
+                />
+                Later grad date
+                {hintDisagrees && (
+                  <span className="text-accent" aria-hidden="true">
+                    •
+                  </span>
+                )}
+              </label>
               <button
                 type="button"
                 onClick={() => downloadResume(tailored)}
