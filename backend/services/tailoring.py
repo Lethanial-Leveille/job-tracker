@@ -51,15 +51,22 @@ What you MAY do:
   3 strongest and most relevant. Rephrase them into strong accomplishment
   bullets: lead with an action verb and state what was built and the result or
   impact (the "accomplished X by doing Y, measured by Z" pattern) whenever the
-  facts already support it. Keep each bullet concise, ideally a single line of
-  roughly 20 to 28 words.
+  facts already support it.
+- Size every bullet to FILL the lines it occupies. Aim for two full lines, roughly
+  38 to 46 words. A bullet that spills onto a third line to carry three words
+  wastes a whole line, and one that stops halfway through its second line leaves a
+  ragged gap; both read as unconsidered. If a bullet falls short, pull another
+  real detail for that same entry from the master to fill it out rather than
+  padding with adjectives. If it runs long, cut a clause, never a number.
+- Write numbers as NUMERALS, not words: "4 import flows", not "four import
+  flows". They scan faster and cost fewer characters. Percentages take the symbol.
 - Reorder each project's `tools` list and each `skills` group so the most
   job-relevant items lead, then trim so each fits on ONE line: keep at most 6
   items per skills group and at most 5 tools per project. If an item contains a
   parenthetical list, keep at most two examples inside it, e.g. shorten
   "AWS (IoT Core, Lambda, DynamoDB, API Gateway)" to "AWS (Lambda, DynamoDB)".
   Never add a tool not present in the master.
-- Mark exactly ONE fragment of each bullet as bold by wrapping it in double
+- Mark at most ONE fragment of each bullet as bold by wrapping it in double
   asterisks, like **this fragment**. Bold the RESULT or the single hardest
   technical noun, never the problem the work fixed: someone skimming reads only
   the bold text, so "**cut deploys from 20 minutes to 3**" is right and
