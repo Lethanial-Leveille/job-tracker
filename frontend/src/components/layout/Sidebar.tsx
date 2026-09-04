@@ -27,52 +27,32 @@ const icons = {
       <rect x="2.5" y="11" width="13" height="4" rx="1" />
     </Icon>
   ),
-  deadlines: (
-    <Icon>
-      <circle cx="9" cy="9" r="6.5" />
-      <path d="M9 5.5V9l2.5 1.5" />
-    </Icon>
-  ),
-  organizations: (
-    <Icon>
-      <path d="M3 15.5V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v11.5M11 7h3a1 1 0 0 1 1 1v7.5M2 15.5h14" />
-      <path d="M5.5 6h3M5.5 9h3" />
-    </Icon>
-  ),
   documents: (
     <Icon>
       <path d="M4 2.5h6l4 4v9a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5Z" />
       <path d="M10 2.5V6.5h4" />
     </Icon>
   ),
-  analytics: (
-    <Icon>
-      <path d="M2.5 15.5h13" />
-      <path d="M5 12.5V9M9 12.5V5M13 12.5v-4.5" />
-    </Icon>
-  ),
 };
 
 // --- Nav model --------------------------------------------------------------
-// Only Applications is real in v1. The rest are future features: rendered so
-// the shell feels complete, but muted, non-clickable, and marked "Soon" — never
-// showing a fabricated count.
 
 export type View = "applications" | "resume";
 
+// Only real destinations live here. Deadlines, Organizations and Analytics used
+// to sit in this list as disabled "Soon" placeholders, which meant three of five
+// nav items went nowhere — the clearest signal in the whole app that it was a
+// scaffold rather than a tool. A nav should advertise what exists; add an entry
+// when its screen does.
 interface NavItem {
   key: keyof typeof icons;
   label: string;
-  // A navigable view, or undefined for a not-yet-built ("Soon") item.
-  view?: View;
+  view: View;
 }
 
 const WORKSPACE: NavItem[] = [
   { key: "applications", label: "Applications", view: "applications" },
-  { key: "deadlines", label: "Deadlines" },
-  { key: "organizations", label: "Organizations" },
   { key: "documents", label: "Resume", view: "resume" },
-  { key: "analytics", label: "Analytics" },
 ];
 
 interface Props {
@@ -100,26 +80,7 @@ export function Sidebar({ current, onNavigate, applicationCount, onLogout }: Pro
 
       {/* Workspace nav */}
       <nav className="flex flex-col gap-1">
-        <div className="px-3 pb-2 text-[10px] font-medium uppercase tracking-[0.18em] text-ink-muted">
-          Workspace
-        </div>
         {WORKSPACE.map((item) => {
-          // No view yet → a muted, non-clickable "Soon" placeholder.
-          if (!item.view) {
-            return (
-              <span
-                key={item.key}
-                aria-disabled="true"
-                className="flex cursor-default items-center gap-3 rounded-interactive border-l-2 border-l-transparent px-3 py-2 text-sm text-ink-muted"
-              >
-                <span>{icons[item.key]}</span>
-                <span className="flex-1">{item.label}</span>
-                <span className="rounded-full border border-line px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-ink-muted">
-                  Soon
-                </span>
-              </span>
-            );
-          }
           // Capture the narrowed view in a const: TS widens item.view back to
           // View | undefined inside the onClick closure, but a local const holds
           // the narrowing.
@@ -133,7 +94,7 @@ export function Sidebar({ current, onNavigate, applicationCount, onLogout }: Pro
               aria-current={active ? "page" : undefined}
               className={
                 active
-                  ? "flex items-center gap-3 rounded-interactive border-l-2 border-l-accent bg-accent-subtle px-3 py-2 text-sm font-medium text-ink shadow-glow"
+                  ? "flex items-center gap-3 rounded-interactive border-l-2 border-l-accent bg-accent-subtle px-3 py-2 text-sm font-medium text-ink"
                   : "flex items-center gap-3 rounded-interactive border-l-2 border-l-transparent px-3 py-2 text-sm text-ink-soft transition-colors hover:text-ink"
               }
             >
@@ -177,7 +138,7 @@ export function Sidebar({ current, onNavigate, applicationCount, onLogout }: Pro
 // One of the few sanctioned purple elements (the brand mark), kept subtle.
 function LogoMark() {
   return (
-    <span className="grid size-9 place-items-center rounded-interactive bg-accent shadow-glow">
+    <span className="grid size-9 place-items-center rounded-interactive bg-accent">
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
         <path
           d="M9 2 15 5.5V12.5L9 16 3 12.5V5.5Z"
