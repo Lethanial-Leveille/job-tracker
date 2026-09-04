@@ -202,7 +202,7 @@ function RequirementList({
       {rows.map((row, i) => (
         <div
           key={i}
-          className="flex items-start gap-3 rounded-frame border border-line bg-surface px-3.5 py-3"
+          className="flex items-start gap-3 rounded-frame border border-line bg-surface px-3.5 py-2.5"
         >
           {row.verdict && <VerdictChip verdict={row.verdict} />}
           <div className="min-w-0 flex-1">
@@ -222,21 +222,37 @@ function RequirementList({
 // Neutral greys throughout. docs/design.md reserves the accent for the primary
 // action, selection, focus, and an offer — a requirement verdict is not on that
 // list, and colour-coding these would put a traffic light in the middle of the
-// calmest part of the page. Weight and fill carry the distinction instead.
+// calmest part of the page.
+//
+// But the first attempt at that used two 1.5px dots, bg-ink for met and
+// bg-ink-soft for partial, with both labels the same muted grey. At that size
+// the two are indistinguishable, so the one row you actually need to see looked
+// exactly like the three you don't. The whole job of this report is showing the
+// gap at a glance.
+//
+// The fix is CONTRAST, not colour, and it runs the emphasis the other way
+// round: a met requirement is settled, so it recedes; partial and missing are
+// the ones you act on, so they get the brighter label and a ring that reads at
+// small size. Nothing here is on the accent's reserved list.
 function VerdictChip({ verdict }: { verdict: RequirementVerdict }) {
+  const settled = verdict === "met";
   const dot =
     verdict === "met"
-      ? "bg-ink"
+      ? "bg-ink-muted"
       : verdict === "partial"
-        ? "bg-ink-soft"
+        ? "border-2 border-ink bg-transparent"
         : verdict === "missing"
-          ? "border border-ink-muted"
+          ? "border border-ink"
           : // unstated and unknown: nothing was decided, so nothing is filled in
             "border border-dashed border-ink-muted";
 
   return (
-    <span className="mt-px inline-flex w-[104px] shrink-0 items-center gap-1.5 text-[11.5px] font-medium text-ink-soft">
-      <span className={`size-1.5 shrink-0 rounded-full ${dot}`} />
+    <span
+      className={`mt-px inline-flex w-[104px] shrink-0 items-center gap-1.5 text-[11.5px] font-medium ${
+        settled ? "text-ink-muted" : "text-ink"
+      }`}
+    >
+      <span className={`size-2 shrink-0 rounded-full ${dot}`} />
       {VERDICT_LABEL[verdict]}
     </span>
   );
