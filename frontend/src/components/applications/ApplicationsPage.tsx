@@ -110,18 +110,14 @@ export function ApplicationsPage({
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
+        {/* No count pill and no tagline. The sidebar already carries the count,
+            and a tool its only user opens every day does not need to explain on
+            every screen what it is for. Both were the same information a third
+            and fourth time. */}
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-semibold tracking-tight text-ink">
-              Applications
-            </h1>
-            <span className="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium tabular-nums text-ink-soft">
-              {visible.length} shown
-            </span>
-          </div>
-          <p className="mt-1.5 text-sm text-ink-muted">
-            Every internship you're tracking, in one pipeline.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">
+            Applications
+          </h1>
         </div>
 
         <div className="flex items-center gap-3">
@@ -135,7 +131,7 @@ export function ApplicationsPage({
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-2 rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink shadow-glow transition-colors hover:bg-accent-hover active:bg-accent-press"
+            className="inline-flex items-center gap-2 rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink transition-shadow transition-colors hover:bg-accent-hover hover:shadow-glow active:bg-accent-press"
           >
             <span className="text-base leading-none">+</span>
             New application

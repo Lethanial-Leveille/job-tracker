@@ -299,7 +299,7 @@ export function AddOpportunity({
 
         {step === "parse" && (
           <div className="flex flex-col items-center pt-16 text-center">
-            <div className="mb-6 size-[66px] animate-spin rounded-full border-2 border-line-strong border-t-accent shadow-glow motion-reduce:animate-none" />
+            <div className="mb-6 size-[66px] animate-spin rounded-full border-2 border-line-strong border-t-accent motion-reduce:animate-none" />
             <h2 className="font-serif text-[26px] font-semibold text-ink">
               Reading the posting
             </h2>
@@ -444,15 +444,15 @@ export function AddOpportunity({
                 </label>
               </div>
 
-              {/* Captured extras — stored in jd_parsed, shown later in detail */}
+              {/* Captured extras, stored in jd_parsed and shown later in detail.
+                  The values are real information and stay. What was removed is
+                  the banner above them: a purple all-caps checkmark row reading
+                  "Captured from the posting, stored and shown in the detail
+                  view". That announced that saving works, on the screen where
+                  you are about to press Save, and spent the reserved accent on
+                  reassurance. The data says it by being here. */}
               {parsed && (
-                <div className="flex flex-col gap-2.5 rounded-frame border border-accent-line bg-accent-subtle px-4 py-3.5">
-                  <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-accent">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
-                    Captured from the posting — stored and shown in the detail view
-                  </div>
+                <div className="flex flex-col gap-2.5 rounded-frame border border-line bg-base px-4 py-3">
                   <div className="flex flex-wrap gap-x-6 gap-y-2">
                     {parsed.salary && <MiniKV label="Compensation" value={parsed.salary} />}
                     {parsed.location && <MiniKV label="Location" value={parsed.location} />}
@@ -484,7 +484,7 @@ export function AddOpportunity({
                   type="button"
                   onClick={save}
                   disabled={!canSave}
-                  className="rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink shadow-glow transition-colors hover:bg-accent-hover disabled:opacity-60"
+                  className="rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink transition-shadow transition-colors hover:bg-accent-hover hover:shadow-glow disabled:opacity-60"
                 >
                   {saving ? "Saving…" : "Save application"}
                 </button>
@@ -515,7 +515,7 @@ function Stepper({ step }: { step: Step }) {
             <span
               className={`grid size-[26px] place-items-center rounded-full border text-xs tabular-nums ${
                 i === idx
-                  ? "border-accent text-ink shadow-glow"
+                  ? "border-accent text-ink"
                   : i < idx
                     ? "border-accent bg-accent text-ink"
                     : "border-line-strong bg-surface text-ink-muted"
