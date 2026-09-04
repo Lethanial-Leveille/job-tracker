@@ -22,6 +22,7 @@ to and only ever sees the master's own facts.
 """
 
 import logging
+import re
 
 from anthropic import Anthropic
 
@@ -58,6 +59,13 @@ What you MAY do:
   parenthetical list, keep at most two examples inside it, e.g. shorten
   "AWS (IoT Core, Lambda, DynamoDB, API Gateway)" to "AWS (Lambda, DynamoDB)".
   Never add a tool not present in the master.
+- Mark exactly ONE fragment of each bullet as bold by wrapping it in double
+  asterisks, like **this fragment**. Bold the RESULT or the single hardest
+  technical noun, never the problem the work fixed: someone skimming reads only
+  the bold text, so "**cut deploys from 20 minutes to 3**" is right and
+  "**the deploy was broken**" is wrong. Choose the fragment that matters most
+  for THIS job, which may differ from the one already marked in the master.
+  One span per bullet, never two, and never bold a whole bullet.
 
 The final resume MUST fit on a single page. It is better to cut a weaker bullet
 or project than to overflow. When in doubt, cut.
@@ -113,6 +121,10 @@ def tailor_resume(
     # from the master — a professional resume must never silently revert to
     # the student layout after tailoring.
     result.career_stage = master.career_stage
+    # Same reasoning for the graduation-date choice: which of two true dates
+    # prints is Lee's call per application, not something the model should infer
+    # from a job description.
+    result.grad_date_variant = master.grad_date_variant
 
     # Enforce never-invent before anything else looks at the draft, so a
     # fabricated skill cannot survive into the PDF or a saved version.
@@ -126,6 +138,13 @@ def tailor_resume(
     # Measure before returning. The trim runs on the tailored draft, so the
     # reviewable JSON and the eventual PDF are the same thing — a resume that
     # looked fine in review and overflowed on download would defeat the point.
+    # The prompt asks for one bold span per bullet; this makes it true. Models
+    # over-emphasise, and a bullet with three bold phrases greys the page out and
+    # destroys the only thing bold is for.
+    over = cap_bold_spans(result)
+    if over:
+        logger.info("Tailoring over-bolded; capped to one span in: %s", "; ".join(over))
+
     fitted, cuts = fit_to_one_page(result)
     if cuts:
         logger.info(
@@ -250,6 +269,64 @@ def fit_to_one_page(resume: Resume) -> tuple[Resume, list[str]]:
         break
 
     return work, cuts
+
+
+# --- Bold-span enforcement ---------------------------------------------------
+# Emphasis is the ONE piece of presentation the model is allowed to choose,
+# because unlike layout it genuinely should change per job: a backend posting
+# wants the idempotency bolded, a frontend posting wants the optimistic update.
+# A <strong> cannot alter margins, page count, or the grid, so the locked
+# template still owns every part of the format that matters.
+#
+# What the model gets wrong is the COUNT, not the choice — it emphasises three
+# phrases per bullet given the chance, and bold that covers half the page stops
+# being a highlight. So the prompt asks and this function enforces, the same
+# division of labour as strip_invented_skills below: the model judges, the code
+# guarantees.
+#
+# Note this is deliberately NOT an anti-invention guard. Bullets are already
+# rephrasable, so wrapping words in asterisks opens no smuggling route that
+# rewriting the sentence did not already open; the never-invent rule covers the
+# text either way. This function only fixes the count and cleans up markers.
+_BOLD_SPAN = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
+
+
+def _cap_one_span(text: str) -> str:
+    """Keep the first **bold** span in `text`; unwrap the rest.
+
+    Also drops any leftover unpaired "**", which would otherwise reach the PDF as
+    literal asterisks: the renderer's bold filter only converts matched pairs.
+    """
+    out: list[str] = []
+    last = 0
+    kept = False
+    for m in _BOLD_SPAN.finditer(text):
+        out.append(text[last : m.start()].replace("**", ""))
+        if kept or not m.group(1).strip():
+            out.append(m.group(1))     # unwrap: extra span, or an empty one
+        else:
+            out.append(m.group(0))     # keep the first real span intact
+            kept = True
+        last = m.end()
+    out.append(text[last:].replace("**", ""))
+    return "".join(out)
+
+
+def cap_bold_spans(tailored: Resume) -> list[str]:
+    """Enforce at most one bold span per bullet, in place.
+
+    Returns a short label for each bullet that had to be changed, for logging.
+    """
+    changed: list[str] = []
+    entries = [(x.organization, x) for x in tailored.experience]
+    entries += [(p.name, p) for p in tailored.projects]
+    for label, entry in entries:
+        for i, bullet in enumerate(entry.bullets):
+            capped = _cap_one_span(bullet)
+            if capped != bullet:
+                entry.bullets[i] = capped
+                changed.append(f"{label} bullet {i + 1}")
+    return changed
 
 
 # --- Never-invent enforcement ------------------------------------------------

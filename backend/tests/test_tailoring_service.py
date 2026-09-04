@@ -25,6 +25,7 @@ from schemas.resume import (
 )
 from services.resume_render import count_lines_containing, count_pages
 from services.tailoring import (
+    cap_bold_spans,
     fit_to_one_page,
     strip_invented_skills,
     tailor_resume,
@@ -319,3 +320,51 @@ def test_a_tool_not_on_that_project_is_removed() -> None:
     strip_invented_skills(master, tailored)
 
     assert tailored.projects[0].tools == ["FastAPI", "PostgreSQL"]
+
+
+# --- Bold-span cap ------------------------------------------------------------
+# The prompt asks the model for one bold span per bullet; these prove the code
+# guarantees it, because the prompt alone does not (models over-emphasise). Bold
+# is the one presentation choice tailoring is allowed to make, so the count is
+# the only thing that needs enforcing.
+
+
+def _bulleted(*bullets: str) -> Resume:
+    return Resume(
+        contact=Contact(name="Lethanial L. Leveille"),
+        projects=[Project(name="Prowl", bullets=list(bullets))],
+    )
+
+
+def test_a_single_bold_span_is_left_alone() -> None:
+    r = _bulleted("cut deploys **from 20 minutes to 3** with caching")
+    assert cap_bold_spans(r) == []
+    assert r.projects[0].bullets[0] == "cut deploys **from 20 minutes to 3** with caching"
+
+
+def test_extra_bold_spans_are_unwrapped_keeping_the_first() -> None:
+    r = _bulleted("**one** then **two** then **three**")
+    changed = cap_bold_spans(r)
+    assert changed == ["Prowl bullet 1"]
+    assert r.projects[0].bullets[0] == "**one** then two then three"
+
+
+def test_an_unpaired_marker_is_dropped_so_no_asterisks_reach_the_pdf() -> None:
+    # The renderer's bold filter only converts matched pairs, so a stray opener
+    # would otherwise print as literal asterisks on the resume.
+    r = _bulleted("shipped it ** and moved on")
+    assert cap_bold_spans(r) == ["Prowl bullet 1"]
+    assert "*" not in r.projects[0].bullets[0]
+
+
+def test_an_empty_span_does_not_consume_the_one_allowed_bold() -> None:
+    r = _bulleted("**  ** but the **real result** is here")
+    cap_bold_spans(r)
+    assert r.projects[0].bullets[0].count("**") == 2
+    assert "**real result**" in r.projects[0].bullets[0]
+
+
+def test_bullets_without_markers_are_untouched() -> None:
+    r = _bulleted("plain bullet with no emphasis at all")
+    assert cap_bold_spans(r) == []
+    assert r.projects[0].bullets[0] == "plain bullet with no emphasis at all"
