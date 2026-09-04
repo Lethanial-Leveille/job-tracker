@@ -30,7 +30,7 @@ contact:
   github: github.com/Lethanial-Leveille
 
 education:
-  - institution: University of Florida, Herbert Wertheim College of Engineering
+  - institution: University of Florida
     degree: Bachelor of Science in Computer Engineering
     location: Gainesville, FL
     dates: Expected May 2028
@@ -57,7 +57,7 @@ experience:
     location: Singapore
     dates: June 2026 – July 2026
     bullets:
-      - "Rebuilt four inconsistent contact import flows into one shared review step so users confirm exactly who gets added **before anyone is imported or charged**, with a preview endpoint that stages candidates and idempotent submits so a retry cannot charge twice."
+      - "Rebuilt 4 inconsistent contact import flows into 1 shared review step so users confirm exactly who gets added **before anyone is imported or charged**, with a preview endpoint that stages candidates and idempotent submits so a retry cannot charge twice."
       - "Traced a background poll firing **~30 phantom analytics events per user per minute**, inflating the exact adoption metric the feature was judged on, and scoped it to fire only while the user is on the page."
       - "Built the app half of a cross-domain signup attribution pipeline spanning three repositories (marketing site, Next.js edge middleware, NestJS API), capturing source at all three account-creation paths including the Google OAuth paths carrying **51% of signups**."
       - "Rebuilt the inbox message thread as a scroll state machine that holds your place when older messages load in above you, killing flicker on open and a race where a slow request overwrote a different conversation, with regression tests each verified failing first."

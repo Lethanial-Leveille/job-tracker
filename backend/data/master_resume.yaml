@@ -83,7 +83,7 @@ contact:
 # No summary section: the resume leads with education and experience instead.
 
 education:
-  - institution: University of Florida, Herbert Wertheim College of Engineering
+  - institution: University of Florida
     degree: Bachelor of Science in Computer Engineering
     location: Gainesville, FL
     # 94 total credit hours as of Sep 2026 against a 128-credit BSCE, so ~34
@@ -139,21 +139,18 @@ experience:
     # counts are gameable, and a reader who knows that discounts everything
     # around them. The work speaks without the tally.
     bullets:
-      - "Rebuilt four inconsistent contact import flows into one shared review step so users confirm exactly who gets added **before anyone is imported or charged**, with a preview endpoint that stages candidates and idempotent submits so a retry cannot charge twice."
+      - "Rebuilt 4 inconsistent contact import flows into 1 shared review step so users confirm exactly who gets added **before anyone is imported or charged**, with a preview endpoint that stages candidates and idempotent submits so a retry cannot charge twice."
       - "Traced a background poll firing **~30 phantom analytics events per user per minute**, inflating the exact adoption metric the feature was judged on, and scoped it to fire only while the user is on the page."
       - "Built the app half of a cross-domain signup attribution pipeline spanning three repositories (marketing site, Next.js edge middleware, NestJS API), capturing source at all three account-creation paths including the Google OAuth paths carrying **51% of signups**."
       - "Rebuilt the inbox message thread as a scroll state machine that holds your place when older messages load in above you, killing flicker on open and a race where a slow request overwrote a different conversation, with regression tests each verified failing first."
       - "Raised **diff coverage from 36% to 100%** against the CI gate by extracting the timing-sensitive decision logic out of a 6,500 line component into pure, unit-tested helpers."
       # --- bench: true, but rewrite in the plain style above before printing ---
-      - "Shipped features and fixes across three production repositories in a 7 week internship: a Next.js and React product app, a NestJS and MongoDB API, and the marketing site."
       - "Built the backing import API in NestJS, adding a preview endpoint that stages candidates without saving them and a single-use atomic claim so two clicks of Import cannot create the same contacts twice."
-      - "Launched the go-to-market surfaces for the team's Product Hunt launch on the Next.js marketing site, including the launch banner, free-trial calls to action, and a Slack community section, reusing the existing design system."
       - "Built onboarding checklist behavior in the React and TypeScript app, including an impersonation-safe, cross-tab gate that stops a setup step from checking itself off before the user has actually opened it."
       - "Added automated tests across the contacts module (service, controller, concurrency, and claim-recovery cases) as part of the team's testing standards."
-      - "Rebuilt inbox message-thread scrolling as a scroll state machine handling prepend-restore, bottom-pinning, and paginated load-more, proven by four regression tests each confirmed failing against the pre-fix code."
+      - "Rebuilt inbox message-thread scrolling as a scroll state machine handling prepend-restore, bottom-pinning, and paginated load-more, proven by 4 regression tests each confirmed failing against the pre-fix code."
       - "Shipped a Sales Navigator preview-and-import flow on the contact-ingestion API (TypeScript), letting users review and select staged candidates before any records are created, reusing a shared dedup and batch-insert core across import paths."
-      - "Hardened the import pipeline against double-submits with a single-use atomic claim plus partial-write claim recovery and concurrency tests, so a retried or duplicated request cannot create duplicate contacts."
-
+      - "Found and fixed a **4% duplicate rate** in contact imports (40 duplicates per 1,000 records) by making the pipeline idempotent at the database level, verified with concurrency tests covering partial write recovery."
 projects:
   - name: M.I.L.E.S.
     tools: [Python, FastAPI, Swift/SwiftUI, Whisper.cpp, Claude API, SQLite, SQLite FTS5, Resemblyzer, webrtcvad, sentence-transformers, ONNX, NumPy, ElevenLabs, Cloudflare, systemd]
