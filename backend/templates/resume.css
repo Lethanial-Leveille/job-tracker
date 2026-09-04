@@ -3,10 +3,22 @@
   split (vision.md): Claude tailoring produces content (a Resume); it never sees
   or edits this file, so every generated PDF looks identical.
 
-  Modeled on Lee's current resume: Carlito (a free, metric-compatible Calibri
-  clone) so the type matches Calibri, centered name, uppercase navy section
-  headers with a rule, single column, right-aligned dates. Subtle deeper-navy
-  accent (#1e3a5f). Spacing tuned to keep a tailored resume on one page.
+  Modeled on "Jake's Resume" (Jake Gutierrez's Overleaf LaTeX template, the most
+  widely used CS-student format): serif type, centered name over ONE contact row,
+  small-caps black section headers with a full-width rule, single column,
+  right-aligned locations and dates, no color anywhere. Spacing tuned to keep a
+  tailored resume on one page.
+
+  FONT NOTE — this is the one thing that can differ between your laptop and the
+  droplet, because the PDF is rendered SERVER-side. Jake's uses Latin Modern
+  (LaTeX's Computer Modern), which is not installed on either machine. The stack
+  below leads with Times New Roman (present on macOS) and falls through to
+  Liberation Serif, which is METRIC-COMPATIBLE with Times New Roman — same
+  advance widths, so line breaks and page count match rather than merely looking
+  similar. This is the same trick the previous Carlito/Calibri pairing used.
+  DejaVu Serif is the last resort because Ubuntu always ships it, but it is NOT
+  metric-compatible and will reflow, so install the compatible one on the server:
+      sudo apt-get install -y fonts-liberation
 */
 
 @page {
@@ -21,10 +33,10 @@
 }
 
 body {
-  font-family: "Carlito", "Calibri", "Helvetica Neue", "Arial", sans-serif;
-  font-size: 9.8pt;
-  line-height: 1.27;
-  color: #1a1a1a;
+  font-family: "Times New Roman", "Liberation Serif", "Tinos", "DejaVu Serif", serif;
+  font-size: 10pt;
+  line-height: 1.22;
+  color: #000000;
 }
 
 /* --- Header ------------------------------------------------------------- */
@@ -34,20 +46,16 @@ body {
 }
 
 .name {
-  font-size: 19pt;
-  font-weight: 700;
-  letter-spacing: 0.3pt;
-  margin-bottom: 2pt;
+  font-size: 22pt;
+  font-weight: 400;        /* Jake's name is large but NOT bold */
+  letter-spacing: 0;
+  margin-bottom: 1pt;
 }
 
 .contact {
-  font-size: 9pt;
-  color: #333333;
+  font-size: 9.5pt;
+  color: #000000;
   margin-top: 1pt;
-}
-
-.contact.links {
-  color: #1e3a5f;
 }
 
 /* --- Sections ----------------------------------------------------------- */
@@ -55,15 +63,18 @@ section {
   margin-top: 6.5pt;
 }
 
+/* Small-caps, NOT uppercase: Jake's uses LaTeX \scshape, which keeps the
+   capital E of "Education" full height and renders "ducation" as small capitals.
+   text-transform: uppercase would flatten that distinction and lose the look. */
 .section {
-  font-size: 10.5pt;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.7pt;
-  color: #1e3a5f;
-  border-bottom: 1pt solid #1e3a5f;
-  padding-bottom: 2pt;
-  margin-bottom: 3pt;
+  font-size: 12pt;
+  font-weight: 400;
+  font-variant: small-caps;
+  letter-spacing: 0.2pt;
+  color: #000000;
+  border-bottom: 0.6pt solid #000000;
+  padding-bottom: 1pt;
+  margin-bottom: 2.5pt;
 }
 
 .summary {
@@ -86,7 +97,7 @@ section {
 .right {
   text-align: right;
   white-space: nowrap;
-  color: #333333;
+  color: #000000;
 }
 
 .bold {
@@ -115,7 +126,7 @@ section {
 
 .skill-label {
   font-weight: 700;
-  width: 112pt;
+  width: 104pt;
   flex-shrink: 0;
 }
 
@@ -126,7 +137,7 @@ section {
 .plinks {
   font-size: 8.5pt;
   font-style: italic;
-  color: #1e3a5f;
+  color: #000000;
   margin-top: 1pt;
 }
 
@@ -139,4 +150,12 @@ ul {
 li {
   margin-bottom: 1.5pt;
   line-height: 1.27;
+}
+
+/* Inline emphasis inside a bullet, written as **marked** in the resume content
+   and converted by the `bold` filter in services/resume_render.py. Exactly one
+   span per bullet is allowed (capped in code, see services/tailoring.py), so
+   this stays a highlight and does not grey the page out. */
+strong {
+  font-weight: 700;
 }

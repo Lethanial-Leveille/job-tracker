@@ -4,7 +4,11 @@
   Receives a validated Resume as `r` (see backend/schemas/resume.py).
 
   Two arrangements of the SAME sections, chosen by r.career_stage:
-  - "student"      : Education first (with GPA + coursework), then Experience.
+  - "student"      : Education, Experience, Projects, Skills — Jake's-Resume
+                     order. Skills sit LAST on purpose: they are the least
+                     discriminating section (everyone lists the same words), and
+                     putting them fourth pushes the internship higher up the page
+                     where a six-second skim actually lands.
   - "professional" : Experience first; Education demoted to the bottom with GPA
                      and coursework hidden (degree + school only).
   Each section is a macro so the markup exists once and only the ORDER changes.
@@ -13,11 +17,15 @@
   `| select` drops any None/empty pieces before joining, so no stray "|".
 #}
 {% set c = r.contact %}
+{#
+  ONE contact row, Jake's-Resume style: phone | email | linkedin | github, with
+  location included only if set. `location` is deliberately null in Lee's data,
+  so the field still exists for anyone who wants a city on theirs.
+#}
 <header class="head">
   <div class="name">{{ c.name }}</div>
-  <div class="contact">{{ [c.location, c.phone, c.email] | select | join("  |  ") }}</div>
-  {% set link_line = [c.linkedin, c.github, c.website] | select | list %}
-  {% if link_line %}<div class="contact links">{{ link_line | join("  |  ") }}</div>{% endif %}
+  {% set contact_line = [c.location, c.phone, c.email, c.linkedin, c.github, c.website] | select | list %}
+  {% if contact_line %}<div class="contact">{{ contact_line | join("  |  ") }}</div>{% endif %}
 </header>
 
 {% macro summary_section() %}
@@ -35,11 +43,15 @@
   {% for e in r.education %}
   <div class="entry">
     <div class="row"><span class="bold">{{ e.institution }}</span>{% if e.location %}<span class="right italic">{{ e.location }}</span>{% endif %}</div>
-    <div class="row"><span class="italic">{{ e.degree }}</span>{% if e.dates %}<span class="right italic">{{ e.dates }}</span>{% endif %}</div>
+    {# Two true graduation dates can coexist (see Education.dates_alternate);
+       r.grad_date_variant picks which prints, falling back to `dates` for any
+       school that has no alternate. #}
+    {% set shown_dates = e.dates_alternate if (r.grad_date_variant == "alternate" and e.dates_alternate) else e.dates %}
+    <div class="row"><span class="italic">{{ e.degree }}{% if e.gpa and show_details %}, GPA: {{ e.gpa }}{% endif %}</span>{% if shown_dates %}<span class="right italic">{{ shown_dates }}</span>{% endif %}</div>
     {% if show_details %}
-    {% if e.gpa or e.honors %}
-    <div class="detail">{% if e.gpa %}GPA: {{ e.gpa }}{% endif %}{% if e.honors %}{% if e.gpa %}&nbsp;&nbsp;&nbsp;{% endif %}<span class="bold">{{ e.honors | join("  ") }}</span>{% endif %}</div>
-    {% endif %}
+    {# GPA now rides on the degree line above, so this row is honors only and
+       disappears entirely when there are none. #}
+    {% if e.honors %}<div class="detail"><span class="bold">{{ e.honors | join("  ") }}</span></div>{% endif %}
     {% if e.coursework %}<div class="detail"><span class="bold">Relevant Coursework:</span> {{ e.coursework | join(", ") }}</div>{% endif %}
     {% endif %}
   </div>
@@ -67,7 +79,7 @@
   <div class="entry">
     <div class="row"><span class="bold">{{ x.organization }}</span>{% if x.location %}<span class="right italic">{{ x.location }}</span>{% endif %}</div>
     <div class="row"><span class="italic">{{ x.role }}</span>{% if x.dates %}<span class="right italic">{{ x.dates }}</span>{% endif %}</div>
-    {% if x.bullets %}<ul>{% for b in x.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+    {% if x.bullets %}<ul>{% for b in x.bullets %}<li>{{ b | bold }}</li>{% endfor %}</ul>{% endif %}
   </div>
   {% endfor %}
 </section>
@@ -86,7 +98,7 @@
       {% if p.dates %}<span class="right italic">{{ p.dates }}</span>{% endif %}
     </div>
     {% if p.links %}<div class="plinks">{{ p.links | join("  |  ") }}</div>{% endif %}
-    <ul>{% for b in p.bullets %}<li>{{ b }}</li>{% endfor %}</ul>
+    <ul>{% for b in p.bullets %}<li>{{ b | bold }}</li>{% endfor %}</ul>
   </div>
   {% endif %}
   {% endfor %}
@@ -103,7 +115,7 @@
 {% else %}
   {{ summary_section() }}
   {{ education_section(true) }}
-  {{ skills_section() }}
   {{ experience_section() }}
   {{ projects_section() }}
+  {{ skills_section() }}
 {% endif %}
