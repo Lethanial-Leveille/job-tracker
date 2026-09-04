@@ -40,6 +40,14 @@
 # merged change has passing tests; what earns a line is a test PROVEN to fail
 # against the old code.
 #
+# THE BANK IS A SUPERSET (CLAUDE.md hard rule #6: keep every real detail here).
+# Rewriting a bullet means ADDING the new wording above and DEMOTING the old one
+# to the bench, never replacing it. Learned the hard way on 2026-09-03: a plain-
+# English rewrite pass replaced the detailed bullets outright and quietly deleted
+# StreamRouter, WAL mode, partial-write claim recovery, pg_dump backups, the
+# least-privilege deploy user, MiniLM/IDF, -53 dBFS and Keychain from the file.
+# The printed resume should be short; this file should not.
+#
 # ORDERING CONVENTION: within each bullets list, the resume-default bullets come
 # FIRST, already written in the plain style above. Everything below the
 # "bench" comment is real and true but denser; if tailoring promotes one, it
@@ -139,9 +147,11 @@ experience:
       # --- bench: true, but rewrite in the plain style above before printing ---
       - "Shipped features and fixes across three production repositories in a 7 week internship: a Next.js and React product app, a NestJS and MongoDB API, and the marketing site."
       - "Built the backing import API in NestJS, adding a preview endpoint that stages candidates without saving them and a single-use atomic claim so two clicks of Import cannot create the same contacts twice."
-      - "Launched the go-to-market surfaces for the team's Product Hunt launch on the Next.js marketing site, including the launch banner, free-trial calls to action, and a community section, reusing the existing design system."
-      - "Built onboarding checklist behavior in the React and TypeScript app, including a gate that stops a setup step from checking itself off before the user has actually opened it, and that holds across browser tabs."
-      - "Added automated tests across the contacts module (service, controller, concurrency, and recovery cases) as part of the team's testing standards."
+      - "Launched the go-to-market surfaces for the team's Product Hunt launch on the Next.js marketing site, including the launch banner, free-trial calls to action, and a Slack community section, reusing the existing design system."
+      - "Built onboarding checklist behavior in the React and TypeScript app, including an impersonation-safe, cross-tab gate that stops a setup step from checking itself off before the user has actually opened it."
+      - "Added automated tests across the contacts module (service, controller, concurrency, and claim-recovery cases) as part of the team's testing standards."
+      - "Shipped a Sales Navigator preview-and-import flow on the contact-ingestion API (TypeScript), letting users review and select staged candidates before any records are created, reusing a shared dedup and batch-insert core across import paths."
+      - "Hardened the import pipeline against double-submits with a single-use atomic claim plus partial-write claim recovery and concurrency tests, so a retried or duplicated request cannot create duplicate contacts."
 
 projects:
   - name: M.I.L.E.S.
@@ -165,6 +175,11 @@ projects:
       - "Added wake-word barge-in during playback without acoustic echo cancellation, using a watcher thread that exclusively owns the mic stream for the span playback drains and kills it on a hit, keyed on a phrase the assistant's own speech never contains."
       - "Built incremental voiceprint learning from ordinary conversation with a rolling 60-sample window, admitting samples only well clear of the accept threshold and never applying an update automatically: a preview tool shows what an update would move, backs up the profile first, and refuses to average across microphones."
       - "Built the SwiftUI companion app from scratch with zero third-party dependencies: Face ID auth, on-device SFSpeechRecognizer input, paginated history with search, and a memory-bank viewer."
+      - "Built a JWT-authenticated FastAPI backend (REST and WebSocket) with persistent SQLite memory in WAL mode and Claude API streaming, using a stop-sequence plus look-ahead StreamRouter to detect action tags mid-stream."
+      - "Pipelined ElevenLabs TTS straight to ALSA and cut time-to-first-audio to ~520ms, including a 1.5s latency win from flushing stdin after every audio chunk."
+      - "Deployed three systemd services on boot with global access via Cloudflare Tunnel at miles.lethanial.com, consumed by the iOS app with Face ID and Keychain-stored JWTs."
+      - "Built hybrid memory retrieval over a 233-memory SQLite corpus, fusing FTS5 keyword search ranked by summed inverse document frequency with all-MiniLM-L6-v2 semantic search (384-dimensional float32 vectors, 31ms per query) through reciprocal rank fusion, so two uncalibrated scoring scales vote without either being mapped onto the other."
+      - "Diagnosed months of speaker-verification false rejections down to four compounding defects (an energy VAD that never fired at -53 dBFS capture, a follow-up loop that could not exit on hallucinated transcripts, an enrollment centroid poisoned to 0.63 average pairwise similarity, and mic gain leaving 7 of 16 bits unused), replacing the energy threshold with webrtcvad plus a 300ms pre-roll ring buffer and adding per-attempt logging that showed zero rejections across 94 attempts over two seconds."
   - name: Prowl (Job Application Tracker)
     # This project. Per CLAUDE.md hard rule #6, update this entry as the tracker grows.
     tools: [Python, FastAPI, SQLAlchemy 2.0, Alembic, PostgreSQL, SQLite, React, TypeScript, Vite, Tailwind CSS, Claude API, WeasyPrint, Jinja, JWT, bcrypt, DigitalOcean, Linux, Caddy, Cloudflare Tunnel, systemd, GitHub Actions]
@@ -193,6 +208,9 @@ projects:
       - "Collapsed a three-layer interface of stacked slide-over panels and a modal into a single-layer view swap with tabs, keeping both tabs mounted behind CSS so switching between them neither discards unsaved edits nor re-runs a paid model call."
       - "Added an opt-in grouping view that collects several applications to one employer under a shared header, reconciling inconsistent company spellings through a shared normalization function and ordering groups by their soonest deadline."
       - "Introduced a Vitest suite for the frontend's pure logic (duplicate matching, status lists, grouping) alongside the existing pytest suite, writing the tests around the failure modes that silently produce wrong output rather than around coverage."
+      - "Built an AI resume-tailoring pipeline that selects and rephrases bullets from a YAML master resume against a job description using Claude (Opus via structured outputs, constrained to never invent content), then renders a one-page PDF through a locked Jinja and WeasyPrint template, separating content from format so the model cannot alter layout."
+      - "Deployed to production on a DigitalOcean droplet (Ubuntu): the built React frontend and FastAPI backend are served same-origin behind Caddy, the backend runs under systemd, and the site is exposed over HTTPS through a Cloudflare Tunnel with no open ports or public IP, backed by nightly pg_dump database backups."
+      - "Automated deployment with a GitHub Actions pipeline so every push to main rebuilds, runs migrations, and restarts the app on the droplet, connecting as a least-privilege deploy user allowed only a single scoped sudo command."
   - name: MotionSense
     tools: [Python, Raspberry Pi, AWS, scikit-learn, React, Docker]
     # Repo link removed from the printed resume Sep 2026; kept here:
