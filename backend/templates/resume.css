@@ -21,9 +21,13 @@
       sudo apt-get install -y fonts-liberation
 */
 
+/* Tightened from 0.5in/0.55in. Every 0.05in reclaimed across the top and bottom
+   is roughly one more line of content, and this is the cheapest place to find
+   room before anything gets cut. Do not go below ~0.4in: most ATS parsers are
+   fine, but printers start clipping and the page begins to read as crammed. */
 @page {
   size: Letter;
-  margin: 0.5in 0.55in;
+  margin: 0.42in 0.5in;
 }
 
 * {
@@ -59,8 +63,13 @@ body {
 }
 
 /* --- Sections ----------------------------------------------------------- */
+/* Space ABOVE a section heading is larger than the space below it, on purpose.
+   A heading belongs to the content it introduces, so if the gap above and below
+   are equal the heading floats between two blocks and reads as attached to the
+   wrong one. Bigger gap above separates it from the previous section; the
+   smaller gap below keeps it bound to its own content. */
 section {
-  margin-top: 6.5pt;
+  margin-top: 8pt;
 }
 
 /* Small-caps, NOT uppercase: Jake's uses LaTeX \scshape, which keeps the
@@ -73,8 +82,10 @@ section {
   letter-spacing: 0.2pt;
   color: #000000;
   border-bottom: 0.6pt solid #000000;
-  padding-bottom: 1pt;
-  margin-bottom: 2.5pt;
+  padding-bottom: 1.5pt;
+  /* The buffer between the rule and the first entry. Tight enough to stay dense,
+     wide enough that the heading is not sitting on top of the content. */
+  margin-bottom: 3.5pt;
 }
 
 .summary {
@@ -83,7 +94,7 @@ section {
 
 /* --- Entries (education / experience / projects) ------------------------ */
 .entry {
-  margin-bottom: 4pt;
+  margin-bottom: 4.5pt;
 }
 
 /* Two-column header row: title flush left, location/dates flush right. */
@@ -164,4 +175,13 @@ li {
    this stays a highlight and does not grey the page out. */
 strong {
   font-weight: 700;
+}
+
+/* A linked project title. Underlined so it reads as clickable on screen and as
+   a deliberate mark on paper, but kept black: docs/design.md reserves colour,
+   and a blue link would be the only coloured thing on the page. */
+.plink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 1.5pt;
 }

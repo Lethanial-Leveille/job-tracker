@@ -4,11 +4,10 @@
   Receives a validated Resume as `r` (see backend/schemas/resume.py).
 
   Two arrangements of the SAME sections, chosen by r.career_stage:
-  - "student"      : Education, Experience, Projects, Skills — Jake's-Resume
-                     order. Skills sit LAST on purpose: they are the least
-                     discriminating section (everyone lists the same words), and
-                     putting them fourth pushes the internship higher up the page
-                     where a six-second skim actually lands.
+  - "student"      : Education, Skills, Experience, Projects. Skills sit second
+                     rather than last (Jake's order) because a student resume is
+                     read for what you can DO before what you have shipped, and
+                     the keyword scan happens first.
   - "professional" : Experience first; Education demoted to the bottom with GPA
                      and coursework hidden (degree + school only).
   Each section is a macro so the markup exists once and only the ORDER changes.
@@ -94,7 +93,17 @@
   {% if p.bullets %}{# skip bank projects that have no bullets yet, so no orphan header #}
   <div class="entry">
     <div class="row">
-      <span><span class="bold">{{ p.name }}</span>{% if p.tools %} <span class="tools">| {{ p.tools | join(", ") }}</span>{% endif %}</span>
+      {# The title itself is the repo link, so the URL never costs a line of its
+         own. `links` holds bare hosts ("github.com/..."), so https:// is added
+         here rather than stored, keeping the data display-agnostic. Only the
+         first link becomes the anchor; a project with several (M.I.L.E.S. has a
+         backend and an app repo) points at the one listed first. #}
+      {% set repo = p.links[0] if p.links else none %}
+      <span>
+        {% if repo %}<a class="bold plink" href="https://{{ repo }}">{{ p.name }}</a>
+        {% else %}<span class="bold">{{ p.name }}</span>{% endif %}
+        {%- if p.tools %} <span class="tools">| {{ p.tools | join(", ") }}</span>{% endif %}
+      </span>
       {% if p.dates %}<span class="right italic">{{ p.dates }}</span>{% endif %}
     </div>
     {% if p.links %}<div class="plinks">{{ p.links | join("  |  ") }}</div>{% endif %}
@@ -115,7 +124,7 @@
 {% else %}
   {{ summary_section() }}
   {{ education_section(true) }}
+  {{ skills_section() }}
   {{ experience_section() }}
   {{ projects_section() }}
-  {{ skills_section() }}
 {% endif %}
