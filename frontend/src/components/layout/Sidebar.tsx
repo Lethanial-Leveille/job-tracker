@@ -60,9 +60,18 @@ interface Props {
   onNavigate: (view: View) => void;
   applicationCount: number;
   onLogout: () => void;
+  // Desktop only: collapse the sidebar. Omitted in the mobile overlay, which is
+  // already dismissed by tapping outside it.
+  onCollapse?: () => void;
 }
 
-export function Sidebar({ current, onNavigate, applicationCount, onLogout }: Props) {
+export function Sidebar({
+  current,
+  onNavigate,
+  applicationCount,
+  onLogout,
+  onCollapse,
+}: Props) {
   return (
     <aside className="relative z-10 flex h-screen flex-col gap-8 border-r border-line-strong bg-surface/60 px-4 py-6 backdrop-blur-sm">
       {/* Wordmark */}
@@ -76,6 +85,18 @@ export function Sidebar({ current, onNavigate, applicationCount, onLogout }: Pro
             Opportunity Tracker
           </div>
         </div>
+        {onCollapse && (
+          <button
+            type="button"
+            onClick={onCollapse}
+            aria-label="Collapse sidebar"
+            className="ml-auto grid size-7 shrink-0 place-items-center rounded-interactive text-ink-muted transition-colors hover:text-ink"
+          >
+            <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4 6 9l5 5" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Workspace nav */}
