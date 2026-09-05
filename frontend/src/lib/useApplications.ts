@@ -32,8 +32,12 @@ export function useApplications(): ApplicationsState {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // silent === true skips the loading flag, for background polling / focus
+  // refetches that must not flash a spinner over data already on screen. (An
+  // event object handed in by an onClick is not === true, so it loads normally.)
+  const load = useCallback(async (silent?: unknown) => {
+    const showLoading = silent !== true;
+    if (showLoading) setLoading(true);
     setError(null);
     try {
       const data = await listApplications();
@@ -41,12 +45,26 @@ export function useApplications(): ApplicationsState {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
+  // Load on mount, then stay fresh on its own: poll every 60s and refetch when
+  // the tab regains focus, so a status change from the Gmail watcher shows up
+  // without a manual refresh. n8n polls Gmail on a schedule, so 60s is ample.
   useEffect(() => {
     load();
+    const poll = setInterval(() => load(true), 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load(true);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, [load]);
 
   // An OPTIMISTIC UPDATE: change the local copy first so the badge flips the
