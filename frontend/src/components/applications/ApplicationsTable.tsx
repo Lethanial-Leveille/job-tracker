@@ -1,5 +1,5 @@
 import type { Application, ApplicationStatus } from "../../lib/types";
-import { ROW_GRID } from "./grid";
+import { HEADER_GRID } from "./grid";
 import { ApplicationRow } from "./ApplicationRow";
 import { groupByOrganization } from "./grouping";
 
@@ -48,7 +48,7 @@ export function ApplicationsTable({
     <div className="overflow-hidden rounded-frame border border-line-strong bg-surface">
       {/* Column header */}
       <div
-        className={`${ROW_GRID} border-b border-line px-5 py-3 text-[11px] font-medium uppercase tracking-wider text-ink-muted`}
+        className={`${HEADER_GRID} border-b border-line px-5 py-3 text-[11px] font-medium uppercase tracking-wider text-ink-muted`}
       >
         {(grouped ? GROUPED_COLUMNS : COLUMNS).map((label) => (
           <span key={label}>{label}</span>
