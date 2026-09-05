@@ -64,20 +64,43 @@ export function TailorTab({ application, onStatusChange }: Props) {
   // re-run when you edit the job description.
   const autoStarted = useRef(false);
 
-  const generate = useCallback(async (text: string) => {
-    if (text.trim() === "") return;
-    setGenerating(true);
-    setGenError(null);
-    setSaved(false);
-    setActionError(null);
-    try {
-      setTailored(await tailorResume(text));
-    } catch (err: unknown) {
-      setGenError(err instanceof Error ? err.message : "Could not tailor the resume");
-    } finally {
-      setGenerating(false);
-    }
-  }, []);
+  const generate = useCallback(
+    async (text: string) => {
+      if (text.trim() === "") return;
+      setGenerating(true);
+      setGenError(null);
+      setSaved(false);
+      setActionError(null);
+      try {
+        const result = await tailorResume(text);
+        setTailored(result);
+        // Auto-save the FIRST tailored pass so a draft you generated is never
+        // lost. Only when this application has no saved version yet (and the
+        // list has actually loaded, so we never duplicate an existing one);
+        // later regenerations still save on your click, so the table isn't
+        // cluttered with every experiment. A saved draft is still just a draft
+        // — hard rule #1 is about never auto-SUBMITTING, not never persisting.
+        if (versions !== null && versions.length === 0) {
+          try {
+            const version = await saveResumeVersion({
+              application_id: application.id,
+              resume: result,
+              job_description: text,
+            });
+            setVersions((prev) => [version, ...(prev ?? [])]);
+            setSaved(true);
+          } catch {
+            // Non-fatal: leave it as an unsaved draft; the Save button still works.
+          }
+        }
+      } catch (err: unknown) {
+        setGenError(err instanceof Error ? err.message : "Could not tailor the resume");
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [versions, application.id],
+  );
 
   // Load what's already saved for this application.
   useEffect(() => {
