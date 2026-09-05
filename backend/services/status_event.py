@@ -51,3 +51,19 @@ def list_status_events(
         .order_by(StatusEvent.created_at.asc())
     )
     return list(db.execute(stmt).scalars().all())
+
+
+def delete_status_event(db: Session, event_id: str, user_id: str) -> bool:
+    """Remove one history entry (e.g. a misclick the user corrected). Returns
+    False if it doesn't exist or isn't theirs. Only prunes the log — it does not
+    touch the application's current status, which the user sets separately."""
+    event = db.execute(
+        select(StatusEvent).where(
+            StatusEvent.id == event_id, StatusEvent.user_id == user_id
+        )
+    ).scalar_one_or_none()
+    if event is None:
+        return False
+    db.delete(event)
+    db.commit()
+    return True

@@ -22,7 +22,7 @@ from services.application import (
     delete_application,
     update_application,
 )
-from services.status_event import list_status_events
+from services.status_event import delete_status_event, list_status_events
 from services.status_suggestion import accept_suggestion
 
 
@@ -98,3 +98,17 @@ def test_delete_takes_history_with_it(db: Session, user: User) -> None:
     assert len(list_status_events(db, app.id, user.id)) == 1
     delete_application(db, app.id, user.id)
     assert list_status_events(db, app.id, user.id) == []
+
+
+def test_delete_one_entry_prunes_only_it(db: Session, user: User) -> None:
+    app = _new_application(db, user.id)
+    update_application(
+        db, ApplicationUpdate(status=ApplicationStatus.applied), app.id, user.id
+    )
+    events = list_status_events(db, app.id, user.id)
+    assert len(events) == 2
+
+    assert delete_status_event(db, events[0].id, user.id) is True
+    assert len(list_status_events(db, app.id, user.id)) == 1
+    # Unknown id (or another user's) can't be deleted.
+    assert delete_status_event(db, "nope", user.id) is False

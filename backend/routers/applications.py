@@ -20,7 +20,7 @@ from services.application import (
 from services.matching import assess_requirements
 from services.parsing import parse_job_description
 from services.resume import get_master
-from services.status_event import list_status_events
+from services.status_event import delete_status_event, list_status_events
 
 # dependencies=[Depends(get_current_user)] protects EVERY route in this router by
 # default — you can't forget to guard one. Handlers that need the owner also
@@ -75,6 +75,24 @@ def timeline(
     if get_application(db, application_id, user.id) is None:
         raise HTTPException(status_code=404, detail="Application not found")
     return list_status_events(db, application_id, user.id)
+
+
+@router.delete(
+    "/{application_id}/timeline/{event_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_timeline_event(
+    application_id: str,
+    event_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    # Prune one history entry (a corrected misclick). Scoped: the application and
+    # the event must both be yours. Does not change the current status.
+    if get_application(db, application_id, user.id) is None:
+        raise HTTPException(status_code=404, detail="Application not found")
+    if not delete_status_event(db, event_id, user.id):
+        raise HTTPException(status_code=404, detail="Timeline entry not found")
 
 
 @router.get("", response_model=list[ApplicationRead])

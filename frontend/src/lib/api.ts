@@ -258,6 +258,18 @@ export function listApplicationTimeline(
   );
 }
 
+// DELETE one history entry (a corrected misclick). 204, no body. Does not change
+// the application's current status.
+export async function deleteTimelineEvent(
+  applicationId: string,
+  eventId: string,
+): Promise<void> {
+  await request(
+    `/applications/${encodeURIComponent(applicationId)}/timeline/${encodeURIComponent(eventId)}`,
+    { method: "DELETE" },
+  );
+}
+
 // --- Status suggestions -----------------------------------------------------
 
 // GET the current user's pending status suggestions (from the Gmail pipeline).
