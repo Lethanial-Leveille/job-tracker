@@ -184,6 +184,22 @@ def test_one_match_stages_a_suggestion_and_changes_no_status(
 
 
 @patch("services.email_ingest.classify_email")
+def test_a_shortened_org_name_still_matches(
+    mock_classify: MagicMock, db: Session, user: User
+) -> None:
+    # The row is saved as "Stoke"; the email names the full "Stoke Space" (the
+    # classifier reads the company from the message). One is a shortened form of
+    # the other, so it must still match — the real miss that motivated this.
+    row = _app(db, user, "Stoke", "Summer 2027 Internship - Software", ApplicationStatus.discovered)
+    mock_classify.return_value = _classified(organization="Stoke Space")
+
+    outcome = ingest_message(db, user.id, _message(), _settings())
+
+    assert outcome.result == "suggested"
+    assert db.query(StatusSuggestion).one().application_id == row.id
+
+
+@patch("services.email_ingest.classify_email")
 def test_two_matches_stage_candidates_with_no_target(
     mock_classify: MagicMock, db: Session, user: User
 ) -> None:

@@ -175,10 +175,26 @@ def _candidates(
     key = normalize_organization(organization)
     if not key:
         return []
+    key_tokens = set(key.split())
     rows = db.execute(
         select(Application).where(Application.user_id == user_id)
     ).scalars()
-    return [a for a in rows if normalize_organization(a.organization) == key]
+    matches: list[Application] = []
+    for a in rows:
+        a_tokens = set(normalize_organization(a.organization).split())
+        if not a_tokens:
+            continue
+        # Same employer when the names are equal OR one is a shortened form of
+        # the other — its token set sits inside the other's. A row saved as
+        # "Stoke" then catches an email that names "Stoke Space" (the classifier
+        # reads the full name from the message), and vice versa. Matched at the
+        # TOKEN level, so "Stoke" does not match "Sunstoke"; two employers that
+        # merely share a word don't match unless one full name is contained in
+        # the other. Loose is safe here — a wrong candidate only ever becomes a
+        # suggestion the user can reject, never an automatic status change.
+        if a_tokens <= key_tokens or key_tokens <= a_tokens:
+            matches.append(a)
+    return matches
 
 
 def narrow(
