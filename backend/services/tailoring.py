@@ -47,8 +47,8 @@ What you MAY do:
 - Drop the least relevant projects so the whole resume fits on ONE page. Keep at
   most the 3 strongest, most relevant projects. Always keep every professional
   experience entry.
-- For each entry you keep, select and reorder its bullets, keeping ONLY the 2 to
-  3 strongest and most relevant. Rephrase them into strong accomplishment
+- For each entry you keep, select and reorder its bullets, keeping ONLY the 2
+  strongest and most relevant. Rephrase them into strong accomplishment
   bullets: lead with an action verb and state what was built and the result or
   impact (the "accomplished X by doing Y, measured by Z" pattern) whenever the
   facts already support it.

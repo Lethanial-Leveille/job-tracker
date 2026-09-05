@@ -106,7 +106,6 @@
       </span>
       {% if p.dates %}<span class="right italic">{{ p.dates }}</span>{% endif %}
     </div>
-    {% if p.links %}<div class="plinks">{{ p.links | join("  |  ") }}</div>{% endif %}
     <ul>{% for b in p.bullets %}<li>{{ b | bold }}</li>{% endfor %}</ul>
   </div>
   {% endif %}
