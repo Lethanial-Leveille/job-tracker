@@ -2,7 +2,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from models.application import Application
+from models.status_event import StatusEventSource
 from schemas.application import ApplicationCreate, ApplicationUpdate
+from services.status_event import record_status_event
 
 
 def create_application(
@@ -12,6 +14,17 @@ def create_application(
     # client cannot choose who owns a row.
     application = Application(**data.model_dump(), user_id=user_id)
     db.add(application)
+    # Flush to assign the generated id before recording the opening history entry
+    # (from_status=None marks it as the row's first status).
+    db.flush()
+    record_status_event(
+        db,
+        user_id=user_id,
+        application_id=application.id,
+        from_status=None,
+        to_status=application.status,
+        source=StatusEventSource.manual,
+    )
     db.commit()
     db.refresh(application)
     return application
@@ -44,9 +57,21 @@ def update_application(
     application = get_application(db, application_id, user_id)
     if application is None:
         return None
+    old_status = application.status
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(application, field, value)
+    # Record a history entry only when the status actually changed (editing the
+    # notes or deadline is not a status event).
+    if "status" in update_data and application.status != old_status:
+        record_status_event(
+            db,
+            user_id=user_id,
+            application_id=application.id,
+            from_status=old_status,
+            to_status=application.status,
+            source=StatusEventSource.manual,
+        )
     db.commit()
     db.refresh(application)
     return application

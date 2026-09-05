@@ -3,6 +3,7 @@ import type { Application, ApplicationStatus } from "../../lib/types";
 import { monogram } from "../../lib/format";
 import { StatusSelect } from "./StatusSelect";
 import { DetailOverview } from "./DetailOverview";
+import { StatusTimeline } from "./StatusTimeline";
 import { TailorTab } from "./TailorTab";
 
 // One application, as a full screen that replaces the list. This is what the
@@ -126,11 +127,14 @@ export function ApplicationDetailPage({
           The Tailor tab is still mounted LAZILY — not until first opened — so
           simply viewing an application never spends a call. */}
       <div className={tab === "overview" ? undefined : "hidden"}>
-        <DetailOverview
-          application={application}
-          onSaved={onSaved}
-          onDelete={onDelete}
-        />
+        <div className="flex flex-col gap-8">
+          <DetailOverview
+            application={application}
+            onSaved={onSaved}
+            onDelete={onDelete}
+          />
+          <StatusTimeline application={application} />
+        </div>
       </div>
       {tailorOpened && (
         <div className={tab === "tailor" ? undefined : "hidden"}>

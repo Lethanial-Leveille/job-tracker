@@ -9,6 +9,7 @@ from schemas.application import ApplicationCreate, ApplicationRead, ApplicationU
 from schemas.fit import FitReport
 from schemas.parsing import ParsedJob, ParseRequest
 from schemas.resume import Resume
+from schemas.status_event import StatusEventRead
 from services.application import (
     create_application,
     delete_application,
@@ -19,6 +20,7 @@ from services.application import (
 from services.matching import assess_requirements
 from services.parsing import parse_job_description
 from services.resume import get_master
+from services.status_event import list_status_events
 
 # dependencies=[Depends(get_current_user)] protects EVERY route in this router by
 # default — you can't forget to guard one. Handlers that need the owner also
@@ -61,6 +63,18 @@ def read_one(
     if result is None:
         raise HTTPException(status_code=404, detail="Application not found")
     return result
+
+
+@router.get("/{application_id}/timeline", response_model=list[StatusEventRead])
+def timeline(
+    application_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[StatusEventRead]:
+    # Scoped 404 if it isn't yours; otherwise the status history, oldest first.
+    if get_application(db, application_id, user.id) is None:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return list_status_events(db, application_id, user.id)
 
 
 @router.get("", response_model=list[ApplicationRead])

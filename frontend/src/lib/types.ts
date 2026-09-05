@@ -258,3 +258,17 @@ export interface StatusSuggestion {
   created_at: string; // ISO datetime
   email: SuggestionEmail | null;
 }
+
+// --- Status history (the application timeline) -------------------------------
+
+export type StatusEventSource = "manual" | "email";
+
+// One entry in an application's status history. Mirror of backend StatusEventRead.
+// from_status null marks the application's first status (when it was added).
+export interface StatusEvent {
+  id: string;
+  from_status: ApplicationStatus | null;
+  to_status: ApplicationStatus;
+  source: StatusEventSource;
+  created_at: string; // ISO datetime
+}

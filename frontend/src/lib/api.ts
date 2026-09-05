@@ -11,6 +11,7 @@ import type {
   ParsedJob,
   Resume,
   ResumeVersion,
+  StatusEvent,
   StatusSuggestion,
 } from "./types";
 
@@ -246,6 +247,15 @@ export async function saveMasterResume(resume: Resume): Promise<Resume> {
     body: JSON.stringify(resume),
   });
   return res.json() as Promise<Resume>;
+}
+
+// GET an application's status history, oldest first.
+export function listApplicationTimeline(
+  applicationId: string,
+): Promise<StatusEvent[]> {
+  return getJson<StatusEvent[]>(
+    `/applications/${encodeURIComponent(applicationId)}/timeline`,
+  );
 }
 
 // --- Status suggestions -----------------------------------------------------

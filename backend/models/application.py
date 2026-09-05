@@ -173,6 +173,12 @@ class Application(Base):
     status_suggestions: Mapped[list["StatusSuggestion"]] = relationship(  # noqa: F821
         "StatusSuggestion",
     )
+    # Cascade like resume_versions: the status history is meaningless once the
+    # application is gone, so it deletes with it.
+    status_events: Mapped[list["StatusEvent"]] = relationship(  # noqa: F821
+        "StatusEvent",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return (

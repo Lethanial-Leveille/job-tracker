@@ -17,7 +17,9 @@ from sqlalchemy.orm import Session
 
 from models.application import Application
 from models.ingested_email import IngestedEmail
+from models.status_event import StatusEventSource
 from models.status_suggestion import StatusSuggestion, SuggestionState
+from services.status_event import record_status_event
 
 
 def list_pending_suggestions(
@@ -93,7 +95,21 @@ def accept_suggestion(
     if application is None:
         raise ValueError("Application not found.")
 
+    old_status = application.status
     application.status = suggestion.suggested_status
+    # A status history entry, tagged as coming from an email, so the timeline
+    # shows the interview/rejection that arrived in the inbox. Only when it
+    # actually changed (accepting a suggestion for the status it's already at is
+    # a no-op worth no event).
+    if application.status != old_status:
+        record_status_event(
+            db,
+            user_id=user_id,
+            application_id=application.id,
+            from_status=old_status,
+            to_status=application.status,
+            source=StatusEventSource.email,
+        )
     # Record which application it resolved to (matters for ambiguous/unmatched,
     # where application_id was null until now) and close the suggestion out.
     suggestion.application_id = target_id

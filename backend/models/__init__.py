@@ -21,6 +21,7 @@ from models.application import Application
 from models.ingested_email import IngestedEmail
 from models.resume import MasterResume
 from models.resume_version import ResumeVersion
+from models.status_event import StatusEvent
 from models.status_suggestion import StatusSuggestion
 from models.user import User
 
@@ -29,6 +30,7 @@ __all__ = [
     "IngestedEmail",
     "MasterResume",
     "ResumeVersion",
+    "StatusEvent",
     "StatusSuggestion",
     "User",
 ]
