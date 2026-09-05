@@ -132,6 +132,12 @@ section {
    column gives the values as much width as possible. */
 .skill {
   display: flex;
+  /* A real gap between the label and its values, so the longest label
+     ("Frameworks & Libraries:") no longer butts straight against its items the
+     way a short one never does. Small on purpose: it steals width from the
+     values, and the Cloud & DevOps row runs near the edge (see the note on
+     .skill-label). Re-check with count_pages() if a longer row is added. */
+  gap: 7pt;
   margin-bottom: 1.5pt;
 }
 
