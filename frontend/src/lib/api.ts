@@ -11,6 +11,7 @@ import type {
   ParsedJob,
   Resume,
   ResumeVersion,
+  StatusSuggestion,
 } from "./types";
 
 const BASE = "/api";
@@ -245,4 +246,32 @@ export async function saveMasterResume(resume: Resume): Promise<Resume> {
     body: JSON.stringify(resume),
   });
   return res.json() as Promise<Resume>;
+}
+
+// --- Status suggestions -----------------------------------------------------
+
+// GET the current user's pending status suggestions (from the Gmail pipeline).
+export function listSuggestions(): Promise<StatusSuggestion[]> {
+  return getJson<StatusSuggestion[]>("/suggestions");
+}
+
+// Accept a suggestion, applying its status to an application. applicationId is
+// needed only for an unresolved suggestion (ambiguous → pick a candidate;
+// unmatched → pick any application); a resolved one ignores it.
+export async function acceptSuggestion(
+  id: string,
+  applicationId?: string,
+): Promise<StatusSuggestion> {
+  const res = await request(`/suggestions/${id}/accept`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ application_id: applicationId ?? null }),
+  });
+  return res.json() as Promise<StatusSuggestion>;
+}
+
+// Dismiss a suggestion without changing any application.
+export async function dismissSuggestion(id: string): Promise<StatusSuggestion> {
+  const res = await request(`/suggestions/${id}/dismiss`, { method: "POST" });
+  return res.json() as Promise<StatusSuggestion>;
 }

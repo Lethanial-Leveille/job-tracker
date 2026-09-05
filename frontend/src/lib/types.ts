@@ -231,3 +231,30 @@ export interface ResumeVersion {
   job_description: string;
   created_at: string; // ISO datetime
 }
+
+// --- Status suggestions (the Gmail pipeline's review side) -------------------
+
+export type SuggestionState = "pending" | "accepted" | "dismissed";
+
+// The email that produced a suggestion, shown as evidence in the review UI.
+export interface SuggestionEmail {
+  from_email: string;
+  from_name?: string | null;
+  subject?: string | null;
+  snippet?: string | null;
+  received_at: string; // ISO datetime
+}
+
+// One staged status change awaiting the user's decision. Mirror of backend
+// SuggestionRead. application_id set = resolved to one app; candidate ids set =
+// ambiguous (pick one); both null = unmatched (couldn't tie it to an app).
+export interface StatusSuggestion {
+  id: string;
+  suggested_status: ApplicationStatus;
+  reason: string;
+  application_id: string | null;
+  candidate_application_ids: string[] | null;
+  state: SuggestionState;
+  created_at: string; // ISO datetime
+  email: SuggestionEmail | null;
+}

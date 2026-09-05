@@ -10,6 +10,7 @@ import {
 } from "./ApplicationsToolbar";
 import { ApplicationDetailPage } from "./ApplicationDetailPage";
 import { AddOpportunity } from "./AddOpportunity";
+import { SuggestionsPanel } from "./SuggestionsPanel";
 
 // Deadline ascending with nulls last.
 function byDeadline(a: Application, b: Application): number {
@@ -138,6 +139,8 @@ export function ApplicationsPage({
           </button>
         </div>
       </header>
+
+      <SuggestionsPanel applications={applications} onResolved={refetch} />
 
       <ApplicationsToolbar
         statusFilter={statusFilter}
