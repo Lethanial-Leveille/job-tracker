@@ -33,7 +33,7 @@ export function ResumeWizard({
   const section = sections.find((s) => s.id === key);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col px-6 py-8">
+    <div className="mx-auto flex w-full max-w-2xl flex-col px-4 py-8 sm:px-6">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
           Step {i + 1} of {total}

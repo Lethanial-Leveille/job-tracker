@@ -105,7 +105,7 @@ export function DetailOverview({ application, onSaved, onDelete }: Props) {
   return (
     <div className="flex flex-col gap-8 pb-24">
       <Section title="Details">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className={labelClass}>
             Organization
             <input
@@ -150,7 +150,7 @@ export function DetailOverview({ application, onSaved, onDelete }: Props) {
             />
           </label>
 
-          <label className={`${labelClass} col-span-2`}>
+          <label className={`${labelClass} sm:col-span-2`}>
             Posting URL
             <input
               type="url"
@@ -160,7 +160,7 @@ export function DetailOverview({ application, onSaved, onDelete }: Props) {
             />
           </label>
 
-          <label className={`${labelClass} col-span-2`}>
+          <label className={`${labelClass} sm:col-span-2`}>
             Notes
             <textarea
               value={form.notes}
@@ -223,7 +223,7 @@ export function DetailOverview({ application, onSaved, onDelete }: Props) {
           ambiguous state without saying so. */}
       {(dirty || error) && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-strong bg-surface/95 backdrop-blur-sm">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-8 py-3.5">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-8">
             <span className="text-[13px] text-ink-soft">
               {error ?? "Unsaved changes"}
             </span>

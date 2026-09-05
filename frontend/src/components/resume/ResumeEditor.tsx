@@ -22,7 +22,7 @@ export function ResumeEditor({
 }: ShellProps) {
   return (
     <div className="flex flex-col">
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-line bg-base/95 px-6 py-4 backdrop-blur">
+      <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-line bg-base/95 px-4 py-4 backdrop-blur sm:px-6">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -54,7 +54,7 @@ export function ResumeEditor({
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 py-8">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-8 sm:px-6">
         {sections.map((s) => (
           <div key={s.id}>{s.node}</div>
         ))}
