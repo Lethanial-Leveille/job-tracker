@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Application, FitReport, RoleFamily } from "../../lib/types";
 import { ROLE_FAMILIES } from "../../lib/types";
 import { updateApplication } from "../../lib/api";
+import { Select } from "../ui/Select";
 import { FitSection } from "./FitSection";
 
 // The Overview tab: the application's own fields, editable in place, plus what
@@ -124,21 +125,41 @@ export function DetailOverview({ application, onSaved, onDelete }: Props) {
             />
           </label>
 
-          <label className={labelClass}>
+          {/* A div, not a label: the control below is a button, and a <label>
+              only forwards clicks to real form controls. The Select carries its
+              own aria-label instead. */}
+          <div className={labelClass}>
             Role family
-            <select
+            <Select<RoleFamily | "">
               value={form.role_family}
-              onChange={(e) => set("role_family", e.target.value as RoleFamily | "")}
-              className={fieldClass}
+              options={[
+                { value: "", label: "Not set" },
+                ...ROLE_FAMILIES.map((r) => ({ value: r, label: r })),
+              ]}
+              onChange={(v) => set("role_family", v)}
+              ariaLabel="Role family"
+              className={`${fieldClass} flex items-center justify-between gap-2 text-left`}
+              menuMinWidth={220}
             >
-              <option value="">Not set</option>
-              {ROLE_FAMILIES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </label>
+              <span className={form.role_family ? "text-ink" : "text-ink-muted"}>
+                {form.role_family || "Not set"}
+              </span>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="shrink-0 text-ink-muted"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </Select>
+          </div>
 
           <label className={labelClass}>
             Deadline

@@ -10,6 +10,28 @@ import { ROLE_FAMILIES } from "../../lib/types";
 import { createApplication, parseJobDescription } from "../../lib/api";
 import { statusLabel } from "../../lib/format";
 import { findByOrganization, findSimilarPosting, findUrlMatch } from "../../lib/dedupe";
+import { Select } from "../ui/Select";
+
+// The chevron on a field-shaped dropdown trigger, so the three below look like
+// the inputs beside them rather than like buttons.
+function FieldChevron() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0 text-ink-muted"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
 
 // The full-screen "Add an opportunity" flow that replaces the create modal.
 // Three steps: Input (paste the posting) -> Parse (Claude reads it) -> Review
@@ -372,16 +394,19 @@ export function AddOpportunity({
                     className={fieldClass}
                   />
                 </label>
-                <label className={labelClass}>
+                <div className={labelClass}>
                   Type
-                  <select
+                  <Select<ApplicationType>
                     value={form.type}
-                    onChange={(e) => set("type", e.target.value as ApplicationType)}
-                    className={fieldClass}
+                    options={[{ value: "internship", label: "Job" }]}
+                    onChange={(v) => set("type", v)}
+                    ariaLabel="Type"
+                    className={`${fieldClass} flex items-center justify-between gap-2 text-left`}
                   >
-                    <option value="internship">Job</option>
-                      </select>
-                </label>
+                    <span className="text-ink">Job</span>
+                    <FieldChevron />
+                  </Select>
+                </div>
               </div>
 
               <label className={labelClass}>
@@ -405,34 +430,36 @@ export function AddOpportunity({
               </label>
 
               <div className="grid grid-cols-3 gap-4">
-                <label className={labelClass}>
+                <div className={labelClass}>
                   Status
-                  <select
+                  <Select<ApplicationStatus>
                     value={form.status}
-                    onChange={(e) => set("status", e.target.value as ApplicationStatus)}
-                    className={fieldClass}
+                    options={STATUS_OPTIONS.map((s) => ({
+                      value: s,
+                      label: statusLabel(s),
+                    }))}
+                    onChange={(v) => set("status", v)}
+                    ariaLabel="Status"
+                    className={`${fieldClass} flex items-center justify-between gap-2 text-left`}
                   >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {statusLabel(s)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={labelClass}>
+                    <span className="text-ink">{statusLabel(form.status)}</span>
+                    <FieldChevron />
+                  </Select>
+                </div>
+                <div className={labelClass}>
                   Role family
-                  <select
+                  <Select<RoleFamily>
                     value={form.role_family}
-                    onChange={(e) => set("role_family", e.target.value as RoleFamily)}
-                    className={fieldClass}
+                    options={ROLE_FAMILIES.map((r) => ({ value: r, label: r }))}
+                    onChange={(v) => set("role_family", v)}
+                    ariaLabel="Role family"
+                    className={`${fieldClass} flex items-center justify-between gap-2 text-left`}
+                    menuMinWidth={220}
                   >
-                    {ROLE_FAMILIES.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    <span className="truncate text-ink">{form.role_family}</span>
+                    <FieldChevron />
+                  </Select>
+                </div>
                 <label className={labelClass}>
                   Deadline
                   <input
