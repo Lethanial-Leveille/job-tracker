@@ -62,6 +62,10 @@ class IncomingEmail(BaseModel):
 EmailKind = Literal[
     "application_received",
     "rejection",
+    # Split from interview_invite in Sept 2026. An online assessment is a
+    # different stage from talking to a person, and lumping them together filed
+    # a Roblox "take our assessments" invite as a phone screen.
+    "assessment_invite",
     "interview_invite",
     "offer",
     "other",

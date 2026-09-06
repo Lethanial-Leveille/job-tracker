@@ -35,6 +35,11 @@ class ApplicationStatus(str, enum.Enum):
     drafting = "drafting"
     ready = "ready"
     applied = "applied"
+    # The online assessment (a coding test, or an async/AI-scored one). Added
+    # Sept 2026: it is the most common step between applying and speaking to a
+    # human, and without it an assessment invite had to be filed as a "phone
+    # screen", which is a different thing entirely.
+    assessment = "assessment"
     recruiter_engaged = "recruiter_engaged"
     phone_screen = "phone_screen"
     technical_interview = "technical_interview"

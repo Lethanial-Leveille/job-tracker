@@ -15,7 +15,25 @@ export function monogram(organization: string): string {
 
 // Humanize a status enum into sentence case: "technical_interview" ->
 // "Technical interview". We show the real granular status, never a lossy bucket.
+// Most values read fine as "underscores to spaces, then capitalize". A few are
+// jargon that never said what it meant: "Phone screen" doesn't tell you who is
+// on the call or why (it's a recruiter, checking fit and logistics), and
+// "Discovered" is a strange word for a job you saved but haven't applied to.
+//
+// These are DISPLAY names only — the stored values are untouched, so relabeling
+// costs nothing and is reversible.
+const STATUS_LABELS: Partial<Record<ApplicationStatus, string>> = {
+  discovered: "Saved",
+  phone_screen: "Recruiter screen",
+  // Distinct from a recruiter screen: this one is a recruiter reaching out to
+  // you, not a call you earned by applying.
+  recruiter_engaged: "Recruiter reached out",
+  onsite: "Final round",
+};
+
 export function statusLabel(status: ApplicationStatus): string {
+  const override = STATUS_LABELS[status];
+  if (override) return override;
   const spaced = status.replace(/_/g, " ");
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }

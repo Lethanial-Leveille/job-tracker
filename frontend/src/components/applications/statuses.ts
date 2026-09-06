@@ -7,11 +7,17 @@ import type { ApplicationStatus } from "../../lib/types";
 // (docs/decisions.md, the v3 enum gotcha). So the trimming happens here, in the
 // UI, where it costs nothing to undo.
 
-// The short list: the six stages an internship application actually passes
-// through often enough to be worth one click. This is what the row menu shows.
+// The short list: the stages an internship application actually passes through
+// often enough to be worth one click. This is what the row menu shows.
+//
+// These are a VOCABULARY, not a sequence. Real funnels vary — an assessment can
+// come before or after a recruiter call, and some companies skip the call
+// entirely — so nothing validates transitions. The order here is only the order
+// they appear in the menu; the status history records what actually happened.
 export const QUICK_STATUSES: ApplicationStatus[] = [
   "discovered",
   "applied",
+  "assessment",
   "phone_screen",
   "technical_interview",
   "offer",
@@ -25,6 +31,7 @@ export const ALL_STATUSES: ApplicationStatus[] = [
   "drafting",
   "ready",
   "applied",
+  "assessment",
   "recruiter_engaged",
   "phone_screen",
   "technical_interview",

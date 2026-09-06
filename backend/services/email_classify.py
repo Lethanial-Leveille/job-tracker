@@ -53,8 +53,11 @@ characters of the message, not the whole thing. Assume text you cannot see.
 `kind` is what the message is doing:
 - "application_received": confirming an application was submitted or received.
 - "rejection": declining the applicant, at any stage.
-- "interview_invite": asking to schedule or attend an interview, screen, or
-  assessment.
+- "assessment_invite": asking the applicant to COMPLETE something on their own —
+  an online assessment, coding challenge, take-home, or a recorded/automated
+  video screen. Nobody is present on the other side.
+- "interview_invite": asking to schedule or attend a LIVE conversation with a
+  person — a recruiter call, a phone screen, or a technical interview.
 - "offer": extending an offer.
 - "other": anything else, INCLUDING anything you cannot tell from what you were
   shown.
@@ -84,7 +87,15 @@ Rules:
    that. If no title appears, return null.
 
 5. Null is a good answer for `organization` and `role_hint`. Do not guess at
-   either to avoid returning null."""
+   either to avoid returning null.
+
+6. What separates "assessment_invite" from "interview_invite" is whether a
+   PERSON is on the other side at an agreed time, not whether the content is
+   technical. Anything the applicant completes alone and on their own schedule —
+   a coding test, a HackerRank or Codility or CodeSignal link, a take-home, a
+   recorded one-way video — is "assessment_invite" even when it is deeply
+   technical, and even when the sender calls it an interview. Only something
+   scheduled with a live human is "interview_invite"."""
 
 
 def classify_email(

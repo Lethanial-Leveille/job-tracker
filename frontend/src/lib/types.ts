@@ -14,6 +14,9 @@ export type ApplicationStatus =
   | "drafting"
   | "ready"
   | "applied"
+  // The online assessment (coding test / take-home / recorded screen). Mirrors
+  // the backend enum; added Sept 2026.
+  | "assessment"
   | "recruiter_engaged"
   | "phone_screen"
   | "technical_interview"

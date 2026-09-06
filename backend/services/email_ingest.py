@@ -70,6 +70,10 @@ _PRE_SUBMIT = frozenset(
 _IN_FLIGHT = frozenset(
     {
         ApplicationStatus.applied,
+        # An application sitting at the online assessment is very much in
+        # flight: leaving it out meant a rejection arriving after an OA matched
+        # nothing and produced no suggestion at all.
+        ApplicationStatus.assessment,
         ApplicationStatus.recruiter_engaged,
         ApplicationStatus.phone_screen,
         ApplicationStatus.technical_interview,
@@ -97,9 +101,30 @@ _IN_FLIGHT = frozenset(
 _TRANSITIONS: dict[str, tuple[ApplicationStatus, frozenset[ApplicationStatus]]] = {
     "application_received": (ApplicationStatus.applied, _PRE_SUBMIT),
     "rejection": (ApplicationStatus.rejected, _IN_FLIGHT),
+    # An online assessment can arrive straight after applying, or after a
+    # recruiter call — the real order varies by company — so it is eligible from
+    # everything up to and including a recruiter screen. Not from a technical
+    # interview or later, where proposing it would be a backwards step.
+    "assessment_invite": (
+        ApplicationStatus.assessment,
+        _PRE_SUBMIT
+        | frozenset(
+            {
+                ApplicationStatus.applied,
+                ApplicationStatus.recruiter_engaged,
+                ApplicationStatus.phone_screen,
+            }
+        ),
+    ),
     "interview_invite": (
         ApplicationStatus.phone_screen,
-        frozenset({ApplicationStatus.applied, ApplicationStatus.recruiter_engaged}),
+        frozenset(
+            {
+                ApplicationStatus.applied,
+                ApplicationStatus.assessment,
+                ApplicationStatus.recruiter_engaged,
+            }
+        ),
     ),
     "offer": (ApplicationStatus.offer, _IN_FLIGHT),
 }
