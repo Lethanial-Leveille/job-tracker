@@ -1,15 +1,13 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Application } from "../../lib/types";
 import type { ApplicationsState } from "../../lib/useApplications";
-import { deleteApplication } from "../../lib/api";
 import { ApplicationsTable } from "./ApplicationsTable";
 import {
   ApplicationsToolbar,
   matchesStatusFilter,
   type StatusFilter,
 } from "./ApplicationsToolbar";
-import { ApplicationDetailPage } from "./ApplicationDetailPage";
-import { AddOpportunity } from "./AddOpportunity";
 import { SuggestionsPanel } from "./SuggestionsPanel";
 
 // Deadline ascending with nulls last.
@@ -20,14 +18,13 @@ function byDeadline(a: Application, b: Application): number {
   return a.deadline < b.deadline ? -1 : 1;
 }
 
-// The command-center screen. It is a three-way view swap, not a stack: you are
-// looking at the list, at one application, or at the add flow. Never at one on
-// top of another.
+// The pipeline list.
 //
-// This replaced an arrangement of two stacked drawers plus a modal, where
-// closing the tailor panel dropped you onto the detail panel rather than the
-// list, and the edit modal opened over both. One layer means Back has exactly
-// one meaning everywhere.
+// This used to BE the detail page and the add flow as well, swapping between
+// the three on local state. They are routes now (see App.tsx): the swap gave
+// the browser no history to go back through, so Back left the app entirely, and
+// a refresh always landed you here no matter where you had been. Opening a row
+// is a navigation now, which is why this component is only the list again.
 export function ApplicationsPage({
   applications,
   loading,
@@ -41,8 +38,7 @@ export function ApplicationsPage({
   const [search, setSearch] = useState("");
   const [grouped, setGrouped] = useState(false);
 
-  const [adding, setAdding] = useState(false); // full-screen add view
-  const [selectedId, setSelectedId] = useState<string | null>(null); // detail view
+  const navigate = useNavigate();
 
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -57,56 +53,6 @@ export function ApplicationsPage({
     // field, and nothing else competes with "what is due next".
     return [...filtered].sort(byDeadline);
   }, [applications, statusFilter, search]);
-
-  // Resolve the selected row from the live list so it stays fresh after a
-  // refetch. A row deleted out from under us resolves to null, which falls
-  // through to the list.
-  const selected = applications.find((a) => a.id === selectedId) ?? null;
-
-  async function handleDelete(app: Application) {
-    if (!window.confirm("Delete this application? This cannot be undone.")) return;
-    await deleteApplication(app.id);
-    setSelectedId(null);
-    refetch();
-  }
-
-  // The Add flow replaces the list entirely (sidebar stays).
-  if (adding) {
-    return (
-      <AddOpportunity
-        applications={applications}
-        onClose={() => setAdding(false)}
-        onSaved={() => {
-          refetch();
-          setAdding(false);
-        }}
-        // Leaving the add flow straight into the row you already had, so a
-        // duplicate warning ends somewhere useful.
-        onOpenExisting={(id) => {
-          setAdding(false);
-          setSelectedId(id);
-        }}
-      />
-    );
-  }
-
-  // One application, also full screen.
-  if (selected) {
-    return (
-      // key by id so moving between applications rebuilds the page from
-      // scratch. Without it React reuses the instance, and the Overview tab's
-      // form state (seeded once from props) would keep showing the previous
-      // row's values.
-      <ApplicationDetailPage
-        key={selected.id}
-        application={selected}
-        onBack={() => setSelectedId(null)}
-        onSaved={refetch}
-        onDelete={handleDelete}
-        onStatusChange={setStatus}
-      />
-    );
-  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -131,7 +77,7 @@ export function ApplicationsPage({
           />
           <button
             type="button"
-            onClick={() => setAdding(true)}
+            onClick={() => navigate("/applications/new")}
             className="inline-flex items-center gap-2 rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink transition-shadow transition-colors hover:bg-accent-hover hover:shadow-glow active:bg-accent-press"
           >
             <span className="text-base leading-none">+</span>
@@ -177,8 +123,8 @@ export function ApplicationsPage({
       ) : (
         <ApplicationsTable
           applications={visible}
-          selectedId={selectedId}
-          onSelect={(id) => setSelectedId(id)}
+          selectedId={null}
+          onSelect={(id) => navigate(`/applications/${id}`)}
           onStatusChange={setStatus}
           grouped={grouped}
         />
