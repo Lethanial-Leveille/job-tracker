@@ -385,29 +385,17 @@ export function AddOpportunity({
             )}
 
             <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-2 gap-4">
-                <label className={labelClass}>
-                  Organization
-                  <input
-                    value={form.organization}
-                    onChange={(e) => set("organization", e.target.value)}
-                    className={fieldClass}
-                  />
-                </label>
-                <div className={labelClass}>
-                  Type
-                  <Select<ApplicationType>
-                    value={form.type}
-                    options={[{ value: "internship", label: "Job" }]}
-                    onChange={(v) => set("type", v)}
-                    ariaLabel="Type"
-                    className={`${fieldClass} flex items-center justify-between gap-2 text-left`}
-                  >
-                    <span className="text-ink">Job</span>
-                    <FieldChevron />
-                  </Select>
-                </div>
-              </div>
+              {/* No Type control: the tracker is jobs-only, so the picker had a
+                  single option and chose nothing. `form.type` is still sent on
+                  create (the API requires it), it just isn't asked about. */}
+              <label className={labelClass}>
+                Organization
+                <input
+                  value={form.organization}
+                  onChange={(e) => set("organization", e.target.value)}
+                  className={fieldClass}
+                />
+              </label>
 
               <label className={labelClass}>
                 Role or program
