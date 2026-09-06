@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session
 from database import get_db
 from dependencies import get_current_user
 from models.user import User
+from schemas.application import ApplicationRead
 from schemas.suggestion import SuggestionAccept, SuggestionRead
 from services.status_suggestion import (
     accept_suggestion,
+    create_application_from_suggestion,
     dismiss_suggestion,
     list_pending_suggestions,
 )
@@ -57,6 +59,26 @@ def accept(
             status_code=status.HTTP_404_NOT_FOUND, detail="Suggestion not found"
         )
     return SuggestionRead.from_parts(suggestion)
+
+
+@router.post(
+    "/{suggestion_id}/create-application",
+    response_model=ApplicationRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_application_for(
+    suggestion_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ApplicationRead:
+    # For an unmatched suggestion: create the application from its email (you
+    # applied somewhere not yet tracked) and accept it in one step.
+    application = create_application_from_suggestion(db, user.id, suggestion_id)
+    if application is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Suggestion not found"
+        )
+    return application
 
 
 @router.post("/{suggestion_id}/dismiss", response_model=SuggestionRead)

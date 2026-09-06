@@ -9,7 +9,11 @@
 
 import { useState } from "react";
 import type { Application, StatusSuggestion } from "../../lib/types";
-import { acceptSuggestion, dismissSuggestion } from "../../lib/api";
+import {
+  acceptSuggestion,
+  createApplicationFromSuggestion,
+  dismissSuggestion,
+} from "../../lib/api";
 import { statusLabel } from "../../lib/format";
 import { useSuggestions } from "../../lib/useSuggestions";
 
@@ -76,6 +80,9 @@ export function SuggestionsPanel({ applications, onResolved }: Props) {
             onAccept={(appId) =>
               run(() => acceptSuggestion(s.id, appId), s.id)
             }
+            onCreate={() =>
+              run(() => createApplicationFromSuggestion(s.id), s.id)
+            }
             onDismiss={() => run(() => dismissSuggestion(s.id), s.id)}
           />
         ))}
@@ -89,12 +96,14 @@ function SuggestionItem({
   appName,
   busy,
   onAccept,
+  onCreate,
   onDismiss,
 }: {
   suggestion: StatusSuggestion;
   appName: (id: string) => string;
   busy: boolean;
   onAccept: (applicationId?: string) => void;
+  onCreate: () => void;
   onDismiss: () => void;
 }) {
   const label = statusLabel(s.suggested_status);
@@ -145,6 +154,11 @@ function SuggestionItem({
               {appName(id)}
             </button>
           ))}
+        {!resolved && candidates.length === 0 && (
+          <button type="button" disabled={busy} onClick={onCreate} className={primaryBtn}>
+            {busy ? "Working…" : "Add as application"}
+          </button>
+        )}
         <button type="button" disabled={busy} onClick={onDismiss} className={secondaryBtn}>
           Dismiss
         </button>

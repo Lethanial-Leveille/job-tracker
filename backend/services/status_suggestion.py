@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from models.application import Application
+from models.application import Application, ApplicationType
 from models.ingested_email import IngestedEmail
 from models.status_event import StatusEventSource
 from models.status_suggestion import StatusSuggestion, SuggestionState
@@ -118,6 +118,58 @@ def accept_suggestion(
     db.commit()
     db.refresh(suggestion)
     return suggestion
+
+
+def create_application_from_suggestion(
+    db: Session, user_id: str, suggestion_id: str
+) -> Application | None:
+    """Create a new application from an (unmatched) suggestion's email, then
+    accept it. For when you applied somewhere that was never in the tracker: the
+    email carries the employer, the role, and the implied status, so we capture
+    those and you fill in the URL / deadline / JD later. Returns None if the
+    suggestion isn't found.
+
+    Built directly rather than through ApplicationCreate because that schema
+    requires a non-empty posting_url, which an email doesn't provide — the row
+    starts with an empty URL you add when you have it.
+    """
+    suggestion = _get_pending(db, user_id, suggestion_id)
+    if suggestion is None:
+        return None
+
+    email = db.get(IngestedEmail, suggestion.source_email_id)
+    classification = (email.classification or {}) if email else {}
+    org = (classification.get("organization") or "").strip()
+    if not org and email is not None:
+        org = (email.from_name or email.from_email or "").strip()
+    role = (classification.get("role_hint") or "").strip()
+
+    application = Application(
+        user_id=user_id,
+        type=ApplicationType.internship,
+        organization=(org or "Unknown employer")[:255],
+        role_or_program=(role or "Role from email")[:255],
+        posting_url="",  # no URL in an email; add it later
+        status=suggestion.suggested_status,
+    )
+    db.add(application)
+    db.flush()  # assign id before recording the opening history entry
+
+    record_status_event(
+        db,
+        user_id=user_id,
+        application_id=application.id,
+        from_status=None,
+        to_status=application.status,
+        source=StatusEventSource.email,
+    )
+
+    suggestion.application_id = application.id
+    suggestion.state = SuggestionState.accepted
+    suggestion.resolved_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(application)
+    return application
 
 
 def dismiss_suggestion(

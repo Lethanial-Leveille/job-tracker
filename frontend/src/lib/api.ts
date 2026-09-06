@@ -297,3 +297,15 @@ export async function dismissSuggestion(id: string): Promise<StatusSuggestion> {
   const res = await request(`/suggestions/${id}/dismiss`, { method: "POST" });
   return res.json() as Promise<StatusSuggestion>;
 }
+
+// Create a new application from an unmatched suggestion's email (employer, role,
+// and status from the message; you fill in the URL/deadline later), then accept
+// it. Returns the created application.
+export async function createApplicationFromSuggestion(
+  id: string,
+): Promise<Application> {
+  const res = await request(`/suggestions/${id}/create-application`, {
+    method: "POST",
+  });
+  return res.json() as Promise<Application>;
+}

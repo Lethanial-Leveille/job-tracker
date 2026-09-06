@@ -18,6 +18,7 @@ from models.status_suggestion import StatusSuggestion, SuggestionState
 from models.user import User
 from services.status_suggestion import (
     accept_suggestion,
+    create_application_from_suggestion,
     dismiss_suggestion,
     list_pending_suggestions,
 )
@@ -158,6 +159,32 @@ def test_accept_rejects_another_users_application(db: Session, user: User) -> No
 
 def test_accept_unknown_suggestion_returns_none(db: Session, user: User) -> None:
     assert accept_suggestion(db, user.id, "nope", None) is None
+
+
+def test_create_application_from_unmatched_suggestion(
+    db: Session, user: User
+) -> None:
+    email = _email(db, user.id)
+    email.classification = {
+        "kind": "application_received",
+        "organization": "Stoke Space",
+        "role_hint": "Summer 2027 Internship - Software",
+    }
+    db.commit()
+    # Unmatched: no application_id, no candidates.
+    suggestion = _suggestion(
+        db, user.id, email.id, suggested_status=ApplicationStatus.applied
+    )
+
+    app = create_application_from_suggestion(db, user.id, suggestion.id)
+
+    assert app is not None
+    assert app.organization == "Stoke Space"
+    assert app.role_or_program == "Summer 2027 Internship - Software"
+    assert app.status == ApplicationStatus.applied
+    db.refresh(suggestion)
+    assert suggestion.state == SuggestionState.accepted
+    assert suggestion.application_id == app.id
 
 
 def test_dismiss_marks_dismissed_without_touching_status(
