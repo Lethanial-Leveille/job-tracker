@@ -131,7 +131,7 @@ def test_a_resume_that_already_fits_is_returned_untouched() -> None:
 
 
 def test_an_overflowing_resume_is_trimmed_to_one_page() -> None:
-    resume = _resume_with({"experience": 5, "project": 5}, projects=4)
+    resume = _resume_with({"experience": 6, "project": 6}, projects=4)
     assert count_pages(resume) > 1  # the fixture must actually overflow
 
     fitted, cuts = fit_to_one_page(resume)
