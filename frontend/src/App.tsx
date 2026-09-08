@@ -13,6 +13,7 @@ import { ApplicationsPage } from "./components/applications/ApplicationsPage";
 import { ApplicationDetailPage } from "./components/applications/ApplicationDetailPage";
 import { AddOpportunity } from "./components/applications/AddOpportunity";
 import { LoginPage } from "./components/auth/LoginPage";
+import { BaseResumePanel } from "./components/resume/BaseResumePanel";
 import { ResumeBuilder } from "./components/resume/ResumeBuilder";
 import { clearToken, getToken } from "./lib/auth";
 import { deleteApplication } from "./lib/api";
@@ -94,6 +95,11 @@ function AuthedApp({ onLogout }: { onLogout: () => void }) {
             /applications/new is never swallowed by /applications/:id. */}
         <Route path="/applications/new" element={<AddApplicationRoute {...state} />} />
         <Route path="/applications/:id" element={<ApplicationDetailRoute {...state} />} />
+        {/* Static before dynamic, same rule as /applications/new above. */}
+        <Route
+          path="/resume/base"
+          element={<BaseResumePanel onBack={() => navigate("/resume")} />}
+        />
         <Route
           path="/resume"
           element={<ResumeBuilder onClose={() => navigate("/applications")} />}

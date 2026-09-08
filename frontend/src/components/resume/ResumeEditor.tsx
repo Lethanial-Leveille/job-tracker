@@ -3,6 +3,7 @@
 // have a master resume. Purely presentational — the orchestrator passes the
 // pre-wired section nodes and the save handlers.
 
+import { Link } from "react-router-dom";
 import type { ShellProps } from "./shell";
 import { CareerStageToggle } from "./CareerStageToggle";
 
@@ -37,6 +38,14 @@ export function ResumeEditor({
           <h1 className="text-base font-semibold text-ink">Your resume</h1>
         </div>
         <div className="flex items-center gap-3">
+          {/* The general resume is DERIVED from what is saved here, so it is a
+              sibling of the editor rather than a section inside it. */}
+          <Link
+            to="/resume/base"
+            className="text-[13px] text-ink-soft transition-colors hover:text-ink"
+          >
+            General resume
+          </Link>
           <CareerStageToggle value={careerStage} onChange={onCareerStageChange} />
           {saveError ? (
             <span className="text-[13px] text-ink-soft">{saveError}</span>

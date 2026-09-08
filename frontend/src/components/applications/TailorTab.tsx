@@ -7,6 +7,7 @@ import {
   tailorResume,
 } from "../../lib/api";
 import { gradDateHint } from "../../lib/gradHint";
+import { PdfPreview } from "../resume/PdfPreview";
 import { isPreSubmit } from "./statuses";
 
 // The Tailor tab: draft a resume for this application, review it, download or
@@ -49,6 +50,8 @@ export function TailorTab({ application, onStatusChange }: Props) {
   // is forbidden from picking it, because guessing an eligibility rule out of
   // posting text and guessing wrong prints a date you did not intend.
   const [laterGradDate, setLaterGradDate] = useState(false);
+  // The rendered PDF, kept in memory for the inline preview.
+  const [preview, setPreview] = useState<{ blob: Blob; filename: string } | null>(null);
   // Read straight from the posting already in memory: no call, no cost. It only
   // suggests, and cites what it matched so the suggestion can be judged.
   const gradHint = useMemo(() => gradDateHint(application), [application]);
@@ -147,18 +150,28 @@ export function TailorTab({ application, onStatusChange }: Props) {
         application.organization,
         laterGradDate ? "alternate" : undefined,
       );
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(url);
+      // Preview in place instead of writing a file. Rendering is how you CHECK
+      // a resume, and it used to put a PDF on disk every single time, so a few
+      // rounds of review left a pile of near-identical downloads. The blob is
+      // held here and only hits the filesystem when Download is pressed.
+      setPreview({ blob, filename });
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : "Could not render the PDF");
     } finally {
       setDownloadingId(null);
       setDownloading(false);
     }
+  }
+
+  // The only path that writes a file to disk.
+  function downloadPreview() {
+    if (!preview) return;
+    const url = URL.createObjectURL(preview.blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = preview.filename;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   async function save() {
@@ -275,7 +288,15 @@ export function TailorTab({ application, onStatusChange }: Props) {
                 disabled={downloading}
                 className={secondaryBtn}
               >
-                {downloading ? "Rendering…" : "Download PDF"}
+                {downloading ? "Rendering…" : preview ? "Re-render" : "Preview PDF"}
+              </button>
+              <button
+                type="button"
+                onClick={downloadPreview}
+                disabled={!preview || downloading}
+                className={secondaryBtn}
+              >
+                Download PDF
               </button>
               <button
                 type="button"
@@ -295,6 +316,15 @@ export function TailorTab({ application, onStatusChange }: Props) {
                 </button>
               )}
             </div>
+            {/* Only mounts once something has been rendered, so the tab does not
+                show an empty frame before the first Preview press. */}
+            {preview && (
+              <PdfPreview
+                blob={preview.blob}
+                loading={downloading}
+                className="mt-4 h-[70vh]"
+              />
+            )}
           </div>
         </Section>
       )}

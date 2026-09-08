@@ -179,6 +179,15 @@ function filenameFrom(header: string | null): string {
   return match?.[1] ?? "resume.pdf";
 }
 
+// The general-purpose resume: the master reduced to one page, derived server-side
+// on every call rather than stored. Feed the result straight to renderResume()
+// (optionally with a gradDate) to get the PDF — one render path for base and
+// tailored alike, so the two can never disagree about format.
+export async function getBaseResume(): Promise<Resume> {
+  const res = await request("/resume/base");
+  return (await res.json()) as Resume;
+}
+
 export async function renderResume(
   resume: Resume,
   company?: string,
