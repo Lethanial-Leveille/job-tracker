@@ -63,8 +63,64 @@ def render_resume_pdf(resume: Resume) -> bytes:
     The CSS is passed explicitly (not linked from the HTML) so WeasyPrint needs
     no base_url to resolve it — the template stays pure structure.
     """
-    html = _env.get_template("resume.html").render(r=resume)
-    return HTML(string=html).write_pdf(stylesheets=[CSS(filename=str(_CSS_PATH))])
+    return HTML(string=render_html(resume)).write_pdf(
+        stylesheets=[CSS(filename=str(_CSS_PATH))]
+    )
+
+
+def _raw_html(resume: Resume, inline: set[int] | None) -> str:
+    """The template with an explicit inline-descriptor decision. See render_html."""
+    return _env.get_template("resume.html").render(r=resume, inline=inline)
+
+
+def resolve_inline_descriptors(resume: Resume) -> set[int]:
+    """Which experience entries can carry their descriptor inline, measured.
+
+    The descriptor rides on the organization row as a parenthetical, which costs
+    no vertical space, but only while the organization, the parenthetical and the
+    right-aligned location still share ONE line. Whether they do depends on font
+    metrics and the exact strings, so it is measured rather than guessed from a
+    character budget, the same reasoning as count_pages.
+
+    Renders once with EVERY descriptor inline (the widest case), then returns the
+    indices whose `.org-name` box came back as a single line. The rest fall back
+    to a `.descriptor` line under the role.
+
+    Returns an empty set immediately when no entry has a descriptor, which keeps
+    this free for every resume that does not use the field.
+    """
+    if not any(e.descriptor for e in resume.experience):
+        return set()
+    document = HTML(string=_raw_html(resume, inline=None)).render(
+        stylesheets=[CSS(filename=str(_CSS_PATH))]
+    )
+    fits: set[int] = set()
+    index = 0
+    for page in document.pages:
+        for box in _walk(page._page_box):
+            element = getattr(box, "element", None)
+            if element is None or "org-name" not in (element.attrib.get("class") or ""):
+                continue
+            lines = [
+                c for c in getattr(box, "children", []) if type(c).__name__ == "LineBox"
+            ]
+            if not lines:
+                continue
+            if len(lines) == 1:
+                fits.add(index)
+            index += 1
+    return fits
+
+
+def render_html(resume: Resume) -> str:
+    """The resume's HTML with inline descriptors already resolved.
+
+    Every render path goes through this so the PDF, the page count and the line
+    counts all measure the SAME document. A caller that skipped it would lay out
+    a resume whose descriptors were all inline and report a page count for a
+    document that never prints.
+    """
+    return _raw_html(resume, inline=resolve_inline_descriptors(resume))
 
 
 def _walk(box):
@@ -89,8 +145,9 @@ def count_lines_containing(resume: Resume, needle: str) -> int:
     Returns 0 when nothing matches, which includes the professional layout, where
     coursework is not rendered at all.
     """
-    html = _env.get_template("resume.html").render(r=resume)
-    document = HTML(string=html).render(stylesheets=[CSS(filename=str(_CSS_PATH))])
+    document = HTML(string=render_html(resume)).render(
+        stylesheets=[CSS(filename=str(_CSS_PATH))]
+    )
     for page in document.pages:
         for box in _walk(page._page_box):
             children = getattr(box, "children", [])
@@ -114,8 +171,11 @@ def count_pages(resume: Resume) -> int:
     no API call and runs in a few hundred milliseconds, which is what makes a
     measure-then-trim loop practical.
     """
-    html = _env.get_template("resume.html").render(r=resume)
-    return len(HTML(string=html).render(stylesheets=[CSS(filename=str(_CSS_PATH))]).pages)
+    return len(
+        HTML(string=render_html(resume))
+        .render(stylesheets=[CSS(filename=str(_CSS_PATH))])
+        .pages
+    )
 
 
 def load_master(path: str | Path) -> Resume:

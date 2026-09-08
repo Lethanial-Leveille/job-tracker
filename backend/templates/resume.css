@@ -131,7 +131,32 @@ section {
   margin-top: 1pt;
 }
 
-/* The one-line company descriptor under a role. 9.5pt matches the contact row,
+/* The company descriptor as an inline parenthetical on the organization row,
+   which is where it costs nothing: "Fuzzy AI (B2B sales outreach automation
+   platform)". Same 10pt body size as the organization it follows, but regular
+   weight and italic, so the bold stays on the company name and the parenthetical
+   reads as the aside it is. The parentheses are italic too, since they belong to
+   the phrase rather than to the company name.
+
+   font-weight is set explicitly rather than inherited: this span is a sibling of
+   the .bold one, not a child, so it would already be regular, and stating it
+   here means a future change to .row or .org-name cannot quietly bolden it. */
+.descriptor-inline {
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* Holds the organization name and its parenthetical as ONE flex item, so the
+   pair wraps as a unit and, more importantly, gives resolve_inline_descriptors()
+   a single box whose LineBox count answers "did this row fit on one line?".
+   Without the wrapper the row's children are flex items and the question has no
+   box to ask it of. */
+.org-name {
+  min-width: 0;
+}
+
+/* The FALLBACK descriptor, on its own line under the role, used when the
+   parenthetical would have wrapped the organization row. 9.5pt matches the contact row,
    the other piece of type on the page that is context rather than content, and
    italic ties it to the role line it hangs under without repeating its weight.
    It costs exactly one line per entry that has one, which is why only entries at

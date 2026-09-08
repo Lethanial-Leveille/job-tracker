@@ -75,13 +75,28 @@
 <section>
   <div class="section">Experience</div>
   {% for x in r.experience %}
+  {#
+    The company descriptor rides INLINE on the organization row as a
+    parenthetical -- "Fuzzy AI (B2B sales outreach automation platform)" -- which
+    costs no vertical space at all. It only fits when the organization, the
+    parenthetical and the right-aligned location share one line, and whether they
+    do depends on font metrics, so it cannot be decided here.
+
+    `inline` is the answer, computed by resolve_inline_descriptors() in
+    services/resume_render.py: a set of the experience indices whose row measured
+    one line. `inline is none` means nobody has measured yet, which is exactly
+    the state during that measuring render, so everything goes inline and the
+    measurement sees the widest possible row.
+
+    An index NOT in the set falls back to the old `.descriptor` line under the
+    role. Exactly one of the two prints, never both.
+  #}
+  {% set inline_ok = inline is none or loop.index0 in inline %}
   <div class="entry">
-    <div class="row"><span class="bold">{{ x.organization }}</span>{% if x.location %}<span class="right italic">{{ x.location }}</span>{% endif %}</div>
+    <div class="row"><span class="org-name"><span class="bold">{{ x.organization }}</span>{% if x.descriptor and inline_ok %} <span class="descriptor-inline">({{ x.descriptor }})</span>{% endif %}</span>{% if x.location %}<span class="right italic">{{ x.location }}</span>{% endif %}</div>
     <div class="row"><span class="italic">{{ x.role }}</span>{% if x.dates %}<span class="right italic">{{ x.dates }}</span>{% endif %}</div>
-    {# One line saying what the company DOES, for a reader who has never heard of
-       it. Smaller than the role line so it reads as context, not as a third
-       fact competing with the organization and the title. #}
-    {% if x.descriptor %}<div class="descriptor">{{ x.descriptor }}</div>{% endif %}
+    {# Fallback only: the row was too wide to carry the parenthetical. #}
+    {% if x.descriptor and not inline_ok %}<div class="descriptor">{{ x.descriptor }}</div>{% endif %}
     {% if x.bullets %}<ul>{% for b in x.bullets %}<li>{{ b | bold }}</li>{% endfor %}</ul>{% endif %}
   </div>
   {% endfor %}

@@ -23,7 +23,12 @@ from schemas.resume import (
     Resume,
     SkillGroup,
 )
-from services.resume_render import count_lines_containing, count_pages
+from services.resume_render import (
+    count_lines_containing,
+    count_pages,
+    render_html,
+    resolve_inline_descriptors,
+)
 from services.tailoring import (
     cap_bold_spans,
     fit_to_one_page,
@@ -534,3 +539,50 @@ def test_a_descriptor_survives_tailoring_untouched() -> None:
     strip_invented_entries(master, tailored)
 
     assert tailored.experience[0].descriptor == "B2B sales automation platform."
+
+
+# --- Inline company descriptors ----------------------------------------------
+# The descriptor rides on the organization row as a parenthetical when it fits
+# there and drops to its own line when it does not. Both paths are pinned,
+# because the fallback is the one nobody looks at until a long company name
+# silently pushes a resume onto two pages.
+
+
+def _descriptor_resume(descriptor: str) -> Resume:
+    r = _resume_with({"experience": 2, "project": 2}, projects=1)
+    r.experience[0].organization = "Fuzzy AI"
+    r.experience[0].location = "Singapore"
+    r.experience[0].descriptor = descriptor
+    return r
+
+
+def test_a_short_descriptor_rides_inline_on_the_organization_row() -> None:
+    r = _descriptor_resume("B2B sales outreach automation platform")
+
+    assert resolve_inline_descriptors(r) == {0}
+
+    html = render_html(r)
+    assert '(B2B sales outreach automation platform)' in html
+    # And exactly once: the fallback line must not also print it.
+    assert html.count("B2B sales outreach automation platform") == 1
+    assert 'class="descriptor"' not in html
+
+
+def test_a_long_descriptor_falls_back_to_its_own_line() -> None:
+    # Measured: the row holds about 109 characters of organization plus
+    # parenthetical next to a right-aligned "Singapore" before it wraps. This is
+    # deliberately just past that, not absurdly long, so the test still fails if
+    # the threshold moves.
+    long = (
+        "Business-to-business sales outreach, contact management and "
+        "personalized message generation automation platform"
+    )
+    r = _descriptor_resume(long)
+
+    assert resolve_inline_descriptors(r) == set()
+
+    html = render_html(r)
+    assert 'class="descriptor"' in html
+    # Fallback prints it on its own line, never as a parenthetical as well.
+    assert f"({long})" not in html
+    assert html.count(long) == 1

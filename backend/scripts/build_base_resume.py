@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from weasyprint import CSS, HTML  # noqa: E402
 
-from services.resume_render import _CSS_PATH, _env, load_master  # noqa: E402
+from services.resume_render import _CSS_PATH, load_master, render_html  # noqa: E402
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 SOURCE = DATA_DIR / "base_resume.yaml"
@@ -45,8 +45,9 @@ def main() -> None:
 
     # Render in two steps rather than calling render_resume_pdf: the Document is
     # needed to count pages, and write_pdf() on it reuses that same layout.
-    html = _env.get_template("resume.html").render(r=resume)
-    document = HTML(string=html).render(stylesheets=[CSS(filename=str(_CSS_PATH))])
+    document = HTML(string=render_html(resume)).render(
+        stylesheets=[CSS(filename=str(_CSS_PATH))]
+    )
     page_count = len(document.pages)
 
     if page_count > 1 and not allow_long:
