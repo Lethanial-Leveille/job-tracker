@@ -140,7 +140,8 @@ def tailor_resume(
 
     # Enforce never-invent before anything else looks at the draft, so a
     # fabricated skill cannot survive into the PDF or a saved version.
-    invented = strip_invented_skills(master, result)
+    invented = strip_invented_entries(master, result)
+    invented += strip_invented_skills(master, result)
     if invented:
         logger.warning(
             "Tailoring invented content not present in the master; removed: %s",
@@ -397,6 +398,55 @@ def _is_traceable(item: str, master_items: list[str]) -> bool:
         if base == candidate_base and examples <= candidate_examples:
             return True
     return False
+
+
+def strip_invented_entries(master: Resume, tailored: Resume) -> list[str]:
+    """Remove whole entries with no counterpart in the master. Mutates `tailored`.
+
+    The sibling of strip_invented_skills, one level up. That one guards the
+    CONTENTS of an entry (skill items, project tools); nothing guarded the
+    entries themselves, so an entire fabricated job could reach the PDF while
+    every skill on the page checked out.
+
+    The real failure: a tailored resume grew a second EXPERIENCE entry reading
+    "University of Florida / B.S. Computer Engineering / Expected May 2029" with
+    no bullets. The model had copied the education record into the experience
+    list, filling the required `role` field with the degree name. Every
+    individual skill was traceable, so the existing guard passed it through, and
+    the template renders whatever is in `experience`.
+
+    Matching is on the IDENTITY field only, the one the prompt already forbids
+    changing: organization for a job, name for a project, institution for a
+    school. Bullets are rephrasable by design, so comparing them would reject
+    legitimate work.
+
+    Removal, never substitution, same as strip_invented_skills: this can make a
+    resume thinner, never wronger. Note the corollary, which matters when reading
+    a bug report: an entry that IS in the master survives this function. If a
+    stray entry was typed into the master itself, it is real data as far as
+    tailoring is concerned, and the fix is in the master, not here.
+    """
+    removed: list[str] = []
+
+    def keep(entries: list, master_entries: list, field: str, kind: str) -> list:
+        allowed = {_normalize(getattr(e, field)) for e in master_entries}
+        surviving = []
+        for entry in entries:
+            identity = getattr(entry, field)
+            if _normalize(identity) in allowed:
+                surviving.append(entry)
+            else:
+                removed.append(f"{kind} '{identity}' (not in master)")
+        return surviving
+
+    tailored.experience = keep(
+        tailored.experience, master.experience, "organization", "experience entry"
+    )
+    tailored.projects = keep(tailored.projects, master.projects, "name", "project")
+    tailored.education = keep(
+        tailored.education, master.education, "institution", "education entry"
+    )
+    return removed
 
 
 def strip_invented_skills(master: Resume, tailored: Resume) -> list[str]:

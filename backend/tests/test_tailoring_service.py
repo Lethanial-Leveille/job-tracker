@@ -27,6 +27,7 @@ from services.resume_render import count_lines_containing, count_pages
 from services.tailoring import (
     cap_bold_spans,
     fit_to_one_page,
+    strip_invented_entries,
     strip_invented_skills,
     tailor_resume,
 )
@@ -368,3 +369,100 @@ def test_bullets_without_markers_are_untouched() -> None:
     r = _bulleted("plain bullet with no emphasis at all")
     assert cap_bold_spans(r) == []
     assert r.projects[0].bullets[0] == "plain bullet with no emphasis at all"
+
+
+# --- Never-invent enforcement, whole entries ---------------------------------
+
+
+def _entry_master() -> Resume:
+    return Resume(
+        contact=Contact(name="Lee"),
+        education=[
+            Education(
+                institution="University of Florida",
+                degree="Bachelor of Science in Computer Engineering",
+                dates="Expected May 2028",
+                dates_alternate="Expected May 2029",
+            )
+        ],
+        experience=[
+            Experience(
+                organization="Fuzzy AI",
+                role="Software Engineering Intern",
+                dates="June 2026 - July 2026",
+                bullets=["shipped a thing"],
+            )
+        ],
+        projects=[Project(name="Prowl", bullets=["built a thing"])],
+    )
+
+
+def test_education_copied_into_experience_is_removed() -> None:
+    """The real failure: a tailored resume grew an EXPERIENCE entry reading
+    "University of Florida / B.S. Computer Engineering / Expected May 2029",
+    with the degree filling the required `role` field and no bullets at all."""
+    master = _entry_master()
+    tailored = master.model_copy(deep=True)
+    tailored.experience.append(
+        Experience(
+            organization="University of Florida",
+            role="B.S. Computer Engineering",
+            location="Gainesville, FL",
+            dates="Expected May 2029",
+        )
+    )
+
+    removed = strip_invented_entries(master, tailored)
+
+    assert [e.organization for e in tailored.experience] == ["Fuzzy AI"]
+    assert any("University of Florida" in r for r in removed)
+
+
+def test_a_real_experience_entry_survives() -> None:
+    master = _entry_master()
+    tailored = master.model_copy(deep=True)
+    # Bullets are rephrasable by design, so a rewritten one must not look invented.
+    tailored.experience[0].bullets = ["shipped a thing, rephrased for this job"]
+
+    removed = strip_invented_entries(master, tailored)
+
+    assert [e.organization for e in tailored.experience] == ["Fuzzy AI"]
+    assert removed == []
+
+
+def test_an_invented_project_is_removed() -> None:
+    master = _entry_master()
+    tailored = master.model_copy(deep=True)
+    tailored.projects.append(Project(name="Kubernetes Scheduler", bullets=["nope"]))
+
+    removed = strip_invented_entries(master, tailored)
+
+    assert [p.name for p in tailored.projects] == ["Prowl"]
+    assert any("Kubernetes Scheduler" in r for r in removed)
+
+
+def test_an_invented_school_is_removed() -> None:
+    master = _entry_master()
+    tailored = master.model_copy(deep=True)
+    tailored.education.append(Education(institution="MIT", degree="B.S. Physics"))
+
+    removed = strip_invented_entries(master, tailored)
+
+    assert [e.institution for e in tailored.education] == ["University of Florida"]
+    assert any("MIT" in r for r in removed)
+
+
+def test_an_entry_that_is_in_the_master_survives_even_if_it_looks_wrong() -> None:
+    """The corollary, and the reason this guard cannot be the whole answer: if a
+    stray entry was typed into the MASTER, it is real data as far as tailoring is
+    concerned and passes through. That fix belongs in the master, not here."""
+    master = _entry_master()
+    master.experience.append(
+        Experience(organization="University of Florida", role="B.S. Computer Engineering")
+    )
+    tailored = master.model_copy(deep=True)
+
+    removed = strip_invented_entries(master, tailored)
+
+    assert len(tailored.experience) == 2
+    assert removed == []
