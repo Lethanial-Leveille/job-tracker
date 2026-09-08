@@ -44,7 +44,6 @@ export function StringListEditor({
   const add = () => onChange([...items, ""]);
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [overIndex, setOverIndex] = useState<number | null>(null);
 
   function move(from: number, to: number) {
     if (to < 0 || to >= items.length || from === to) return;
@@ -67,29 +66,44 @@ export function StringListEditor({
             // Required: without preventDefault the drop never fires.
             if (dragIndex === null) return;
             e.preventDefault();
-            setOverIndex(i);
+            if (dragIndex === i) return;
+            // Reorder NOW rather than on drop, so the list visibly shifts under
+            // the cursor and the row you are dragging is already sitting where
+            // it will land. The browser's default behaviour shows a ghost image
+            // and nothing else moves, so you cannot tell it worked until you let
+            // go. Following the cursor with dragIndex keeps the moving row
+            // attached to the pointer across successive crossings.
+            move(dragIndex, i);
+            setDragIndex(i);
           }}
           onDrop={(e) => {
-            if (dragIndex === null) return;
+            // The order is already correct by now; drop just ends the gesture.
             e.preventDefault();
-            move(dragIndex, i);
             setDragIndex(null);
-            setOverIndex(null);
           }}
-          className={`flex items-start gap-2 rounded-interactive transition-colors ${
-            overIndex === i && dragIndex !== null && dragIndex !== i
-              ? "bg-surface-raised"
+          className={`flex items-start gap-2 rounded-interactive transition-transform ${
+            dragIndex === i
+              ? "bg-surface-raised shadow-glow ring-1 ring-line-strong"
               : ""
-          } ${dragIndex === i ? "opacity-50" : ""}`}
+          }`}
         >
           <button
             type="button"
             draggable
-            onDragStart={() => setDragIndex(i)}
-            onDragEnd={() => {
-              setDragIndex(null);
-              setOverIndex(null);
+            onDragStart={(e) => {
+              setDragIndex(i);
+              // Firefox refuses to start a drag unless some data is set.
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", String(i));
+              // Hide the translucent snapshot the browser drags around. With the
+              // list itself moving, the ghost is a second copy of the row
+              // lagging behind the cursor, which is what made it read as "some
+              // generic thing floating" rather than as sorting.
+              const blank = document.createElement("canvas");
+              blank.width = blank.height = 1;
+              e.dataTransfer.setDragImage(blank, 0, 0);
             }}
+            onDragEnd={() => setDragIndex(null)}
             onKeyDown={(e) => {
               if (e.key === "ArrowUp") {
                 e.preventDefault();
