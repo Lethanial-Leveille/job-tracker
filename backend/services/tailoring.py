@@ -54,9 +54,11 @@ What you MAY do:
   some of its entries. A half-printed section reads as a document that ran out of
   room; no section at all reads as a deliberate choice.
 - For each entry you keep, select and reorder its bullets, strongest and most
-  relevant first. Give every professional EXPERIENCE entry 3 bullets and every
-  PROJECT 2. Drop to 2 on an experience entry only when the master genuinely has
-  no third bullet worth the space, never to save room. Rephrase them into strong
+  relevant first. Give every professional EXPERIENCE entry 4 bullets and every
+  PROJECT 3. Drop below that only when the master genuinely has nothing worth the
+  space, never to save room: the page is measured and trimmed after you return,
+  so aiming high costs nothing and aiming low leaves the bottom of the page
+  blank, which no later step can fix. Rephrase them into strong
   accomplishment bullets: lead with an action verb and state what was built and
   the result or impact (the "accomplished X by doing Y, measured by Z" pattern)
   whenever the facts already support it.
@@ -153,6 +155,22 @@ def tailor_resume(
     # prints is Lee's call per application, not something the model should infer
     # from a job description.
     result.grad_date_variant = master.grad_date_variant
+
+    # Same reasoning, one level down: `descriptor` and `links` are fixed facts
+    # about an entry, not content to be selected. Neither is mentioned in the
+    # prompt and both default to empty, so the model drops them silently and the
+    # tailored PDF loses the company descriptor and every repo link that the base
+    # resume prints. Restored by identity rather than asked for, because a
+    # missing link is invisible in review: the title still renders, it just stops
+    # being clickable.
+    master_descriptors = {e.organization: e.descriptor for e in master.experience}
+    for entry in result.experience:
+        if entry.organization in master_descriptors:
+            entry.descriptor = master_descriptors[entry.organization]
+    master_links = {p.name: p.links for p in master.projects}
+    for project in result.projects:
+        if project.name in master_links:
+            project.links = master_links[project.name]
 
     # Enforce never-invent before anything else looks at the draft, so a
     # fabricated skill cannot survive into the PDF or a saved version.
