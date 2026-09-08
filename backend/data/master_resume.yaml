@@ -139,7 +139,20 @@ experience:
     # Merged-PR and review counts (47 / 72) are deliberately NOT here: raw PR
     # counts are gameable, and a reader who knows that discounts everything
     # around them. The work speaks without the tally.
+    descriptor: "B2B sales automation platform that generates personalized outreach messages for each contact in a list."
     bullets:
+      # --- Sep 8 2026 plain-English pass. These are the versions that PRINT.
+      # The detailed originals are benched below, not deleted: they are the same
+      # claims carrying vocabulary these drop (idempotent, atomic claim,
+      # cross-domain, OAuth, race, concurrency tests, the silent watch tick).
+      # A backend-heavy posting may want that vocabulary back. ---
+      - "Merged 4 separate contact import paths into 1 review screen so users see exactly who will be added before anything is saved or billed, backed by a preview endpoint that assembles the list without writing any records."
+      - "Found a background refresh logging **30 fake usage events per user per minute**, quietly inflating the adoption number the feature was being judged on, and limited logging to real foreground activity."
+      - "Added signup source tracking across 3 repositories so the team could tell which marketing channel each new account came from, including the Google login path that carries **51% of signups** and previously recorded nothing."
+      - "Rewrote the message thread scrolling as a state machine, fixing **4 bugs at once**: flicker on open, losing your place when older messages load in above you, a slow request overwriting the wrong conversation, and pages loading twice."
+      - "Cut a **4% duplicate rate** in contact imports, 40 bad rows per 1,000, by making the import safe to rerun so each record is claimed exactly once at the database level, verified with tests that ran imports in parallel and interrupted them partway."
+      # --- bench: superseded by the plain-English versions above, kept for the
+      # technical vocabulary they carry. Never print both versions of a claim. ---
       - "Rebuilt 4 inconsistent contact import flows into 1 shared review step so users confirm exactly who gets added **before anyone is imported or charged**, backed by a preview endpoint that stages candidates without creating any records."
       - "Traced a background poll firing **~30 phantom analytics events per user per minute**, permanently inflating the exact adoption metric the feature was judged on, and scoped emission to foreground fetches so a silent watch tick can no longer write events."
       - "Built the app half of a cross-domain signup attribution pipeline across 3 repositories, capturing marketing source at all 3 account-creation paths including the Google OAuth paths that carry **51% of signups** and previously recorded nothing at all."
@@ -231,3 +244,13 @@ projects:
       - "Parsed the model response into discrete fields written to a Notion database row (queryable date, summary, and question properties) plus six body blocks that respect Notion's 2000-character-per-block limit, and delivered an HTML review email via the Gmail API over OAuth2."
       - "Exposed the stack over HTTPS at automation.lethanial.com via Cloudflare Tunnel (no port forwarding or static IP), sharing one tunnel with the MILES backend on the same Pi, and migrated Gmail auth from an SMTP app password to OAuth2 once the public domain was live."
       - "Externalized the Claude prompt to a Notion page so context edits require no workflow changes, and generated the email subject as a separate sub-70-character hook to lift open rate on a self-sent accountability email."
+
+# Leadership and Activities. ACM (Member, Design Team, chapter Check In
+# Application) goes here once Lee is accepted, not before: hard rule #2.
+activities:
+  - organization: Prep Academy
+    role: Test Prep Tutor
+    location: Remote
+    dates: August 2026 – Present
+    bullets:
+      - "Tutoring **3 students** in ACT English, Reading, and Math and SAT Math and Reading across 60 to 90 minute sessions, plus teaching Standard English Conventions to a group, building each student a plan targeted at the specific question types they miss."
