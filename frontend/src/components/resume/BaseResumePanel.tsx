@@ -134,7 +134,7 @@ export function BaseResumePanel({ onBack }: { onBack: () => void }) {
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-      <PdfPreview blob={blob} loading={loading} className="min-h-[70vh] flex-1" />
+      <PdfPreview blob={blob} loading={loading} className="h-[calc(100vh-11rem)] flex-1" />
     </div>
   );
 }

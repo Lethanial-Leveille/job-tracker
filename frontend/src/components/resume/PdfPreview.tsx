@@ -35,16 +35,21 @@ export function PdfPreview({ blob, loading = false, className = "" }: Props) {
 
   return (
     <div
-      className={`relative overflow-hidden rounded-interactive border border-line bg-surface ${className}`}
+      className={`relative flex items-center justify-center overflow-hidden rounded-interactive border border-line bg-surface ${className}`}
     >
       {url ? (
-        // `title` is required for accessibility; #view=FitH asks the viewer to
-        // fit the page width, which is what makes a Letter page readable in a
-        // narrow panel without the user zooming.
+        // #view=Fit fits the WHOLE page in the frame; FitH fits only the width,
+        // which on a wide panel scaled a Letter page taller than the box and
+        // forced scrolling to read it.
+        //
+        // The frame itself is shaped to Letter (8.5:11) and centred, so the page
+        // fills it instead of floating in a band of dead space. Height leads and
+        // width follows from the ratio, with max-w-full to shrink gracefully on
+        // a narrow screen.
         <iframe
-          src={`${url}#view=FitH`}
+          src={`${url}#view=Fit`}
           title="Resume preview"
-          className="h-full w-full"
+          className="mx-auto block h-full w-auto max-w-full aspect-[8.5/11]"
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-ink-soft">
