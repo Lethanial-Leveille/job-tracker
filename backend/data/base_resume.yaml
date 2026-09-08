@@ -61,7 +61,7 @@ experience:
     # Nobody outside Singapore has heard of Fuzzy AI, and every bullet below is
     # about contacts, imports, and signups without ever saying what the product
     # is. One line fixes that so the bullets do not have to.
-    descriptor: "B2B sales automation platform that generates personalized outreach messages for each contact in a list."
+    descriptor: "B2B sales outreach automation platform"
     bullets:
       - "Merged 4 separate contact import paths into 1 review screen so users see exactly who will be added before anything is saved or billed, backed by a preview endpoint that assembles the list without writing any records."
       - "Found a background refresh logging **30 fake usage events per user per minute**, quietly inflating the adoption number the feature was being judged on, and limited logging to real foreground activity."
@@ -79,19 +79,21 @@ projects:
     bullets:
       - "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first working version, by streaming ElevenLabs TTS straight to ALSA, with Whisper.cpp transcription and openWakeWord detection at 90.4% recall."
       - "Isolated 4 compounding defects behind a broken speaker verification path: a mic trigger that never fired, a corrupted enrollment sample, gain leaving 7 of 16 bits unused, and a loop that could not exit. Reached **zero false rejections across 94 attempts**."
+      - "Shipped a JWT-authenticated FastAPI backend (REST and WebSocket) and a zero-dependency SwiftUI iOS client with Face ID and Keychain-stored tokens, deployed as 3 systemd services reachable globally through a Cloudflare Tunnel with no open ports."
   - name: Job Application Tracker (Prowl)
     tools: [FastAPI, SQLAlchemy 2.0, PostgreSQL, React, TypeScript]
     links: [github.com/Lethanial-Leveille/job-tracker]
     dates: July 2026 – Present
     bullets:
-      - "Built a multi-user job tracker in which the model rewrites resume content but never layout: it parses a pasted posting with the Claude API, tailors each user's stored master resume against it, and renders the one page PDF through a locked Jinja and WeasyPrint template."
-      - "Cut a routine status update from **5 interactions to 2** with an in-place editable cell driven by an optimistic update that rolls back on failure."
+      - "Built a multi-user job tracker in which the model rewrites resume content but never layout: it parses a posting with the Claude API, tailors each user's stored master resume, and renders the one page PDF through a locked Jinja and WeasyPrint template."
+      - "Cut a routine status update from **5 interactions to 2** with an in-place editable cell that rolls back on failure."
   - name: Wearable Motion Classifier (MotionSense)
     tools: [Python, scikit-learn, AWS, Raspberry Pi, Docker]
     links: [github.com/Lethanial-Leveille/motionsense]
     dates: March 2026 – April 2026
     bullets:
       - "Raised activity classification accuracy **from ~85% to 99.5%** by replacing hand-tuned thresholds with a scikit-learn Random Forest (100 trees, 80/20 split) trained on 1,074 labeled samples across 3 activity types from raw accelerometer and gyroscope data."
+      - "Built the wearable capture path on a Raspberry Pi 5 and MPU6050 6-axis IMU sampling accelerometer and gyroscope at 20 Hz over I2C, reducing each 1-second sliding window to the 6 statistical features the model is trained on."
       - "Streamed classified readings from the wearable through a fully serverless pipeline (MQTT to AWS IoT Core to Lambda to DynamoDB to API Gateway), surfacing them in a Dockerized React and Recharts dashboard."
 
 skills:
@@ -118,4 +120,4 @@ activities:
     location: Remote
     dates: August 2026 – Present
     bullets:
-      - "Tutoring **3 students** in ACT English, Reading, and Math and SAT Math and Reading across 60 to 90 minute sessions, plus teaching Standard English Conventions to a group, building each student a plan targeted at the specific question types they miss."
+      - "Tutoring 3 students across ACT English, Reading, Math and SAT Math, Reading, each on a plan for the question types they miss."
