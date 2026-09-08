@@ -466,3 +466,71 @@ def test_an_entry_that_is_in_the_master_survives_even_if_it_looks_wrong() -> Non
 
     assert len(tailored.experience) == 2
     assert removed == []
+
+
+# --- Activities section -------------------------------------------------------
+
+
+def _activity_resume(n_bullets: int = 1, projects: int = 3) -> Resume:
+    r = _resume_with({"Fuzzy AI": 3}, projects=projects)
+    r.activities = [
+        Experience(
+            organization="Prep Academy",
+            role="Test Prep Tutor",
+            bullets=["tutored students " * 8][:1] * n_bullets,
+        )
+    ]
+    return r
+
+
+def test_an_activity_is_capped_at_one_bullet_even_when_the_page_fits() -> None:
+    """The cap is unconditional, like the coursework trim: a club entry does not
+    earn a second line just because there happens to be room for one."""
+    r = _activity_resume(n_bullets=3, projects=1)
+    fitted, cuts = fit_to_one_page(r)
+
+    assert len(fitted.activities[0].bullets) == 1
+    assert any("one bullet" in c for c in cuts)
+
+
+def test_activities_are_dropped_whole_not_in_part() -> None:
+    """A half-printed section reads as a document that ran out of room.
+
+    Every bullet list starts AT the floor of two, so bullet trimming (cut step 1)
+    has nothing to take and the loop reaches the activities step with both
+    entries still present. That is the case worth pinning: the section goes
+    entirely or not at all, never one entry of two.
+    """
+    r = _resume_with({"experience": 2, "project": 2}, projects=8)
+    r.activities = [
+        Experience(organization="Prep Academy", role="Tutor", bullets=["x " * 30]),
+        Experience(organization="Robotics Club", role="Member", bullets=["y " * 30]),
+    ]
+    assert count_pages(r) > 1, "fixture must overflow for the cut to be exercised"
+
+    fitted, cuts = fit_to_one_page(r)
+
+    assert fitted.activities == []
+    assert any("activities section" in c for c in cuts)
+
+
+def test_an_invented_activity_is_removed() -> None:
+    master = _entry_master()
+    master.activities = [Experience(organization="Prep Academy", role="Tutor")]
+    tailored = master.model_copy(deep=True)
+    tailored.activities.append(Experience(organization="Rotary Club", role="President"))
+
+    removed = strip_invented_entries(master, tailored)
+
+    assert [a.organization for a in tailored.activities] == ["Prep Academy"]
+    assert any("Rotary Club" in r for r in removed)
+
+
+def test_a_descriptor_survives_tailoring_untouched() -> None:
+    master = _entry_master()
+    master.experience[0].descriptor = "B2B sales automation platform."
+    tailored = master.model_copy(deep=True)
+
+    strip_invented_entries(master, tailored)
+
+    assert tailored.experience[0].descriptor == "B2B sales automation platform."

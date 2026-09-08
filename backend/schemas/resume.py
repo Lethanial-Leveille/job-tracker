@@ -103,12 +103,26 @@ class SkillGroup(BaseModel):
 
 class Experience(BaseModel):
     """A job. `bullets` is a bank: hold every bullet here, let tailoring keep the
-    strongest ~4 and rephrase them for the target job."""
+    strongest ~4 and rephrase them for the target job.
+
+    Also the shape used for `Resume.activities` (leadership, clubs, tutoring),
+    which needs exactly these fields. Reusing the model rather than declaring a
+    near-identical `Activity` keeps one set of rules: the never-invent entry
+    guard, the tailoring prompt's "identity facts are fixed", and the renderer's
+    two-column header row all apply to both without being written twice.
+    """
 
     organization: str
     role: str
     location: str | None = None
     dates: str | None = None
+    # One short line naming what the employer actually DOES, printed under the
+    # role. A reader who has never heard of the company cannot judge the bullets
+    # without it, and the bullets themselves should not spend words explaining
+    # the product. Optional because a self-explanatory organization does not need
+    # one, and because stored resumes predate the field (see the module docstring
+    # on defaults).
+    descriptor: str | None = None
     bullets: list[str] = []
 
 
@@ -157,6 +171,12 @@ class Resume(BaseModel):
     skills: list[SkillGroup] = []
     experience: list[Experience] = []
     projects: list[Project] = []      # the full bank; tailoring keeps a subset
+    # Leadership, clubs, tutoring. Same shape as `experience` and printed last,
+    # under its own heading. It is the LOWEST-VALUE section on the page, so the
+    # one-page trim drops it whole rather than printing a partial entry: half an
+    # activities section reads as a document that ran out of room, which is worse
+    # than not having the section at all.
+    activities: list[Experience] = []
 
 
 # Route input wrapper, NOT part of the three-consumer Resume shape above. This is

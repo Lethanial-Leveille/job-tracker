@@ -131,6 +131,17 @@ section {
   margin-top: 1pt;
 }
 
+/* The one-line company descriptor under a role. 9.5pt matches the contact row,
+   the other piece of type on the page that is context rather than content, and
+   italic ties it to the role line it hangs under without repeating its weight.
+   It costs exactly one line per entry that has one, which is why only entries at
+   an unfamiliar employer should carry it. */
+.descriptor {
+  font-size: 9.5pt;
+  font-style: italic;
+  margin-top: 0.5pt;
+}
+
 /* Two-column skills: aligned bold label column, values in a flexible column
    (continuation lines wrap under the values, not under the label). Narrow label
    column gives the values as much width as possible. */

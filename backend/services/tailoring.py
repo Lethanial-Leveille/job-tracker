@@ -47,6 +47,12 @@ What you MAY do:
 - Drop the least relevant projects so the whole resume fits on ONE page. Keep at
   most the 3 strongest, most relevant projects. Always keep every professional
   experience entry.
+- Treat `activities` (leadership, clubs, tutoring) exactly like experience for
+  selection and phrasing, with one difference: print at most 1 bullet per
+  activity entry. It is the last and lowest-value section on the page.
+  If the page is tight, drop the ENTIRE activities section rather than printing
+  some of its entries. A half-printed section reads as a document that ran out of
+  room; no section at all reads as a deliberate choice.
 - For each entry you keep, select and reorder its bullets, strongest and most
   relevant first. Give every professional EXPERIENCE entry 3 bullets and every
   PROJECT 2. Drop to 2 on an experience entry only when the master genuinely has
@@ -69,12 +75,18 @@ What you MAY do:
   "AWS (IoT Core, Lambda, DynamoDB, API Gateway)" to "AWS (Lambda, DynamoDB)".
   Never add a tool not present in the master.
 - Mark at most ONE fragment of each bullet as bold by wrapping it in double
-  asterisks, like **this fragment**. Bold the RESULT or the single hardest
-  technical noun, never the problem the work fixed: someone skimming reads only
-  the bold text, so "**cut deploys from 20 minutes to 3**" is right and
-  "**the deploy was broken**" is wrong. Choose the fragment that matters most
-  for THIS job, which may differ from the one already marked in the master.
-  One span per bullet, never two, and never bold a whole bullet.
+  asterisks, like **this fragment**. Bold the single NUMBER that best shows scale
+  or result, and keep the few words around it that make the number mean
+  something: "**4% duplicate rate**", "**51% of signups**", "**~520 ms**". The
+  number may describe the PROBLEM or the FIX, whichever is the more striking
+  figure, so "**30 fake usage events per user per minute**" is a good span even
+  though it names the bug.
+  If a bullet contains no number worth showing, print it with NO bold at all. An
+  unbolded bullet is correct and expected; do not reach for a phrase to bold
+  instead. Someone skimming reads only the bold text, so the bold on a page
+  should read as a list of figures.
+  One span per bullet, never two. Keep it under about 8 words and never bold a
+  whole bullet or a whole clause.
 
 The final resume MUST fit on a single page, and it must also FILL that page. A
 resume that stops three quarters of the way down looks like there was nothing
@@ -198,6 +210,9 @@ def tailor_resume(
 # has room for it.
 _MIN_BULLETS_PER_ENTRY = 2
 _MIN_PROJECTS = 2
+# An activity entry earns one line of bullet, never two. Clubs and tutoring are
+# supporting evidence; they do not get the same room as a job.
+_MAX_ACTIVITY_BULLETS = 1
 
 # Coursework is a supporting detail, not a selling point, so it gets one line and
 # no more. Six courses wrapped to two on a real tailored resume, which spends a
@@ -248,7 +263,8 @@ def fit_to_one_page(resume: Resume) -> tuple[Resume, list[str]]:
        project over a job, because work experience outranks a side project.
     2. Coursework, which is one line of six course names and the least specific
        content on the page.
-    3. The last project entirely, down to a floor of two, since projects arrive
+    3. The activities section, whole and never in part.
+    4. The last project entirely, down to a floor of two, since projects arrive
        in relevance order too.
 
     If it still does not fit, it gives up and returns what it has along with the
@@ -260,6 +276,14 @@ def fit_to_one_page(resume: Resume) -> tuple[Resume, list[str]]:
 
     # Always, whether or not the resume overflows: coursework earns one line.
     cuts.extend(_trim_coursework_to_one_line(work))
+
+    # Always: an activity prints at most one bullet. The prompt asks for this and
+    # the model mostly complies, but a second bullet on a club entry costs the
+    # same line as a second bullet on a job, and it is not worth the same.
+    for activity in work.activities:
+        if len(activity.bullets) > _MAX_ACTIVITY_BULLETS:
+            activity.bullets = activity.bullets[:_MAX_ACTIVITY_BULLETS]
+            cuts.append(f"trimmed {activity.organization} to one bullet")
 
     while count_pages(work) > 1:
         # 1. Trim the longest bullet list that is still above the floor. The sort
@@ -287,7 +311,17 @@ def fit_to_one_page(resume: Resume) -> tuple[Resume, list[str]]:
             cuts.append("dropped the coursework line")
             continue
 
-        # 3. The least relevant project, whole.
+        # 3. The activities section, WHOLE. Never a single entry out of it: a
+        # section showing one of two clubs reads as a document that ran out of
+        # room, while no section at all reads as a choice. It goes before any
+        # project is cut because it is the lowest-value block on the page.
+        if work.activities:
+            dropped = ", ".join(a.organization for a in work.activities)
+            work.activities = []
+            cuts.append(f"dropped the activities section ({dropped})")
+            continue
+
+        # 4. The least relevant project, whole.
         if len(work.projects) > _MIN_PROJECTS:
             dropped = work.projects.pop()
             cuts.append(f"dropped the {dropped.name} project")
@@ -443,6 +477,9 @@ def strip_invented_entries(master: Resume, tailored: Resume) -> list[str]:
         tailored.experience, master.experience, "organization", "experience entry"
     )
     tailored.projects = keep(tailored.projects, master.projects, "name", "project")
+    tailored.activities = keep(
+        tailored.activities, master.activities, "organization", "activity"
+    )
     tailored.education = keep(
         tailored.education, master.education, "institution", "education entry"
     )

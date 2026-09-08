@@ -78,7 +78,32 @@
   <div class="entry">
     <div class="row"><span class="bold">{{ x.organization }}</span>{% if x.location %}<span class="right italic">{{ x.location }}</span>{% endif %}</div>
     <div class="row"><span class="italic">{{ x.role }}</span>{% if x.dates %}<span class="right italic">{{ x.dates }}</span>{% endif %}</div>
+    {# One line saying what the company DOES, for a reader who has never heard of
+       it. Smaller than the role line so it reads as context, not as a third
+       fact competing with the organization and the title. #}
+    {% if x.descriptor %}<div class="descriptor">{{ x.descriptor }}</div>{% endif %}
     {% if x.bullets %}<ul>{% for b in x.bullets %}<li>{{ b | bold }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% endmacro %}
+
+{#
+  Leadership and Activities: the same markup as experience_section, because an
+  activity has the same shape (organization, role, location, dates, bullets).
+  Kept as its OWN macro rather than parameterising the experience one, so the
+  two headings and their section order stay readable at the call site below.
+#}
+{% macro activities_section() %}
+{% if r.activities %}
+<section>
+  <div class="section">Leadership and Activities</div>
+  {% for a in r.activities %}
+  <div class="entry">
+    <div class="row"><span class="bold">{{ a.organization }}</span>{% if a.location %}<span class="right italic">{{ a.location }}</span>{% endif %}</div>
+    <div class="row"><span class="italic">{{ a.role }}</span>{% if a.dates %}<span class="right italic">{{ a.dates }}</span>{% endif %}</div>
+    {% if a.bullets %}<ul>{% for b in a.bullets %}<li>{{ b | bold }}</li>{% endfor %}</ul>{% endif %}
   </div>
   {% endfor %}
 </section>
@@ -119,6 +144,7 @@
   {{ experience_section() }}
   {{ skills_section() }}
   {{ projects_section() }}
+  {{ activities_section() }}
   {{ education_section(false) }}
 {% else %}
   {{ summary_section() }}
@@ -126,4 +152,5 @@
   {{ skills_section() }}
   {{ experience_section() }}
   {{ projects_section() }}
+  {{ activities_section() }}
 {% endif %}
