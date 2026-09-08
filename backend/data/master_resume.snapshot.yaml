@@ -1,0 +1,210 @@
+career_stage: student
+grad_date_variant: primary
+contact:
+  name: Lethanial L. Leveille
+  email: leveillelethanial@gmail.com
+  linkedin: linkedin.com/in/lethanial-lee-leveille
+  github: github.com/Lethanial-Leveille
+education:
+- institution: University of Florida
+  degree: Bachelor of Science in Computer Engineering
+  location: Gainesville, FL
+  dates: Expected May 2028
+  dates_alternate: Expected May 2029
+  gpa: '3.77'
+  honors: []
+  coursework:
+  - Data Structures and Algorithms
+  - Computer Organization
+  - Discrete Structures
+  - Computational Linear Algebra
+skills:
+- category: Languages
+  items:
+  - Python
+  - C++
+  - JavaScript
+  - TypeScript
+  - Swift
+  - HTML/CSS
+  - SQL
+- category: Frameworks & Libraries
+  items:
+  - React
+  - Next.js
+  - FastAPI
+  - NestJS
+  - SQLAlchemy
+  - Mongoose
+  - SwiftUI
+  - scikit-learn
+  - Whisper.cpp
+  - ElevenLabs
+- category: Cloud & DevOps
+  items:
+  - AWS (IoT Core, Lambda, DynamoDB, API Gateway)
+  - PostgreSQL
+  - MongoDB
+  - Docker
+  - Docker Compose
+  - GitHub Actions
+  - Cloudflare Tunnel
+  - n8n
+  - Postman
+  - Git/GitHub
+  - MQTT
+- category: Hardware & Embedded
+  items:
+  - Raspberry Pi 5
+  - MPU6050 IMU
+  - I2C Protocol
+  - openWakeWord
+experience:
+- organization: Fuzzy AI
+  role: Software Engineering Intern
+  location: Singapore
+  dates: June 2026 – July 2026
+  descriptor: B2B sales outreach automation platform
+  bullets:
+  - Merged 4 separate contact import paths into 1 review screen so users see exactly who will be added before anything is saved or billed, backed by a preview endpoint that assembles the list without writing any records.
+  - Found a background refresh logging **30 fake usage events per user per minute**, quietly inflating the adoption number the feature was being judged on, and limited logging to real foreground activity.
+  - Added signup source tracking across 3 repositories so the team could tell which marketing channel each new account came from, including the Google login path that carries **51% of signups** and previously recorded nothing.
+  - 'Rewrote the message thread scrolling as a state machine, fixing **4 bugs at once**: flicker on open, losing your place when older messages load in above you, a slow request overwriting the wrong conversation, and pages loading twice.'
+  - Cut a **4% duplicate rate** in contact imports, 40 bad rows per 1,000, by making the import safe to rerun so each record is claimed exactly once at the database level, verified with tests that ran imports in parallel and interrupted them partway.
+  - Raised **diff coverage from 36% to 100%** against the CI gate by extracting the timing-sensitive decision logic out of a 6,500 line component into pure, unit-tested helpers.
+  - Built the backing import API in NestJS, adding a preview endpoint that stages candidates without saving them and a single-use atomic claim so two clicks of Import cannot create the same contacts twice.
+  - Built onboarding checklist behavior in the React and TypeScript app, including an impersonation-safe, cross-tab gate that stops a setup step from checking itself off before the user has actually opened it.
+  - Added automated tests across the contacts module (service, controller, concurrency, and claim-recovery cases) as part of the team's testing standards.
+  - Rebuilt inbox message-thread scrolling as a scroll state machine handling prepend-restore, bottom-pinning, and paginated load-more, proven by 4 regression tests each confirmed failing against the pre-fix code.
+  - Shipped a Sales Navigator preview-and-import flow on the contact-ingestion API (TypeScript), letting users review and select staged candidates before any records are created, reusing a shared dedup and batch-insert core across import paths.
+projects:
+- name: Voice AI Assistant (M.I.L.E.S.)
+  tools:
+  - Python
+  - FastAPI
+  - Swift/SwiftUI
+  - Whisper.cpp
+  - Claude API
+  - SQLite
+  - SQLite FTS5
+  - Resemblyzer
+  - webrtcvad
+  - sentence-transformers
+  - ONNX
+  - NumPy
+  - ElevenLabs
+  - Cloudflare
+  - systemd
+  links:
+  - github.com/Lethanial-Leveille/miles
+  dates: April 2026 – Present
+  bullets:
+  - Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first working version, by streaming ElevenLabs TTS straight to ALSA, with Whisper.cpp transcription and openWakeWord detection at 90.4% recall.
+  - 'Traced months of failed voice recognition to 4 compounding defects: a mic trigger that never fired, a corrupted enrollment sample, gain leaving 7 of 16 bits unused, and a loop that could not exit. Reached **zero false rejections across 94 attempts**.'
+  - Built hybrid memory retrieval over a 233-memory corpus, fusing keyword search with semantic vector search through **reciprocal rank fusion at 31 ms per query**, so two differently-scaled rankings vote without either being rescaled onto the other.
+  - Shipped a JWT-authenticated FastAPI backend (REST and WebSocket) and a zero-dependency SwiftUI iOS client with Face ID and Keychain-stored tokens, deployed as 3 systemd services reachable globally through a Cloudflare Tunnel with no open ports.
+  - Added custom wake-word detection via openWakeWord (90.4% recall), on-device Whisper.cpp speech-to-text, and speaker verification through 256-dimensional voice embeddings (cosine similarity, 0.65 threshold).
+  - Migrated the assistant off hand-parsed bracket action tags onto native Claude tool use behind a single tool registry (six live tools), bounding the follow-up loop and deleting the 50-character lookahead buffer that had sat directly on the path to first audio.
+  - 'Designed a rank-based authorization model that keeps recognition separate from access: the prompt corpus is assembled per tier, so a fact below the owner tier is never in the context at all rather than being withheld by instruction, proven by tests asserting no personal name appears at any lower tier.'
+  - Cut turn latency by capping the Whisper audio context after measuring transcription flat at ~2000ms regardless of clip length (the encoder pads every clip to 30 seconds), then moving the follow-up call to Haiku with prompt caching.
+  - Added wake-word barge-in during playback without acoustic echo cancellation, using a watcher thread that exclusively owns the mic stream for the span playback drains and kills it on a hit, keyed on a phrase the assistant's own speech never contains.
+  - 'Built incremental voiceprint learning from ordinary conversation with a rolling 60-sample window, admitting samples only well clear of the accept threshold and never applying an update automatically: a preview tool shows what an update would move, backs up the profile first, and refuses to average across microphones.'
+  - 'Built the SwiftUI companion app from scratch with zero third-party dependencies: Face ID auth, on-device SFSpeechRecognizer input, paginated history with search, and a memory-bank viewer.'
+  - Built a JWT-authenticated FastAPI backend (REST and WebSocket) with persistent SQLite memory in WAL mode and Claude API streaming, using a stop-sequence plus look-ahead StreamRouter to detect action tags mid-stream.
+  - Pipelined ElevenLabs TTS straight to ALSA and cut time-to-first-audio to ~520ms, including a 1.5s latency win from flushing stdin after every audio chunk.
+  - Deployed three systemd services on boot with global access via Cloudflare Tunnel at miles.lethanial.com, consumed by the iOS app with Face ID and Keychain-stored JWTs.
+  - Built hybrid memory retrieval over a 233-memory SQLite corpus, fusing FTS5 keyword search ranked by summed inverse document frequency with all-MiniLM-L6-v2 semantic search (384-dimensional float32 vectors, 31ms per query) through reciprocal rank fusion, so two uncalibrated scoring scales vote without either being mapped onto the other.
+  - Diagnosed months of speaker-verification false rejections down to four compounding defects (an energy VAD that never fired at -53 dBFS capture, a follow-up loop that could not exit on hallucinated transcripts, an enrollment centroid poisoned to 0.63 average pairwise similarity, and mic gain leaving 7 of 16 bits unused), replacing the energy threshold with webrtcvad plus a 300ms pre-roll ring buffer and adding per-attempt logging that showed zero rejections across 94 attempts over two seconds.
+- name: Job Application Tracker (Prowl)
+  tools:
+  - Python
+  - FastAPI
+  - SQLAlchemy 2.0
+  - Alembic
+  - PostgreSQL
+  - SQLite
+  - React
+  - TypeScript
+  - Vite
+  - Tailwind CSS
+  - Claude API
+  - WeasyPrint
+  - Jinja
+  - JWT
+  - bcrypt
+  - DigitalOcean
+  - Linux
+  - Caddy
+  - Cloudflare Tunnel
+  - systemd
+  - GitHub Actions
+  - n8n
+  links:
+  - github.com/Lethanial-Leveille/job-tracker
+  dates: July 2026 – Present
+  bullets:
+  - 'Built the job tracker I apply with: it parses a pasted posting with the Claude API and tailors my resume against it, rendering a one page PDF through a locked Jinja and WeasyPrint template so the model rewrites content but never layout.'
+  - Cut a routine status update from **5 interactions to 2** with an in-place editable cell driven by an optimistic update that rolls back on failure, and trimmed a 14-value status enum to a 6-value working set in the UI rather than by migration.
+  - Added duplicate detection that blocks an already-tracked posting **before it reaches the paid parsing call**, matching on a URL normalized to strip tracking parameters while preserving job-board ids, then on employer and title similarity.
+  - Automated releases with **GitHub Actions** so every push to main rebuilds, migrates, and restarts the app on a DigitalOcean droplet behind Caddy and a Cloudflare Tunnel, connecting as a least-privilege deploy user limited to 1 scoped sudo command.
+  - Let the tailoring model choose which fragment of each bullet to emphasize for a given job, then capped it at one span per bullet in application code rather than in the prompt, because models over-emphasize and bold covering half a page stops being a highlight.
+  - Read each posting's eligibility text to suggest which graduation date to print, citing the phrase it matched so the suggestion can be judged rather than trusted, and left the switch manual because a wrong automatic flip prints a date the user never chose.
+  - Named every resume download Lastname_Firstname_Resume_Company from the server rather than the browser, so the naming convention lives in one place, and allowlisted the characters because company names arrive from parsed postings into a response header.
+  - Modeled two simultaneously-true graduation dates as one resume with a render-time selector instead of a second file, so an early and a standard track cannot drift apart and every other fact stays shared by construction.
+  - Implemented JWT authentication with bcrypt-hashed passwords and scoped every record to its owner through a foreign-keyed user_id, guarding all routes by default with fail-safe router-level dependencies and proving isolation with cross-user tests.
+  - Grew the tracker into a multi-user product with each user's master resume stored in the database and a React resume builder (a guided wizard for first-time entry, a scrollable editor for later edits), where a career-stage setting renders the same content as either a student or professional layout through the same locked template.
+  - Added a requirements-match feature that compares a posting's extracted requirements against the stored master resume with Claude and reports a met, partial, or missing verdict with cited evidence for each, computing the totals in application code rather than trusting the model to count and recording an explicit unknown for any item the model skips so a dropped answer cannot inflate the score.
+  - Extended requirement matching to parse a posting's required and preferred qualification lists separately and report them apart, so the headline score reflects the hard gates while the preferred list surfaces what actually differentiates candidates.
+  - Built a Gmail ingestion pipeline spanning a home Raspberry Pi and the production droplet, where n8n handles only OAuth and polling while the tracker owns classification, matching, and staging, authenticated by a separate service-token path with a constant-time comparison that rejects every call when no token is configured.
+  - 'Designed the email pipeline to propose rather than decide: a classified message stages a suggested status change for one-click review instead of flipping it, and stages the candidate applications instead of guessing when it matches more than one, because a wrong silent status change is invisible until a deadline has already passed.'
+  - Added a status-history timeline recording every change and whether it came from a click or an email, so an application that reached an interview before a rejection reads as its real path instead of collapsing to a single current status.
+  - Migrated the database from SQLite to PostgreSQL behind an env-driven connection URL, gating the SQLite-only migration workarounds by dialect and verifying the full migration chain on Postgres so the same code runs on both.
+  - Layered the backend into thin routers, a service layer for business logic, and Pydantic request/response schemas, with dependency-injected DB sessions and an in-memory SQLite test suite that never touches the real database.
+  - Persisted reviewed tailored resumes as immutable, append-only versions per application in a foreign-keyed table, keeping tailoring a draft step that the user reviews and saves explicitly so nothing is auto-submitted.
+  - Collapsed a three-layer interface of stacked slide-over panels and a modal into a single-layer view swap with tabs, keeping both tabs mounted behind CSS so switching between them neither discards unsaved edits nor re-runs a paid model call.
+  - Added an opt-in grouping view that collects several applications to one employer under a shared header, reconciling inconsistent company spellings through a shared normalization function and ordering groups by their soonest deadline.
+  - Introduced a Vitest suite for the frontend's pure logic (duplicate matching, status lists, grouping) alongside the existing pytest suite, writing the tests around the failure modes that silently produce wrong output rather than around coverage.
+  - Built an AI resume-tailoring pipeline that selects and rephrases bullets from a YAML master resume against a job description using Claude (Opus via structured outputs, constrained to never invent content), then renders a one-page PDF through a locked Jinja and WeasyPrint template, separating content from format so the model cannot alter layout.
+  - 'Deployed to production on a DigitalOcean droplet (Ubuntu): the built React frontend and FastAPI backend are served same-origin behind Caddy, the backend runs under systemd, and the site is exposed over HTTPS through a Cloudflare Tunnel with no open ports or public IP, backed by nightly pg_dump database backups.'
+  - Automated deployment with a GitHub Actions pipeline so every push to main rebuilds, runs migrations, and restarts the app on the droplet, connecting as a least-privilege deploy user allowed only a single scoped sudo command.
+- name: Wearable Motion Classifier (MotionSense)
+  tools:
+  - Python
+  - Raspberry Pi
+  - AWS
+  - scikit-learn
+  - React
+  - Docker
+  links:
+  - github.com/Lethanial-Leveille/motionsense
+  dates: March 2026 – April 2026
+  bullets:
+  - Raised activity classification accuracy **from ~85% to 99.5%** by replacing hand-tuned thresholds with a scikit-learn Random Forest (100 trees, 80/20 split) trained on 1,074 labeled samples across 3 activity types from raw accelerometer and gyroscope data.
+  - Built the wearable capture path on a Raspberry Pi 5 and MPU6050 6-axis IMU sampling accelerometer and gyroscope at 20 Hz over I2C, reducing each 1-second sliding window to the 6 statistical features the model is trained on.
+  - Streamed classified readings from the wearable through a fully serverless pipeline (MQTT to AWS IoT Core to Lambda to DynamoDB to API Gateway), surfacing them in a Dockerized React and Recharts dashboard.
+- name: Life OS
+  tools:
+  - n8n
+  - Docker Compose
+  - Cloudflare Tunnel
+  - GitHub GraphQL API
+  - Notion API
+  - Claude API
+  - Gmail API
+  - JavaScript
+  - Raspberry Pi 5
+  links: []
+  dates: April 2026 – Present
+  bullets:
+  - Built a self-hosted personal automation platform on a Raspberry Pi 5 running n8n (Docker Compose, restart-always) that orchestrates a weekly self-review pipeline across the GitHub GraphQL, Notion, Anthropic Claude, and Gmail APIs, running 24/7 independent of any laptop.
+  - Wired a Sunday 6am Eastern cron pipeline that pulls trailing-7-day commit contributions from the GitHub GraphQL API with dynamic date expressions, flattens a 157+ block Notion context doc into markdown, and prompts Claude Sonnet 4.6 for a structured six-field review.
+  - Parsed the model response into discrete fields written to a Notion database row (queryable date, summary, and question properties) plus six body blocks that respect Notion's 2000-character-per-block limit, and delivered an HTML review email via the Gmail API over OAuth2.
+  - Exposed the stack over HTTPS at automation.lethanial.com via Cloudflare Tunnel (no port forwarding or static IP), sharing one tunnel with the MILES backend on the same Pi, and migrated Gmail auth from an SMTP app password to OAuth2 once the public domain was live.
+  - Externalized the Claude prompt to a Notion page so context edits require no workflow changes, and generated the email subject as a separate sub-70-character hook to lift open rate on a self-sent accountability email.
+activities:
+- organization: Prep Academy
+  role: Test Prep Tutor
+  location: Remote
+  dates: August 2026 – Present
+  bullets:
+  - Tutoring **3 students** in ACT English, Reading, and Math and SAT Math and Reading across 60 to 90 minute sessions, plus teaching Standard English Conventions to a group, building each student a plan targeted at the specific question types they miss.
