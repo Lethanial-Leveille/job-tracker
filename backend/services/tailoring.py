@@ -87,6 +87,10 @@ What you MAY do:
   should read as a list of figures.
   One span per bullet, never two. Keep it under about 8 words and never bold a
   whole bullet or a whole clause.
+  EXCEPTION: bullets in `activities` never carry a bold span at all. Their
+  numbers are small ones (a handful of students, a couple of events), and bolding
+  a small number next to a page of percentages and millisecond timings drags the
+  eye to the weakest figure on the resume and weakens every other span.
 
 The final resume MUST fit on a single page, and it must also FILL that page. A
 resume that stops three quarters of the way down looks like there was nothing
