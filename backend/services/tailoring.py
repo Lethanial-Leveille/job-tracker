@@ -66,12 +66,16 @@ What you MAY do:
   accomplishment bullets: lead with an action verb and state what was built and
   the result or impact (the "accomplished X by doing Y, measured by Z" pattern)
   whenever the facts already support it.
-- Size every bullet to FILL the lines it occupies. Aim for two full lines, roughly
-  38 to 46 words. A bullet that spills onto a third line to carry three words
-  wastes a whole line, and one that stops halfway through its second line leaves a
-  ragged gap; both read as unconsidered. If a bullet falls short, pull another
-  real detail for that same entry from the master to fill it out rather than
-  padding with adjectives. If it runs long, cut a clause, never a number.
+- Write each claim in as few words as it honestly takes, then adjust the wording
+  so the bullet ENDS FLUSH at the bottom of its last line. One line or two are
+  both fine; length is whatever the claim needs, not a target to hit.
+  NEVER pad a bullet with a subordinate clause to reach a line. A bullet that
+  stops two words into its last line should be tightened until that line
+  disappears, not extended until the line fills.
+- One idea per bullet: what was broken or missing, what you built, what changed.
+  Do NOT chain a second accomplishment onto the end with "and" or "backed by" —
+  a bullet carrying two achievements sells neither. If both are worth printing,
+  they are two bullets; if only one is, drop the other.
 - Write numbers as NUMERALS, not words: "4 import flows", not "four import
   flows". They scan faster and cost fewer characters. Percentages take the symbol.
 - Reorder each project's `tools` list and each `skills` group so the most
