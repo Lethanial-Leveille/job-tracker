@@ -47,7 +47,7 @@ education:
     coursework:
       - Data Structures and Algorithms
       - Computer Organization
-      - Discrete Structures
+      - Discrete Mathematics
     # President's Honor Roll (Spring 2026) is real and lives in master_resume.yaml.
     # Dropped here to hold the two-line education grid; first thing back if a
     # line frees up.
@@ -59,10 +59,10 @@ experience:
     location: Singapore
     dates: June 2026 – July 2026
     bullets:
-      - "Replaced 4 duplicate contact import flows with 1 shared review screen so users confirm who gets added before anything is billed."
-      - "Fixed a background refresh logging **30 fake usage events per user per minute**, inflating the adoption metric it was judged on."
-      - "Added signup source tracking across 3 repositories, closing a gap on the Google login path that carries **51% of signups**."
-      - "Cut a **4% duplicate rate** in contact imports by claiming each record exactly once in the database, verified under parallel load."
+      - "Replaced 4 prospect import flows with 1 review screen so users pick who gets imported before anyone is added or charged."
+      - "Found a background refresh silently logging **30 fake usage events** per minute, inflating the number the feature was judged on."
+      - "Made every signup traceable to its marketing channel, including the Google path that carries **51% of signups** and recorded none."
+      - "Stopped the same prospect being imported twice, cutting a **4% duplicate rate** by letting only one import claim each record."
 projects:
   # Function first, codename in parentheses: "M.I.L.E.S." alone tells a recruiter
   # nothing, and its expansion (Modular Intelligent Learning and Execution
@@ -72,8 +72,8 @@ projects:
     links: [github.com/Lethanial-Leveille/miles]
     dates: April 2026 – Present
     bullets:
-      - "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first version."
-      - "Traced a broken speaker verification path to 4 defects: a mic trigger that never fired, a corrupted enrollment sample, gain leaving 7 of 16 bits unused, and a loop that could not exit. Reached **zero false rejections across 94 attempts**."
+      - "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms** by streaming speech straight to the audio device."
+      - "Traced a broken speaker verification path to 4 separate defects, reaching **zero false rejections across 94 attempts**."
       - "Shipped a JWT-authenticated FastAPI backend and SwiftUI iOS client reachable through a Cloudflare Tunnel with no open ports."
   - name: Job Application Tracker (Prowl)
     tools: [FastAPI, SQLAlchemy 2.0, PostgreSQL, React, TypeScript]

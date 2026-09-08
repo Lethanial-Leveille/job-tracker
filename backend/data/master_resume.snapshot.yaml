@@ -16,7 +16,7 @@ education:
   coursework:
   - Data Structures and Algorithms
   - Computer Organization
-  - Discrete Structures
+  - Discrete Mathematics
   - Computational Linear Algebra
 skills:
 - category: Languages
@@ -66,11 +66,11 @@ experience:
   dates: June 2026 – July 2026
   descriptor: B2B sales outreach automation platform
   bullets:
-  - Merged 4 separate contact import paths into 1 review screen so users see exactly who will be added before anything is saved or billed, backed by a preview endpoint that assembles the list without writing any records.
-  - Found a background refresh logging **30 fake usage events per user per minute**, quietly inflating the adoption number the feature was being judged on, and limited logging to real foreground activity.
-  - Added signup source tracking across 3 repositories so the team could tell which marketing channel each new account came from, including the Google login path that carries **51% of signups** and previously recorded nothing.
+  - Replaced 4 prospect import flows with 1 review screen so users pick who gets imported before anyone is added or charged.
+  - Found a background refresh silently logging **30 fake usage events** per minute, inflating the number the feature was judged on.
+  - Made every signup traceable to its marketing channel, including the Google path that carries **51% of signups** and recorded none.
   - 'Rewrote the message thread scrolling as a state machine, fixing **4 bugs at once**: flicker on open, losing your place when older messages load in above you, a slow request overwriting the wrong conversation, and pages loading twice.'
-  - Cut a **4% duplicate rate** in contact imports, 40 bad rows per 1,000, by making the import safe to rerun so each record is claimed exactly once at the database level, verified with tests that ran imports in parallel and interrupted them partway.
+  - Stopped the same prospect being imported twice, cutting a **4% duplicate rate** by letting only one import claim each record.
   - Raised **diff coverage from 36% to 100%** against the CI gate by extracting the timing-sensitive decision logic out of a 6,500 line component into pure, unit-tested helpers.
   - Built the backing import API in NestJS, adding a preview endpoint that stages candidates without saving them and a single-use atomic claim so two clicks of Import cannot create the same contacts twice.
   - Built onboarding checklist behavior in the React and TypeScript app, including an impersonation-safe, cross-tab gate that stops a setup step from checking itself off before the user has actually opened it.
