@@ -410,6 +410,18 @@ def cap_bold_spans(tailored: Resume) -> list[str]:
             if capped != bullet:
                 entry.bullets[i] = capped
                 changed.append(f"{label} bullet {i + 1}")
+
+    # Activities carry NO bold at all, so they get stripped rather than capped.
+    # The prompt says so and the master seeds a counter-example (the tutoring
+    # bullet banks "**3 students**"), which is exactly the setup where asking
+    # nicely fails: a small number bolded beside a page of percentages and
+    # millisecond timings pulls the eye to the weakest figure on the resume.
+    for activity in tailored.activities:
+        for i, bullet in enumerate(activity.bullets):
+            stripped = _BOLD_SPAN.sub(r"\1", bullet)
+            if stripped != bullet:
+                activity.bullets[i] = stripped
+                changed.append(f"{activity.organization} bullet {i + 1} (bold removed)")
     return changed
 
 

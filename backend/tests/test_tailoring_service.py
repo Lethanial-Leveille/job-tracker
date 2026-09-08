@@ -586,3 +586,38 @@ def test_a_long_descriptor_falls_back_to_its_own_line() -> None:
     # Fallback prints it on its own line, never as a parenthetical as well.
     assert f"({long})" not in html
     assert html.count(long) == 1
+
+
+def test_bold_is_stripped_from_activities_entirely() -> None:
+    """Not capped to one span like a job bullet: removed outright.
+
+    The master banks the tutoring bullet with "**3 students**" marked, so this
+    is the case that actually occurs rather than a hypothetical one.
+    """
+    r = Resume(
+        contact=Contact(name="Lee"),
+        activities=[
+            Experience(
+                organization="Prep Academy",
+                role="Tutor",
+                bullets=["Tutoring **3 students** in ACT English and SAT Math."],
+            )
+        ],
+    )
+
+    changed = cap_bold_spans(r)
+
+    assert r.activities[0].bullets[0] == "Tutoring 3 students in ACT English and SAT Math."
+    assert any("Prep Academy" in c for c in changed)
+
+
+def test_an_unbolded_activity_bullet_is_left_alone() -> None:
+    r = Resume(
+        contact=Contact(name="Lee"),
+        activities=[
+            Experience(organization="Prep Academy", role="Tutor", bullets=["No bold here."])
+        ],
+    )
+
+    assert cap_bold_spans(r) == []
+    assert r.activities[0].bullets[0] == "No bold here."
