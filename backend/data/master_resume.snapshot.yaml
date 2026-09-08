@@ -100,7 +100,7 @@ projects:
   dates: April 2026 – Present
   bullets:
   - Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first working version, by streaming ElevenLabs TTS straight to ALSA, with Whisper.cpp transcription and openWakeWord detection at 90.4% recall.
-  - 'Traced months of failed voice recognition to 4 compounding defects: a mic trigger that never fired, a corrupted enrollment sample, gain leaving 7 of 16 bits unused, and a loop that could not exit. Reached **zero false rejections across 94 attempts**.'
+  - 'Isolated 4 compounding defects behind a broken speaker verification path: a mic trigger that never fired, a corrupted enrollment sample, gain leaving 7 of 16 bits unused, and a loop that could not exit. Reached **zero false rejections across 94 attempts**.'
   - Built hybrid memory retrieval over a 233-memory corpus, fusing keyword search with semantic vector search through **reciprocal rank fusion at 31 ms per query**, so two differently-scaled rankings vote without either being rescaled onto the other.
   - Shipped a JWT-authenticated FastAPI backend (REST and WebSocket) and a zero-dependency SwiftUI iOS client with Face ID and Keychain-stored tokens, deployed as 3 systemd services reachable globally through a Cloudflare Tunnel with no open ports.
   - Added custom wake-word detection via openWakeWord (90.4% recall), on-device Whisper.cpp speech-to-text, and speaker verification through 256-dimensional voice embeddings (cosine similarity, 0.65 threshold).
