@@ -82,7 +82,7 @@ projects:
     links: [github.com/Lethanial-Leveille/job-tracker]
     dates: July 2026 – Present
     bullets:
-      - "Built the job tracker I apply with: it parses a pasted posting with the Claude API and tailors my resume against it, rendering a one page PDF through a locked Jinja and WeasyPrint template so the model rewrites content but never layout."
+      - "Built a multi-user job tracker that parses a pasted posting with the Claude API and tailors each user's stored master resume against it, rendering a one page PDF through a **locked Jinja and WeasyPrint template** so the model rewrites content but never layout."
       - "Cut a routine status update from **5 interactions to 2** with an in-place editable cell driven by an optimistic update that rolls back on failure, and trimmed a 14-value status enum to a 6-value working set in the UI rather than by migration."
       - "Automated releases with **GitHub Actions** so every push to main rebuilds, migrates, and restarts the app on a DigitalOcean droplet behind Caddy and a Cloudflare Tunnel, connecting as a least-privilege deploy user limited to 1 scoped sudo command."
   - name: Wearable Motion Classifier (MotionSense)
@@ -100,6 +100,6 @@ skills:
   - category: Frameworks & Libraries
     items: [React, Next.js, FastAPI, NestJS, SQLAlchemy, SwiftUI]
   - category: Cloud & DevOps
-    items: ["AWS (Lambda, DynamoDB)", Docker, PostgreSQL, GitHub Actions, Cloudflare Tunnel, Linux/systemd]
+    items: ["AWS (Lambda, DynamoDB)", Docker, PostgreSQL, GitHub Actions, Cloudflare Tunnel, n8n, Linux]
   - category: Hardware & Embedded
     items: [Raspberry Pi 5, MPU6050 IMU, I2C, Whisper.cpp, ONNX]
