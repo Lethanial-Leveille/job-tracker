@@ -47,11 +47,13 @@ What you MAY do:
 - Drop the least relevant projects so the whole resume fits on ONE page. Keep at
   most the 3 strongest, most relevant projects. Always keep every professional
   experience entry.
-- For each entry you keep, select and reorder its bullets, keeping ONLY the 2
-  strongest and most relevant. Rephrase them into strong accomplishment
-  bullets: lead with an action verb and state what was built and the result or
-  impact (the "accomplished X by doing Y, measured by Z" pattern) whenever the
-  facts already support it.
+- For each entry you keep, select and reorder its bullets, strongest and most
+  relevant first. Give every professional EXPERIENCE entry 3 bullets and every
+  PROJECT 2. Drop to 2 on an experience entry only when the master genuinely has
+  no third bullet worth the space, never to save room. Rephrase them into strong
+  accomplishment bullets: lead with an action verb and state what was built and
+  the result or impact (the "accomplished X by doing Y, measured by Z" pattern)
+  whenever the facts already support it.
 - Size every bullet to FILL the lines it occupies. Aim for two full lines, roughly
   38 to 46 words. A bullet that spills onto a third line to carry three words
   wastes a whole line, and one that stops halfway through its second line leaves a
@@ -74,8 +76,11 @@ What you MAY do:
   for THIS job, which may differ from the one already marked in the master.
   One span per bullet, never two, and never bold a whole bullet.
 
-The final resume MUST fit on a single page. It is better to cut a weaker bullet
-or project than to overflow. When in doubt, cut.
+The final resume MUST fit on a single page, and it must also FILL that page. A
+resume that stops three quarters of the way down looks like there was nothing
+more to say, which is the opposite of the impression it exists to make. Those
+pull against each other, so aim high and trust the counts above: overflow is
+measured and trimmed after you return, but a short page is not fixed for you.
 
 What you MUST NOT do — these are hard rules, never break them:
 - NEVER invent. Do not add any metric, number, technology, tool, company, date,
@@ -175,6 +180,21 @@ def tailor_resume(
 # How far trimming may go before it would start gutting the resume rather than
 # tightening it. Below these, a resume is better off overflowing and being fixed
 # by hand than silently reduced to a stub.
+#
+# This floor is the BACKSTOP for the prompt, not a target. The prompt asks for 3
+# bullets on every experience entry and 2 on every project, deliberately more
+# than the page may hold, because the pipeline can only ever remove: nothing here
+# grows a resume that came back short, so a model told to be conservative leaves
+# the bottom quarter of the page blank and no later step notices. Asking high and
+# trimming down is the only direction that has a correction step.
+#
+# Note what that means for the cut order below: with projects sitting AT this
+# floor, they are filtered out of `trimmable` entirely, so the 3rd experience
+# bullet is the first thing any overflow takes. That is the right trade even
+# though it undoes the extra bullet, because the alternative at that point is
+# losing a whole project, and one bullet is the cheaper loss. It does mean the
+# 3-bullet experience entry is a nice-to-have that only survives while the page
+# has room for it.
 _MIN_BULLETS_PER_ENTRY = 2
 _MIN_PROJECTS = 2
 
