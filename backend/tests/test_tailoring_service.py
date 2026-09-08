@@ -26,6 +26,7 @@ from schemas.resume import (
 from services.resume_render import (
     count_lines_containing,
     count_pages,
+    count_skill_lines,
     render_html,
     resolve_inline_descriptors,
 )
@@ -621,3 +622,80 @@ def test_an_unbolded_activity_bullet_is_left_alone() -> None:
 
     assert cap_bold_spans(r) == []
     assert r.activities[0].bullets[0] == "No bold here."
+
+
+# --- Skills rows are one line ------------------------------------------------
+
+
+def _resume_with_skills(*groups: tuple[str, list[str]]) -> Resume:
+    return Resume(
+        contact=Contact(name="Lee"),
+        skills=[SkillGroup(category=c, items=list(i)) for c, i in groups],
+    )
+
+
+def test_a_wrapping_skills_row_is_trimmed_to_one_line() -> None:
+    """The row that shipped two lines: 11 Cloud & DevOps items off the master."""
+    r = _resume_with_skills(
+        (
+            "Cloud & DevOps",
+            [
+                "PostgreSQL", "MongoDB", "Docker", "Docker Compose",
+                "GitHub Actions", "Cloudflare Tunnel", "n8n", "Postman",
+                "Git/GitHub", "MQTT", "Kubernetes",
+            ],
+        )
+    )
+    assert count_skill_lines(r) == [2]
+
+    fitted, cuts = fit_to_one_page(r)
+
+    assert count_skill_lines(fitted) == [1]
+    assert any("dropped skill" in c for c in cuts)
+
+
+def test_a_long_parenthetical_is_shortened_before_any_item_is_dropped() -> None:
+    """One wide entry must not cost the items beside it.
+
+    "AWS (IoT Core, Lambda, DynamoDB, API Gateway)" is as wide as four ordinary
+    skills, so trimming its examples is what buys the line back; dropping items
+    would spend GitHub Actions to keep AWS service names.
+    """
+    r = _resume_with_skills(
+        (
+            "Cloud & DevOps",
+            [
+                "AWS (IoT Core, Lambda, DynamoDB, API Gateway)",
+                "PostgreSQL", "MongoDB", "Docker", "Docker Compose",
+                "GitHub Actions",
+            ],
+        )
+    )
+    assert count_skill_lines(r) == [2]
+
+    fitted, cuts = fit_to_one_page(r)
+
+    assert count_skill_lines(fitted) == [1]
+    assert fitted.skills[0].items[0] == "AWS (IoT Core, Lambda)"
+    assert "GitHub Actions" in fitted.skills[0].items
+    assert any("shortened" in c for c in cuts)
+
+
+def test_a_skills_row_that_already_fits_is_left_alone() -> None:
+    r = _resume_with_skills(("Languages", ["Python", "C++", "SQL"]))
+
+    fitted, cuts = fit_to_one_page(r)
+
+    assert fitted.skills[0].items == ["Python", "C++", "SQL"]
+    assert cuts == []
+
+
+def test_a_skills_row_is_never_trimmed_to_nothing() -> None:
+    """A category with no items reads as broken; a short one just reads short."""
+    r = _resume_with_skills(
+        ("Cloud & DevOps", ["A" * 90, "B" * 90, "C" * 90, "D" * 90])
+    )
+
+    fitted, _ = fit_to_one_page(r)
+
+    assert len(fitted.skills[0].items) >= 3

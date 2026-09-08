@@ -28,7 +28,11 @@ from anthropic import Anthropic
 
 from config import Settings
 from schemas.resume import Resume
-from services.resume_render import count_lines_containing, count_pages
+from services.resume_render import (
+    count_lines_containing,
+    count_pages,
+    count_skill_lines,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -244,6 +248,12 @@ _MAX_COURSEWORK_LINES = 1
 # loop's decision to make, not this one's.
 _MIN_COURSEWORK = 1
 
+# A skills row is one line. Two-line rows are the most expensive wrap on the
+# page: they cost a line without adding a fact a reader weighs, and the line
+# comes straight out of the bullets. Never trim a row to nothing — a category
+# with no items is worse than a short one.
+_MIN_SKILL_ITEMS = 3
+
 
 def _trim_coursework_to_one_line(resume: Resume) -> list[str]:
     """Drop the least relevant courses until the line stops wrapping. Mutates.
@@ -270,14 +280,87 @@ def _trim_coursework_to_one_line(resume: Resume) -> list[str]:
     return cuts
 
 
+# How many examples survive inside a parenthetical. Two reads as "and things
+# like these"; four reads as a list and costs the width of a whole extra skill.
+_MAX_PARENTHETICAL_EXAMPLES = 2
+
+
+def _shorten_one_parenthetical(items: list[str]) -> tuple[str, str] | None:
+    """Trim the widest over-long parenthetical in `items`. Mutates it.
+
+    Returns (before, after) for logging, or None when there is nothing left to
+    shorten — which is the signal to start dropping whole items instead.
+    """
+    candidates = [
+        (i, item)
+        for i, item in enumerate(items)
+        if " (" in item
+        and item.rstrip().endswith(")")
+        and len(item.split(" (", 1)[1].rstrip(")").split(",")) > _MAX_PARENTHETICAL_EXAMPLES
+    ]
+    if not candidates:
+        return None
+    # Widest first: it is the one actually costing the line.
+    index, item = max(candidates, key=lambda pair: len(pair[1]))
+    base, rest = item.split(" (", 1)
+    examples = [e.strip() for e in rest.rstrip(")").split(",")]
+    kept = ", ".join(examples[:_MAX_PARENTHETICAL_EXAMPLES])
+    items[index] = f"{base} ({kept})"
+    return item, items[index]
+
+
+def _trim_skills_to_one_line(resume: Resume) -> list[str]:
+    """Drop the least relevant items until every skills row is one line. Mutates.
+
+    Measured, not counted, for the same reason coursework is: whether a row wraps
+    depends on the width of its strings, not their number. "AWS (IoT Core,
+    Lambda, DynamoDB, API Gateway)" is worth four ordinary items on its own, so a
+    fixed cap of six would be wrong in both directions.
+
+    Cuts from the END, which is the relevance order both the master and the
+    tailoring prompt maintain, so the least job-relevant item goes first.
+    """
+    cuts: list[str] = []
+    while True:
+        lines = count_skill_lines(resume)
+        # Rows render in declaration order, so index i is skills[i]. A row that
+        # is already one line, or already at the floor, is not a candidate.
+        over = [
+            i
+            for i, n in enumerate(lines)
+            if n > 1 and len(resume.skills[i].items) > _MIN_SKILL_ITEMS
+        ]
+        if not over:
+            return cuts
+        # Take from the worst offender first so one pathological row cannot make
+        # every other row pay for it.
+        target = resume.skills[max(over, key=lambda i: lines[i])]
+
+        # Shorten a long parenthetical BEFORE dropping any item. One entry like
+        # "AWS (IoT Core, Lambda, DynamoDB, API Gateway)" is as wide as four
+        # ordinary skills, so trimming its examples buys back the line while
+        # costing nothing a reader weighs — whereas dropping items would spend
+        # GitHub Actions and Cloudflare Tunnel to keep four AWS service names.
+        # Same rule the tailoring prompt gives the model, applied where the base
+        # resume can reach it too.
+        shortened = _shorten_one_parenthetical(target.items)
+        if shortened is not None:
+            before, after = shortened
+            cuts.append(f"shortened {before} to {after} in {target.category}")
+            continue
+
+        dropped = target.items.pop()
+        cuts.append(f"dropped skill: {dropped} from {target.category}")
+
+
 def fit_to_one_page(resume: Resume) -> tuple[Resume, list[str]]:
     """Trim `resume` until it renders to one page. Returns the copy and the cuts.
 
     Cut order, cheapest loss first:
 
-    0. Coursework down to a single line, applied ALWAYS rather than only on
-       overflow: it is the least specific content on the page and does not earn
-       a second line even when there is room.
+    0. Coursework AND every skills row down to a single line, applied ALWAYS
+       rather than only on overflow: neither earns a second line even when there
+       is room, and a wrapped skills row costs a bullet for nothing.
     1. The LAST bullet of whichever entry has the most, down to a floor of two.
        Last is principled rather than arbitrary: tailoring returns each entry's
        bullets in its own relevance order, strongest first, so the last bullet of
@@ -298,6 +381,9 @@ def fit_to_one_page(resume: Resume) -> tuple[Resume, list[str]]:
 
     # Always, whether or not the resume overflows: coursework earns one line.
     cuts.extend(_trim_coursework_to_one_line(work))
+
+    # Always, same reasoning: so does every skills row.
+    cuts.extend(_trim_skills_to_one_line(work))
 
     # Always: an activity prints at most one bullet. The prompt asks for this and
     # the model mostly complies, but a second bullet on a club entry costs the

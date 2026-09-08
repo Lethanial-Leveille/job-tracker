@@ -158,6 +158,37 @@ def count_lines_containing(resume: Resume, needle: str) -> int:
     return 0
 
 
+def count_skill_lines(resume: Resume) -> list[int]:
+    """Rendered line count of each skills VALUE row, in order.
+
+    Not count_lines_containing: the skills grid is a flex row whose label and
+    values are SEPARATE boxes, so searching for "Cloud & DevOps" finds the bold
+    label, a fixed 112pt column that never wraps and always answers 1. That
+    mistake once shipped a two-line skills row. Matching the `skill-items` class
+    measures the half that actually wraps.
+    """
+    document = HTML(string=render_html(resume)).render(
+        stylesheets=[CSS(filename=str(_CSS_PATH))]
+    )
+    counts: dict[int, int] = {}
+    order: list[int] = []
+    for page in document.pages:
+        for box in _walk(page._page_box):
+            if type(box).__name__ != "LineBox":
+                continue
+            element = getattr(box, "element", None)
+            if element is None:
+                continue
+            if "skill-items" not in (element.attrib.get("class") or ""):
+                continue
+            key = id(element)
+            if key not in counts:
+                counts[key] = 0
+                order.append(key)
+            counts[key] += 1
+    return [counts[k] for k in order]
+
+
 def count_pages(resume: Resume) -> int:
     """How many pages this Resume actually renders to.
 
