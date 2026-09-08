@@ -8,6 +8,7 @@ render are the content-vs-format split layered over it (see decisions.md,
 - GET  /resume/master : the user's saved master Resume (404 if none yet).
 - PUT  /resume/master : create-or-replace the user's master Resume.
 - POST /resume/tailor : JD text in  -> tailored Resume JSON out (runs Opus).
+- GET  /resume/base   : the master reduced to a one-page general resume.
 - POST /resume/render : a Resume in -> PDF bytes out (pure, no API call).
 
 Tailor and render are split on purpose. The tailored Resume is the reviewable
@@ -30,7 +31,7 @@ from models.user import User
 from schemas.resume import Resume, TailorRequest
 from schemas.resume_version import ResumeVersionCreate, ResumeVersionRead
 from services.application import get_application
-from services.resume import get_master, upsert_master
+from services.resume import build_base_resume, get_master, upsert_master
 from services.resume_render import render_resume_pdf, resume_filename
 from services.resume_version import list_resume_versions, save_resume_version
 from services.tailoring import tailor_resume
@@ -97,6 +98,31 @@ def tailor(
     if result is None:
         raise HTTPException(status_code=502, detail="Could not tailor the resume")
     return result
+
+
+@router.get("/base", response_model=Resume)
+def get_base_resume(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Resume:
+    """The general-purpose resume: what to print when there is no job to tailor.
+
+    DERIVED from the master on every call rather than stored. A second stored
+    resume would be a second thing to edit and a second thing to drift, which is
+    the same problem the master YAML already causes against the database.
+
+    Returns the Resume rather than a PDF so the existing POST /resume/render
+    handles the bytes, including the `grad_date` switch. One render path, so a
+    base resume and a tailored resume can never disagree about format.
+    """
+    master = get_master(db, user.id)
+    if master is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No master resume saved yet. Build one first.",
+        )
+    base, _ = build_base_resume(Resume.model_validate(master.resume_json))
+    return base
 
 
 @router.post("/render")

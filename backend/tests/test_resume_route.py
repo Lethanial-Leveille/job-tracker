@@ -26,7 +26,8 @@ from database import get_db
 from dependencies import get_current_user
 from main import app
 from models.user import User
-from schemas.resume import Contact, Resume
+from schemas.resume import Contact, Experience, Project, Resume
+from services.resume_render import count_pages
 
 
 def _fake_settings() -> Settings:
@@ -171,3 +172,63 @@ def test_grad_date_override_switches_which_date_prints(client) -> None:
 def test_an_unknown_grad_date_value_is_rejected(client) -> None:
     r = client.post("/resume/render?grad_date=whenever", json=_renderable())
     assert r.status_code == 422
+
+
+# --- The derived general resume ----------------------------------------------
+
+
+def _oversized_master_row() -> MagicMock:
+    """A bank far too big to print: 6 bullets a job, 5 projects, 9 tools each.
+
+    Deliberately oversized so the response proves a reduction happened rather
+    than echoing back whatever it was given.
+    """
+    resume = Resume(
+        contact=Contact(name="Lee"),
+        experience=[
+            Experience(
+                organization="Fuzzy AI",
+                role="SWE Intern",
+                bullets=["Shipped a thing that mattered and moved a number"] * 6,
+            )
+        ],
+        projects=[
+            Project(
+                name=f"Project {i}",
+                bullets=["Built a thing worth describing at length"] * 5,
+                tools=[f"tool{n}" for n in range(9)],
+            )
+            for i in range(5)
+        ],
+    )
+    row = MagicMock()
+    row.resume_json = resume.model_dump()
+    return row
+
+
+@patch("routers.resume.get_master")
+def test_base_resume_is_derived_and_fits_one_page(
+    mock_get_master: MagicMock, client: TestClient
+) -> None:
+    mock_get_master.return_value = _oversized_master_row()
+
+    resp = client.get("/resume/base")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["projects"]) <= 3
+    assert len(body["experience"][0]["bullets"]) <= 4
+    assert all(len(p["tools"]) <= 5 for p in body["projects"])
+    # The guarantee the endpoint exists to make.
+    assert count_pages(Resume.model_validate(body)) == 1
+
+
+@patch("routers.resume.get_master")
+def test_base_resume_404s_before_a_master_exists(
+    mock_get_master: MagicMock, client: TestClient
+) -> None:
+    mock_get_master.return_value = None
+
+    resp = client.get("/resume/base")
+
+    assert resp.status_code == 404
