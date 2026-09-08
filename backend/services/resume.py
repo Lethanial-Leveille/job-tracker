@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from models.resume import MasterResume
 from schemas.resume import Resume
-from services.tailoring import fit_to_one_page
+from services.tailoring import cap_bold_spans, fit_to_one_page
 
 
 def get_master(db: Session, user_id: str) -> MasterResume | None:
@@ -98,5 +98,12 @@ def build_base_resume(master: Resume) -> tuple[Resume, list[str]]:
     # A base resume is never tailored to a posting, so it carries no summary for
     # the same reason a tailored one does not.
     base.summary = None
+
+    # The same emphasis rules the tailored path enforces. This is not belt-and-
+    # braces: the base resume never passes through the model, so nothing else
+    # would apply them, and the master banks the tutoring bullet with
+    # "**3 students**" marked — a small number bolded beside a page of
+    # percentages and millisecond timings.
+    cap_bold_spans(base)
 
     return fit_to_one_page(base)

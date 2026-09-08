@@ -232,3 +232,29 @@ def test_base_resume_404s_before_a_master_exists(
     resp = client.get("/resume/base")
 
     assert resp.status_code == 404
+
+
+@patch("routers.resume.get_master")
+def test_base_resume_strips_bold_from_activities(
+    mock_get_master: MagicMock, client: TestClient
+) -> None:
+    """The base resume never passes through the model, so nothing else would
+    apply the emphasis rules — and the master banks "**3 students**" marked."""
+    resume = Resume(
+        contact=Contact(name="Lee"),
+        activities=[
+            Experience(
+                organization="Prep Academy",
+                role="Tutor",
+                bullets=["Tutoring **3 students** in ACT English and SAT Math."],
+            )
+        ],
+    )
+    row = MagicMock()
+    row.resume_json = resume.model_dump()
+    mock_get_master.return_value = row
+
+    resp = client.get("/resume/base")
+
+    assert resp.status_code == 200
+    assert "**" not in resp.json()["activities"][0]["bullets"][0]
