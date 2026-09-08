@@ -27,7 +27,7 @@ import re
 from anthropic import Anthropic
 
 from config import Settings
-from schemas.resume import Resume
+from schemas.resume import Resume, TailoredResume
 from services.resume_render import (
     count_lines_containing,
     count_pages,
@@ -144,11 +144,24 @@ def tailor_resume(
         max_tokens=8192,
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_content}],
-        output_format=Resume,
+        # TailoredResume, not Resume: `activities` is restored from the master
+        # below, and including it here pushed the compiled grammar past the API's
+        # size limit, failing every call. See the TailoredResume docstring.
+        output_format=TailoredResume,
     )
-    result = response.parsed_output
-    if result is None:
+    draft = response.parsed_output
+    if draft is None:
         return None
+
+    # Widen the draft back to a full Resume. Activities come straight from the
+    # master because the model never sees them: they are selected positionally
+    # and dropped as a whole section, so there is nothing for it to choose.
+    fields = draft.model_dump()
+    # Discard any activities that came back. TailoredResume has no such field, so
+    # this only bites if the schema is ever widened again, and silently trusting
+    # model-authored activities is exactly what the split exists to prevent.
+    fields.pop("activities", None)
+    result = Resume(**fields, activities=master.activities)
 
     # career_stage is a fixed rendering setting, not content. The model could
     # omit it (it then defaults to "student") or guess it, so we overwrite it

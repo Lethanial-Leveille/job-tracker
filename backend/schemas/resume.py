@@ -138,15 +138,22 @@ class Project(BaseModel):
     bullets: list[str] = []
 
 
-class Resume(BaseModel):
-    """A complete resume. Section order here is the order the renderer prints.
+class TailoredResume(BaseModel):
+    """Everything tailoring is allowed to produce: a Resume minus `activities`.
 
-    What tailoring MAY change: rewrite `summary`; reorder/select `projects` and
-    `experience` entries; select/reorder/rephrase `bullets`, including where each
-    one places its single **bold** span; select `coursework` and reorder `skills`.
-    What it may NOT change: any name, org, role, date, degree, gpa, or project
-    name — and it may never add a bullet, skill, or number that isn't already in
-    the master (hard rule #2, never invent).
+    This is the shape handed to Claude as a structured-output schema, and the
+    split exists for two reasons that happen to agree.
+
+    The domain reason: activities are not tailorable. They are selected
+    positionally (one bullet each) and dropped as a whole section when the page
+    is tight, so there is nothing for the model to choose. Like `career_stage`
+    and `descriptor`, they are restored from the master afterwards.
+
+    The hard reason: structured outputs compile the schema into a grammar, and
+    adding `activities` pushed it over the API's size limit — every tailoring
+    call failed with "The compiled grammar is too large" until this split. Adding
+    another list-of-objects field to THIS model risks the same failure, so a new
+    field belongs on Resume below unless the model genuinely has to write it.
     """
 
     # Rendering ARRANGEMENT, not content: "student" puts education first with GPA
@@ -171,6 +178,20 @@ class Resume(BaseModel):
     skills: list[SkillGroup] = []
     experience: list[Experience] = []
     projects: list[Project] = []      # the full bank; tailoring keeps a subset
+
+
+class Resume(TailoredResume):
+    """A complete resume: everything tailoring writes, plus the parts it cannot.
+
+    Section order here is the order the renderer prints. What tailoring MAY
+    change: rewrite `summary`; reorder/select `projects` and `experience`
+    entries; select/reorder/rephrase `bullets`, including where each one places
+    its single **bold** span; select `coursework` and reorder `skills`. What it
+    may NOT change: any name, org, role, date, degree, gpa, or project name — and
+    it may never add a bullet, skill, or number that isn't already in the master
+    (hard rule #2, never invent).
+    """
+
     # Leadership, clubs, tutoring. Same shape as `experience` and printed last,
     # under its own heading. It is the LOWEST-VALUE section on the page, so the
     # one-page trim drops it whole rather than printing a partial entry: half an

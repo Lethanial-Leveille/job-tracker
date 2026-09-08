@@ -22,6 +22,7 @@ from schemas.resume import (
     Project,
     Resume,
     SkillGroup,
+    TailoredResume,
 )
 from services.resume_render import (
     count_lines_containing,
@@ -54,15 +55,43 @@ def _fake_master() -> Resume:
 
 @patch("services.tailoring.Anthropic")
 def test_returns_tailored_resume_on_success(mock_anthropic: MagicMock) -> None:
-    expected = Resume(contact=Contact(name="Lee"), summary="Tailored for this job.")
-    # client.messages.parse(...).parsed_output -> our canned Resume
+    # The API returns a TailoredResume (no `activities`), which the service
+    # widens back to a Resume using the master's own activities.
+    expected = TailoredResume(
+        contact=Contact(name="Lee"), summary="Tailored for this job."
+    )
+    # client.messages.parse(...).parsed_output -> our canned draft
     mock_client = MagicMock()
     mock_client.messages.parse.return_value.parsed_output = expected
     mock_anthropic.return_value = mock_client
 
     result = tailor_resume(_fake_master(), "some job description", _fake_settings())
 
-    assert result == expected
+    # A full Resume comes back, carrying the draft's content plus the activities
+    # the model never saw.
+    assert isinstance(result, Resume)
+    assert result.summary == expected.summary
+    assert result.contact == expected.contact
+    assert result.activities == []
+
+
+@patch("services.tailoring.Anthropic")
+def test_activities_come_from_the_master_not_the_model(
+    mock_anthropic: MagicMock,
+) -> None:
+    """The model never sees activities, so they must survive the round trip."""
+    master = _fake_master()
+    master.activities = [Experience(organization="Prep Academy", role="Tutor")]
+    mock_client = MagicMock()
+    mock_client.messages.parse.return_value.parsed_output = TailoredResume(
+        contact=Contact(name="Lee")
+    )
+    mock_anthropic.return_value = mock_client
+
+    result = tailor_resume(master, "some job description", _fake_settings())
+
+    assert result is not None
+    assert [a.organization for a in result.activities] == ["Prep Academy"]
 
 
 @patch("services.tailoring.Anthropic")
