@@ -180,6 +180,10 @@ projects:
   - Raised activity classification accuracy **from ~85% to 99.5%** with a Random Forest trained on 1,074 labeled samples.
   - Built the capture path on a Raspberry Pi 5 and MPU6050 IMU, sampling at **20 Hz** over I2C into 6 features per window.
   - Streamed classified readings to a React dashboard through a serverless pipeline of MQTT, IoT Core, Lambda and DynamoDB.
+  - Made the wearable work no matter how the wrist strap was rotated, by reducing the sensor's 3 axes to a single number.
+  - Replaced 2 hand-written rule classifiers that guessed wrong whenever one activity turned into another with a trained model.
+  - Tested the model on **211 readings it had never seen**, getting every one of the 3 activities right at least 99% of the time.
+  - Sent readings from the wrist straight to cloud storage with no server in between, refreshing the dashboard every **4 seconds**.
 - name: Life OS
   tools:
   - n8n
