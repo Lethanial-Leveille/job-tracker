@@ -90,7 +90,7 @@ export function ApplicationRow({
       </div>
 
       {/* Deadline */}
-      <DeadlineCell deadline={application.deadline} />
+      <DeadlineCell deadline={application.deadline} status={application.status} />
 
       {/* Actions: open the posting (independent link) + a detail affordance. */}
       <div className="flex items-center justify-end gap-0.5">

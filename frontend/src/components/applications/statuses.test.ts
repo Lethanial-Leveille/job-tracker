@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ALL_STATUSES, MORE_STATUSES, QUICK_STATUSES, isPreSubmit, menuStatuses } from "./statuses";
+import {
+  ALL_STATUSES,
+  MORE_STATUSES,
+  QUICK_STATUSES,
+  isPreSubmit,
+  isSubmitted,
+  menuStatuses,
+} from "./statuses";
 
 describe("status lists", () => {
   it("covers every backend value exactly once between quick and more", () => {
@@ -36,5 +43,25 @@ describe("isPreSubmit", () => {
     expect(isPreSubmit("ready")).toBe(true);
     expect(isPreSubmit("applied")).toBe(false);
     expect(isPreSubmit("offer")).toBe(false);
+  });
+});
+
+describe("isSubmitted — whether the deadline still means anything", () => {
+  it("is true once a row is out the door", () => {
+    expect(isSubmitted("applied")).toBe(true);
+    expect(isSubmitted("rejected")).toBe(true);
+    expect(isSubmitted("offer")).toBe(true);
+  });
+
+  it("is false for the pre-submit stages", () => {
+    expect(isSubmitted("discovered")).toBe(false);
+    expect(isSubmitted("ready")).toBe(false);
+  });
+
+  it("is false for missed_deadline, which is NOT the negation of isPreSubmit", () => {
+    // That row was never applied to and never can be, and its passed deadline is
+    // the whole reason it carries that status — so it keeps its date.
+    expect(isSubmitted("missed_deadline")).toBe(false);
+    expect(isPreSubmit("missed_deadline")).toBe(false);
   });
 });

@@ -61,6 +61,31 @@ export function isPreSubmit(status: ApplicationStatus): boolean {
   return PRE_SUBMIT.includes(status);
 }
 
+// Went out the door, however it ended. NOT simply the negation of isPreSubmit:
+// `missed_deadline` is in neither set, because that row was never applied to and
+// never can be. It is the one status where a passed deadline is the whole point
+// of the row rather than noise, so it must keep its date.
+//
+// Mirrors the SUBMITTED set in backend/scripts/backfill_deadlines.py; the two
+// answer the same question and must not drift.
+const SUBMITTED: ApplicationStatus[] = [
+  "applied",
+  "assessment",
+  "recruiter_engaged",
+  "phone_screen",
+  "technical_interview",
+  "onsite",
+  "offer",
+  "accepted",
+  "declined",
+  "rejected",
+  "ghosted",
+];
+
+export function isSubmitted(status: ApplicationStatus): boolean {
+  return SUBMITTED.includes(status);
+}
+
 // The options for one row's status menu.
 //
 // A row can be sitting on a status that is not in the short list (an older row

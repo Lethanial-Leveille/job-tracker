@@ -86,12 +86,13 @@ const BLANK: ReviewForm = {
 
 // Postings often carry no deadline ("rolling", "until filled"), and an empty
 // deadline means the row sorts last and quietly falls off the bottom of the
-// list. So default to a self-imposed one a week out. Local time, not UTC:
+// list. So default to a self-imposed one 3 days out — a week was long enough
+// that the row sank back down before it nagged. Local time, not UTC:
 // toISOString() would roll the date backwards for anyone west of Greenwich,
 // which is every evening here.
 function defaultDeadline(): string {
   const d = new Date();
-  d.setDate(d.getDate() + 7);
+  d.setDate(d.getDate() + 3);
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${month}-${day}`;
