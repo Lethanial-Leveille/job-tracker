@@ -193,6 +193,28 @@ def tailor_resume(
         if project.name in master_links:
             project.links = master_links[project.name]
 
+    # EDUCATION IDENTITY FACTS, restored wholesale.
+    #
+    # The prompt forbids changing them and the model does it anyway: on
+    # 2026-09-09 a tailored resume came back with `dates` and `dates_alternate`
+    # SWAPPED, which silently inverts the graduation-date switch — ticking "later
+    # grad date" then printed the earlier one. Nothing downstream can catch that,
+    # because both values are real dates and either looks plausible on a page.
+    #
+    # `coursework` is deliberately NOT restored: selecting relevant courses is
+    # one of the few things tailoring is explicitly asked to do.
+    master_education = {e.institution: e for e in master.education}
+    for entry in result.education:
+        source = master_education.get(entry.institution)
+        if source is None:
+            continue
+        entry.degree = source.degree
+        entry.location = source.location
+        entry.dates = source.dates
+        entry.dates_alternate = source.dates_alternate
+        entry.gpa = source.gpa
+        entry.honors = list(source.honors)
+
     # Enforce never-invent before anything else looks at the draft, so a
     # fabricated skill cannot survive into the PDF or a saved version.
     invented = strip_invented_entries(master, result)

@@ -728,3 +728,51 @@ def test_a_skills_row_is_never_trimmed_to_nothing() -> None:
     fitted, _ = fit_to_one_page(r)
 
     assert len(fitted.skills[0].items) >= 3
+
+
+@patch("services.tailoring.Anthropic")
+def test_education_dates_are_restored_when_the_model_swaps_them(
+    mock_anthropic: MagicMock,
+) -> None:
+    """The real failure: a tailored resume came back with `dates` and
+    `dates_alternate` swapped, which inverts the graduation-date switch. Both
+    values are real dates, so nothing downstream can tell it went wrong."""
+    master = Resume(
+        contact=Contact(name="Lee"),
+        education=[
+            Education(
+                institution="University of Florida",
+                degree="B.S. Computer Engineering",
+                dates="Expected May 2028",
+                dates_alternate="Expected May 2029",
+                gpa="3.77",
+                coursework=["Data Structures", "Discrete Mathematics"],
+            )
+        ],
+    )
+    swapped = TailoredResume(
+        contact=Contact(name="Lee"),
+        education=[
+            Education(
+                institution="University of Florida",
+                degree="B.S. Computer Engineering",
+                dates="Expected May 2029",
+                dates_alternate="Expected May 2028",
+                gpa="3.77",
+                # Coursework IS tailorable, so the model's selection must survive.
+                coursework=["Discrete Mathematics"],
+            )
+        ],
+    )
+    mock_client = MagicMock()
+    mock_client.messages.parse.return_value.parsed_output = swapped
+    mock_anthropic.return_value = mock_client
+
+    result = tailor_resume(master, "some job description", _fake_settings())
+
+    assert result is not None
+    education = result.education[0]
+    assert education.dates == "Expected May 2028"
+    assert education.dates_alternate == "Expected May 2029"
+    # The one education field tailoring is allowed to choose.
+    assert education.coursework == ["Discrete Mathematics"]
