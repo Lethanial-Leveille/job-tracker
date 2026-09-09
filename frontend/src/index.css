@@ -31,12 +31,48 @@
   --color-ink-soft: #9e97ac; /* body, role text */
   --color-ink-muted: #67616f; /* column labels, section headers, meta */
 
+  /* --- v3 additions (docs/PROWL-UI-HANDOFF.md) ------------------------------
+   * Added ALONGSIDE the names above rather than renaming them. A global rename
+   * touches every component in one commit with no way to review it piecemeal;
+   * components migrate to these as they are touched. When nothing references an
+   * old name any more, delete it. */
+
+  /* Surfaces, finer-grained than base/surface/surface-hover allowed. */
+  --color-surface-alt: #09070d; /* stats strip, inset bands — DARKER than base */
+  --color-raised: #150f20; /* active nav item, pressed segment */
+  --color-overlay: #100c16; /* command palette, modals */
+
+  /* Borders, lightest to heaviest. The old --color-line sat between row-row and
+   * line-frame and was doing all three jobs at once. */
+  --color-line-row: #131019; /* between table rows — barely there */
+  --color-line-frame: #1a1522; /* card and panel frames */
+  --color-line-ctrl: #241d31; /* inputs, buttons, segmented controls */
+
+  /* Ink. Five steps, because a dense table needs more than three: an org name,
+   * a role, a column label and a retired value are four different weights. */
+  --color-ink-body: #d6d2e0; /* body copy */
+  --color-ink-2: #a29bb0; /* secondary */
+  --color-ink-3: #8b84a0; /* tertiary, role cells */
+  --color-ink-label: #5c5570; /* uppercase labels */
+  --color-ink-spent: #443e56; /* retired values, hints */
+  --color-ink-ghost: #3a3448; /* em dashes, disabled */
+
+  /* Status ink, GREYSCALE on purpose. Urgency is carried by brightness, never
+   * by hue — design.md allows exactly one accent and spends it elsewhere. */
+  --color-stage-live: #cfc9dc; /* assessment, phone screen, interview */
+  --color-stage-ring: #edeaf4; /* their dot ring, and 21d+ silence */
+  --color-stage-sent: #6e6880; /* applied */
+  --color-stage-early: #2e2740; /* discovered dot */
+
   /* The scarce purple. */
   --color-accent: #8b5cf6;
   --color-accent-hover: #9d6ff7;
   --color-accent-press: #7c3aed;
   --color-accent-subtle: rgba(139, 92, 246, 0.1); /* active-row fill */
   --color-accent-line: rgba(139, 92, 246, 0.28); /* purple hairline: focused step, captured card */
+  --color-accent-edge: #8b5cf6; /* button border, offer dot */
+  --color-accent-text: #a78bfa; /* links, "Suggested" label */
+  --color-accent-soft: #c4b5fd; /* offer status text, link hover */
 
   /* Shape language: crisp frames, softer interactive elements. */
   --radius-frame: 6px; /* cards, table container, nav */
@@ -51,6 +87,11 @@
    * out, and the single biggest reason the UI read as generated. A bare
    * `shadow-glow` in a diff is a bug. */
   --shadow-glow: 0 0 20px -6px rgba(139, 92, 246, 0.45);
+  /* The offer dot is the ONE place design.md allows a permanent glow: it is the
+   * single "win" state, and one glowing dot in 64 rows is the entire point. Not
+   * an interaction state, so it is exempt from the rule above — and it is the
+   * only exemption. */
+  --shadow-offer-dot: 0 0 11px -1px rgba(139, 92, 246, 0.95);
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, Helvetica, Arial, sans-serif;
@@ -74,11 +115,40 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* What makes the date and count columns line up. Proportional digits are
+     * the reason a column of numbers looks ragged even in a monospaced-looking
+     * layout, and this is one line against fixing it per-component forever. */
+    font-variant-numeric: tabular-nums;
   }
 
   /* Purple selection, in keeping with the accent-is-focus idea. */
   ::selection {
     background-color: var(--color-accent-press);
     color: var(--color-ink);
+  }
+}
+
+@layer base {
+  /* One focus ring, everywhere, required rather than optional. Browsers hide
+   * the default outline for mouse users via :focus-visible, so this only ever
+   * appears for keyboard and assistive navigation — which is exactly who needs
+   * it now that j/k/⏎/e drive the list. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-accent-edge);
+    outline-offset: 1px;
+    border-radius: var(--radius-interactive);
+  }
+
+  /* Motion is a response to input, never an entrance. Data never animates in:
+   * a table that fades up on every fetch reads as slow even when it is fast. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
