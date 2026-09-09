@@ -23,13 +23,13 @@ export function ResumeEditor({
 }: ShellProps) {
   return (
     <div className="flex flex-col">
-      <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-line bg-base/95 px-4 py-4 backdrop-blur sm:px-6">
+      <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-line bg-base px-4 py-4 sm:px-6 relative before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-10 before:bg-base">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onClose}
             aria-label="Back"
-            className="grid size-8 place-items-center rounded-interactive text-ink-muted transition-colors hover:text-ink"
+            className="grid size-8 shrink-0 place-items-center rounded-interactive border border-line-ctrl bg-surface text-ink-muted transition-colors hover:border-line-strong hover:bg-surface-hover hover:text-ink"
           >
             <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M15 18l-6-6 6-6" />

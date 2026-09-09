@@ -105,7 +105,7 @@ export function Sidebar({
             type="button"
             onClick={onCollapse}
             aria-label="Collapse sidebar"
-            className="ml-auto grid size-7 shrink-0 place-items-center rounded-interactive text-ink-muted transition-colors hover:text-ink"
+            className="ml-auto grid size-7 shrink-0 place-items-center rounded-interactive border border-line-ctrl bg-surface text-ink-muted transition-colors hover:border-line-strong hover:bg-surface-hover hover:text-ink"
           >
             <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M11 4 6 9l5 5" />
