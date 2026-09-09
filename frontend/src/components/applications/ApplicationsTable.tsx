@@ -48,11 +48,14 @@ export function ApplicationsTable({
     />
   );
 
+  // NOT overflow-hidden. A non-visible overflow on ANY ancestor captures
+  // position: sticky and parks the column header mid-list, so the container
+  // keeps visible overflow and the corners are rounded on the header instead.
   return (
-    <div className="overflow-hidden rounded-frame border border-line-strong bg-surface">
+    <div className="rounded-frame border border-line-strong bg-surface">
       {/* Column header */}
       <div
-        className={`${HEADER_GRID} border-b border-line px-5 py-3 text-[11px] font-medium uppercase tracking-wider text-ink-muted`}
+        className={`${HEADER_GRID} sticky top-0 z-20 rounded-t-frame border-b border-line bg-surface px-4 py-2 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-spent`}
       >
         {(grouped ? GROUPED_COLUMNS : COLUMNS).map((label) => (
           <span key={label}>{label}</span>

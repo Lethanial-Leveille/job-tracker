@@ -44,7 +44,7 @@ export function ApplicationRow({
       onClick={open}
       onKeyDown={onKeyDown}
       aria-label={`Open ${application.organization} — ${application.role_or_program}`}
-      className={`${ROW_GRID} group w-full cursor-pointer border-l-2 px-5 py-2.5 text-left transition-colors focus:outline-none focus-visible:bg-surface-hover ${
+      className={`${ROW_GRID} group w-full cursor-pointer border-l-2 px-4 py-[7px] text-left transition-colors focus:outline-none focus-visible:bg-surface-hover ${
         selected
           ? "border-l-accent bg-accent-subtle"
           : "border-l-transparent hover:bg-surface-hover"
