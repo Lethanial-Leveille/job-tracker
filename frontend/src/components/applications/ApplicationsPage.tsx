@@ -8,6 +8,7 @@ import {
   matchesStatusFilter,
   type StatusFilter,
 } from "./ApplicationsToolbar";
+import { StatsStrip } from "./StatsStrip";
 import { SuggestionsPanel } from "./SuggestionsPanel";
 import { findView } from "./views";
 import { useListKeyboard } from "./useListKeyboard";
@@ -112,6 +113,8 @@ export function ApplicationsPage({
           </button>
         </div>
       </header>
+
+      <StatsStrip applications={applications} />
 
       <SuggestionsPanel applications={applications} onResolved={refetch} />
 

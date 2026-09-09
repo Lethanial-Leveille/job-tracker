@@ -80,7 +80,15 @@ export function Sidebar({
   const activeView = searchParams.get("view");
 
   return (
-    <aside className="relative z-10 flex h-screen flex-col gap-8 border-r border-line-strong bg-surface/60 px-4 py-6 backdrop-blur-sm">
+    <aside
+      // The geometric wash lives in the CHROME, never behind data. Two radial
+      // gradients at 3.5-7% — texture you feel rather than see, per design.md.
+      style={{
+        backgroundImage:
+          "radial-gradient(120% 70% at 8% 0%, rgb(139 92 246 / 0.07), transparent 58%), radial-gradient(90% 50% at 95% 100%, rgb(139 92 246 / 0.035), transparent 70%)",
+      }}
+      className="relative z-10 flex h-screen flex-col gap-8 border-r border-line-strong bg-surface/60 px-4 py-6 backdrop-blur-sm"
+    >
       {/* Wordmark */}
       <div className="flex items-center gap-3 px-2">
         <LogoMark />
