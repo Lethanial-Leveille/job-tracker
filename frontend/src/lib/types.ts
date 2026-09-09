@@ -120,6 +120,10 @@ export interface Application {
   // The cached requirement-match report, or null if never computed for this
   // row. Written only by POST /applications/{id}/fit, never by create or edit.
   fit_report: FitReport | null;
+  // Derived server-side from the status history: the FIRST time this row
+  // reached `applied`. Null until it has been. Not a stored column — see
+  // backend/services/application.py.
+  applied_at: string | null; // ISO datetime
   created_at: string; // ISO datetime
   updated_at: string; // ISO datetime
 }

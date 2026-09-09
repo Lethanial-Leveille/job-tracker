@@ -86,6 +86,23 @@ export function isSubmitted(status: ApplicationStatus): boolean {
   return SUBMITTED.includes(status);
 }
 
+// Finished, however it finished. There is nothing left to wait for, so these
+// rows stop counting silence and retire the deadline column entirely.
+//
+// `declined` is here with `rejected`: the outcome differs but the row is equally
+// over. `missed_deadline` is here too — it is the one closed status that never
+// went out the door, which is why isSubmitted excludes it.
+const CLOSED: ApplicationStatus[] = [
+  "rejected",
+  "ghosted",
+  "declined",
+  "missed_deadline",
+];
+
+export function isClosed(status: ApplicationStatus): boolean {
+  return CLOSED.includes(status);
+}
+
 // The options for one row's status menu.
 //
 // A row can be sitting on a status that is not in the short list (an older row

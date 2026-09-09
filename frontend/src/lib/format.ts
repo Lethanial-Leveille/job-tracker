@@ -44,6 +44,7 @@ export interface DeadlineDisplay {
   date: string; // "Jul 14"
   relative: string; // "Tomorrow", "in 3 days", "5 days ago"
   urgency: Urgency;
+  days: number; // whole days until; negative once it has passed
 }
 
 // Turn an ISO date string into an absolute label plus a relative one. Date-only
@@ -74,5 +75,23 @@ export function formatDeadline(
 
   const urgency: Urgency = days < 0 ? "overdue" : days <= 3 ? "soon" : "normal";
 
-  return { date, relative, urgency };
+  return { date, relative, urgency, days };
+}
+
+// Whole days since an ISO timestamp. Used for the "quiet Nd" counter that
+// replaces the deadline once an application is out the door: the deadline stops
+// being actionable the moment you apply, but how long you have been waiting
+// never stops mattering.
+export function daysSince(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+}
+
+// "Sep 2" from a full ISO timestamp. formatDeadline cannot do this: it parses a
+// date-only string on purpose (so a deadline never shifts a day across
+// timezones), and applied_at is a real timestamp.
+export function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
 }

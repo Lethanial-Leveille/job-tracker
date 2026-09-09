@@ -16,8 +16,11 @@ interface Props {
 
 // The first column changes meaning when grouped: the employer heading carries
 // the company, so the rows beneath it carry the posted title instead.
-const COLUMNS = ["Organization", "Role", "Status", "Deadline"];
-const GROUPED_COLUMNS = ["Position", "Role", "Status", "Deadline"];
+// "Deadline / Sent" because the column changes meaning per row: a deadline
+// while the application is still open, the sent date and silence counter once it
+// is out the door. See DeadlineCell.
+const COLUMNS = ["Organization", "Role", "Status", "Deadline / Sent"];
+const GROUPED_COLUMNS = ["Position", "Role", "Status", "Deadline / Sent"];
 
 // The table container is a structural frame: crisp rounding, a real border, a
 // dark surface. The header row is muted uppercase labels — chrome, not data.
