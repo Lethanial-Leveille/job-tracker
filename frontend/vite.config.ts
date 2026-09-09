@@ -1,4 +1,7 @@
-import { defineConfig } from "vite";
+// defineConfig comes from vitest/config, not vite: vite's own UserConfig has no
+// `test` key, so `tsc -b` fails the build even though vite itself runs fine.
+// vitest/config re-exports vite's defineConfig widened to include it.
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
