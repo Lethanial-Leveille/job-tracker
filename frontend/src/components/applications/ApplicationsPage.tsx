@@ -141,14 +141,63 @@ export function ApplicationsPage({
       )}
 
       {loading ? (
-        <StatePanel>Loading applications…</StatePanel>
+        // A skeleton, not the word "Loading". The table's shape is known before
+        // the data arrives, so drawing it keeps the page from jumping when rows
+        // land and tells you what is coming.
+        <TableSkeleton />
       ) : error ? (
-        <StatePanel>Could not load applications: {error}</StatePanel>
-      ) : visible.length === 0 ? (
         <StatePanel>
-          {applications.length === 0
-            ? "No applications yet. Add your first one to start the pipeline."
-            : "No applications match this filter."}
+          <p className="text-ink">Could not load applications.</p>
+          <p className="mt-1 text-ink-muted">{error}</p>
+          <button
+            type="button"
+            onClick={refetch}
+            className="mt-4 rounded-interactive border border-line-ctrl bg-surface px-3.5 py-1.5 text-[13px] font-medium text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
+          >
+            Try again
+          </button>
+        </StatePanel>
+      ) : visible.length === 0 ? (
+        // Three different nothings, which want three different messages: an
+        // empty account, a filter that matched nothing, and a search that did.
+        // "No applications match this filter" while you are staring at a search
+        // box you just typed into is the app failing to notice what you did.
+        <StatePanel>
+          {applications.length === 0 ? (
+            <>
+              <p className="text-ink">No applications yet.</p>
+              <p className="mt-1 text-ink-muted">
+                Paste a posting and Prowl fills in the rest.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/applications/new")}
+                className="mt-4 rounded-interactive bg-accent px-3.5 py-1.5 text-[13px] font-medium text-ink transition-colors hover:bg-accent-hover"
+              >
+                Add your first application
+              </button>
+            </>
+          ) : search.trim() !== "" ? (
+            <>
+              <p className="text-ink">Nothing matches “{search.trim()}”.</p>
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="mt-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+              >
+                Clear search
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-ink">Nothing here right now.</p>
+              <p className="mt-1 text-ink-muted">
+                {activeView
+                  ? `No applications are in “${activeView.label}”.`
+                  : "No applications match this filter."}
+              </p>
+            </>
+          )}
         </StatePanel>
       ) : (
         <ApplicationsTable
@@ -211,7 +260,29 @@ export function ApplicationsPage({
 function StatePanel({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid place-items-center rounded-frame border border-line-strong bg-surface px-6 py-16 text-center text-sm text-ink-muted">
-      {children}
+      <div>{children}</div>
+    </div>
+  );
+}
+
+// Eight rows at the real row height, so the page does not resize when data
+// lands. Animation is a pulse on the bars only: the frame stays still, because
+// a whole table breathing reads as broken rather than loading.
+function TableSkeleton() {
+  return (
+    <div className="rounded-frame border border-line-strong bg-surface">
+      <div className="border-b border-line px-4 py-2">
+        <div className="h-2 w-24 rounded bg-line-ctrl" />
+      </div>
+      <div className="divide-y divide-line-row">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 px-4 py-[7px]">
+            <div className="h-2.5 flex-1 animate-pulse rounded bg-line-ctrl motion-reduce:animate-none" />
+            <div className="h-2.5 w-28 animate-pulse rounded bg-line motion-reduce:animate-none" />
+            <div className="h-2.5 w-20 animate-pulse rounded bg-line motion-reduce:animate-none" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
