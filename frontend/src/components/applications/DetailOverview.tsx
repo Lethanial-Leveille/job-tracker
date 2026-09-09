@@ -3,13 +3,14 @@ import type { Application, FitReport, RoleFamily } from "../../lib/types";
 import { ROLE_FAMILIES } from "../../lib/types";
 import { updateApplication } from "../../lib/api";
 import { Select } from "../ui/Select";
+import { FactGrid } from "./FactGrid";
 import { FitSection } from "./FitSection";
 
 // The Overview tab: the application's own fields, editable in place, plus what
 // the parser pulled out of the posting.
 //
-// This replaces ApplicationFormModal. The fields are always live rather than
-// sitting behind an Edit button that opened a modal on top of a drawer — the
+// This replaces ApplicationFormModal. The fields no longer sit permanently open:
+// a read-only fact grid leads, and the form is one disclosure below it — the
 // modal existed only to hold inputs, and a full page has room for them. The
 // save bar appears only once something actually differs, so the page reads as
 // information until you change it, then admits it has unsaved work.
@@ -62,6 +63,9 @@ export function DetailOverview({ application, onSaved, onDelete }: Props) {
   const initial = formFrom(application);
   const [form, setForm] = useState<FormState>(initial);
   const [saving, setSaving] = useState(false);
+  // Closed by default: the fact grid above answers the common question, and the
+  // form is for the rarer one.
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Seeded from the row's cached report, then updated locally when you rerun the
   // check — the freshly returned report is the same object the server just
@@ -105,8 +109,23 @@ export function DetailOverview({ application, onSaved, onDelete }: Props) {
 
   return (
     <div className="flex flex-col gap-8 pb-24">
+      {/* Facts first, form second. The page used to open with six editable
+          inputs, which answers "what would you like to change?" when the
+          question being asked is "what is this and where does it stand?".
+          Editing is one click away rather than permanently open. */}
       <Section title="Details">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FactGrid application={application} />
+
+        <button
+          type="button"
+          onClick={() => setEditing((v) => !v)}
+          aria-expanded={editing}
+          className="self-start text-[12px] text-ink-muted transition-colors hover:text-ink"
+        >
+          {editing ? "Hide fields" : "Edit details"}
+        </button>
+
+        <div className={editing ? "grid grid-cols-1 gap-4 sm:grid-cols-2" : "hidden"}>
           <label className={labelClass}>
             Organization
             <input
