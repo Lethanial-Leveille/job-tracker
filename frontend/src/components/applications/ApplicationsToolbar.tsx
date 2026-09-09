@@ -22,6 +22,10 @@ interface Props {
   onStatusFilter: (value: StatusFilter) => void;
   grouped: boolean;
   onGrouped: (value: boolean) => void;
+  // Counts per tab, so the control says how much is behind each one rather than
+  // making you click to find out. Computed by the caller, which already has the
+  // list; passing it down avoids this component needing the data.
+  counts: Record<StatusFilter, number>;
 }
 
 const STATUS_TABS: { value: StatusFilter; label: string }[] = [
@@ -37,10 +41,12 @@ function Segmented<T extends string>({
   options,
   value,
   onChange,
+  counts,
 }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
+  counts?: Record<string, number>;
 }) {
   return (
     <div className="inline-flex items-center gap-1 rounded-interactive border border-line bg-surface p-1">
@@ -56,6 +62,11 @@ function Segmented<T extends string>({
           }`}
         >
           {opt.label}
+          {counts && (
+            <span className="ml-1.5 text-[10px] tabular-nums text-ink-spent">
+              {counts[opt.value] ?? 0}
+            </span>
+          )}
         </button>
       ))}
     </div>
@@ -67,6 +78,7 @@ export function ApplicationsToolbar({
   onStatusFilter,
   grouped,
   onGrouped,
+  counts,
 }: Props) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -74,25 +86,35 @@ export function ApplicationsToolbar({
         options={STATUS_TABS}
         value={statusFilter}
         onChange={onStatusFilter}
+        counts={counts}
       />
 
       {/* Grouping is opt-in, not the default. The flat list is ordered by
           deadline, and grouping necessarily breaks that global ordering — so it
           is a thing you reach for when looking at one company, not the way the
           pipeline sits at rest. */}
+      {/* A real switch rather than a button that looks pressed. Grouping is a
+          persistent mode, and a mode wants a control that shows its state at
+          rest — a toggled button only reads as on once you compare it to how it
+          looked before. */}
       <button
         type="button"
         onClick={() => onGrouped(!grouped)}
-        aria-pressed={grouped}
-        className={`inline-flex items-center gap-2 rounded-interactive border px-3 py-2 text-[13px] font-medium transition-colors ${
-          grouped
-            ? "border-line-strong bg-surface-hover text-ink"
-            : "border-line bg-surface text-ink-muted hover:text-ink-soft"
-        }`}
+        role="switch"
+        aria-checked={grouped}
+        className="inline-flex items-center gap-2.5 text-[12.5px] text-ink-3 transition-colors hover:text-ink"
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-          <path d="M4 6h16M7 12h13M7 18h13M4 12h.01M4 18h.01" />
-        </svg>
+        <span
+          className={`relative h-3 w-[22px] rounded-full transition-colors ${
+            grouped ? "bg-accent-text" : "bg-stage-sent"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 size-2 rounded-full bg-base transition-all ${
+              grouped ? "left-[12px]" : "left-0.5"
+            }`}
+          />
+        </span>
         Group by company
       </button>
     </div>

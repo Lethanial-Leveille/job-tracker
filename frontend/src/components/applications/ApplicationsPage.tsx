@@ -80,23 +80,46 @@ export function ApplicationsPage({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Counts for the filter tabs. Deliberately over the SEARCHED set, not the raw
+  // list: while a search is active, "Applied 12" beside a list showing three
+  // rows is a number about a list you are not looking at.
+  const tabCounts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const inScope = applications.filter((app) => {
+      if (q) {
+        const hay = `${app.organization} ${app.role_or_program}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return activeView ? activeView.matches(app) : true;
+    });
+    return {
+      all: inScope.length,
+      not_applied: inScope.filter((a) => matchesStatusFilter(a.status, "not_applied")).length,
+      applied: inScope.filter((a) => matchesStatusFilter(a.status, "applied")).length,
+    };
+  }, [applications, search, activeView]);
+
   const keyboard = useListKeyboard({
     applications: visible,
     onOpen: (id) => navigate(`/applications/${id}`),
     onStatusChange: setStatus,
+    onNew: () => navigate("/applications/new"),
   });
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        {/* No count pill and no tagline. The sidebar already carries the count,
-            and a tool its only user opens every day does not need to explain on
-            every screen what it is for. Both were the same information a third
-            and fourth time. */}
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">
+      {/* ONE 48px line, not a 220px header block. The old version stacked a
+          2xl heading over a separate control row, which spent a fifth of the
+          screen restating what the sidebar already says. Title, count, search
+          and the primary action now sit on the same baseline. */}
+      <header className="flex h-12 flex-wrap items-center gap-3">
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-[14px] font-semibold tracking-tight text-ink">
             Applications
           </h1>
+          <span className="text-[11px] tabular-nums text-ink-label">
+            {applications.length}
+          </span>
           {activeView && (
             <button
               type="button"
@@ -110,21 +133,28 @@ export function ApplicationsPage({
           )}
         </div>
 
-        <div className="flex w-full items-center gap-3 sm:w-auto">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search organization or role"
-            className="min-w-0 flex-1 rounded-interactive border border-line bg-surface px-3.5 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:shadow-glow focus:outline-none sm:w-64 sm:flex-none"
-          />
+        <div className="ml-auto flex w-full items-center gap-2.5 sm:w-auto">
+          <div className="relative min-w-0 flex-1 sm:w-[286px] sm:flex-none">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search organization or role"
+              className="h-[29px] w-full rounded-interactive border border-line-ctrl bg-surface pl-3 pr-12 text-[13px] text-ink placeholder:text-ink-label focus:border-accent focus:outline-none"
+            />
+            {/* The chip is honest: ⌘K opens the palette, which searches the
+                same rows. */}
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-line-ctrl px-1 py-px text-[10px] tabular-nums text-ink-spent">
+              ⌘K
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => navigate("/applications/new")}
-            className="inline-flex items-center gap-2 rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink transition-shadow transition-colors hover:bg-accent-hover hover:shadow-glow active:bg-accent-press"
+            className="inline-flex h-[29px] shrink-0 items-center gap-2 rounded-interactive border border-accent-edge bg-accent px-3.5 text-[13px] font-medium text-ink transition-colors hover:bg-accent-hover active:bg-accent-press"
           >
-            <span className="text-base leading-none">+</span>
             New application
+            <span className="text-[10px] opacity-65">N</span>
           </button>
         </div>
       </header>
@@ -134,6 +164,7 @@ export function ApplicationsPage({
       <SuggestionsPanel applications={applications} onResolved={refetch} />
 
       <ApplicationsToolbar
+        counts={tabCounts}
         statusFilter={statusFilter}
         onStatusFilter={setStatusFilter}
         grouped={grouped}
@@ -277,6 +308,8 @@ export function ApplicationsPage({
           <b className="font-medium text-ink-soft">⏎</b> open
           {" · "}
           <b className="font-medium text-ink-soft">e</b> mark applied
+          {" · "}
+          <b className="font-medium text-ink-soft">n</b> new
           {" · "}
           <b className="font-medium text-ink-soft">⌘Z</b> undo
         </span>

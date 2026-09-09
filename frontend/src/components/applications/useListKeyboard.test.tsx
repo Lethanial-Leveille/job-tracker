@@ -24,14 +24,16 @@ function Harness({
   applications,
   onOpen = vi.fn(),
   onStatusChange = vi.fn(),
+  onNew = vi.fn(),
   withInput = false,
 }: {
   applications: Application[];
   onOpen?: (id: string) => void;
   onStatusChange?: (id: string, s: ApplicationStatus) => void;
+  onNew?: () => void;
   withInput?: boolean;
 }) {
-  const kb = useListKeyboard({ applications, onOpen, onStatusChange });
+  const kb = useListKeyboard({ applications, onOpen, onStatusChange, onNew });
   return (
     <div>
       {withInput && <input aria-label="search" />}
@@ -102,6 +104,27 @@ describe("acting", () => {
     );
     await user.keyboard("je");
     expect(onStatusChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("the n shortcut", () => {
+  it("fires even when the list is empty", async () => {
+    // Adding your first application is exactly when you want it, so `n` is
+    // checked before the empty-list guard.
+    const onNew = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness applications={[]} onNew={onNew} />);
+    await user.keyboard("n");
+    expect(onNew).toHaveBeenCalled();
+  });
+
+  it("is ignored while typing in a field", async () => {
+    const onNew = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness applications={rows} onNew={onNew} withInput />);
+    await user.click(screen.getByLabelText("search"));
+    await user.keyboard("nano");
+    expect(onNew).not.toHaveBeenCalled();
   });
 });
 

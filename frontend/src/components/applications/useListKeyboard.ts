@@ -29,6 +29,10 @@ interface Options {
   applications: Application[];
   onOpen: (id: string) => void;
   onStatusChange: (id: string, status: ApplicationStatus) => void;
+  // `n` for a new application. Optional, but the toolbar prints an "N" hint on
+  // the button, and §8 of the handoff forbids advertising what does not exist —
+  // so the hint is only rendered where this is wired.
+  onNew?: () => void;
 }
 
 export interface ListKeyboard {
@@ -49,6 +53,7 @@ export function useListKeyboard({
   applications,
   onOpen,
   onStatusChange,
+  onNew,
 }: Options): ListKeyboard {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [lastChange, setLastChange] = useState<UndoableChange | null>(null);
@@ -75,6 +80,14 @@ export function useListKeyboard({
       }
       if (typingInAField(event.target)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      // Checked BEFORE the empty guard: adding your first application is
+      // exactly what you want the shortcut for when the list is empty.
+      if (event.key === "n" && onNew) {
+        event.preventDefault();
+        onNew();
+        return;
+      }
       if (applications.length === 0) return;
 
       const index = applications.findIndex((a) => a.id === selectedId);
@@ -124,7 +137,7 @@ export function useListKeyboard({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [applications, selectedId, onOpen, onStatusChange, undo, lastChange]);
+  }, [applications, selectedId, onOpen, onStatusChange, onNew, undo, lastChange]);
 
   // A selection pointing at a row that filtering just removed would leave j/k
   // starting over from the top with no visible cursor. Drop it instead.
