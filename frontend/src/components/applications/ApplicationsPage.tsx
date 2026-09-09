@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { Application } from "../../lib/types";
 import type { ApplicationsState } from "../../lib/useApplications";
@@ -8,9 +8,10 @@ import {
   matchesStatusFilter,
   type StatusFilter,
 } from "./ApplicationsToolbar";
+import { CommandPalette } from "./CommandPalette";
 import { StatsStrip } from "./StatsStrip";
 import { SuggestionsPanel } from "./SuggestionsPanel";
-import { findView } from "./views";
+import { SAVED_VIEWS, findView } from "./views";
 import { useListKeyboard } from "./useListKeyboard";
 
 // Deadline ascending with nulls last.
@@ -64,6 +65,20 @@ export function ApplicationsPage({
     // field, and nothing else competes with "what is due next".
     return [...filtered].sort(byDeadline);
   }, [applications, statusFilter, search, activeView]);
+
+  // ⌘K. Registered here rather than inside the palette so the palette can stay
+  // a pure presentational component that is simply absent when closed.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const keyboard = useListKeyboard({
     applications: visible,
@@ -208,6 +223,49 @@ export function ApplicationsPage({
           grouped={grouped}
         />
       )}
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        applications={applications}
+        onOpenApplication={(id) => navigate(`/applications/${id}`)}
+        commands={[
+          {
+            id: "new",
+            label: "New application",
+            hint: "N",
+            run: () => navigate("/applications/new"),
+          },
+          {
+            id: "resume",
+            label: "Go to Resume",
+            run: () => navigate("/resume"),
+          },
+          {
+            id: "general",
+            label: "General resume",
+            run: () => navigate("/resume/base"),
+          },
+          {
+            id: "group",
+            label: grouped ? "Ungroup by company" : "Group by company",
+            run: () => setGrouped((v) => !v),
+          },
+          ...(activeView
+            ? [
+                {
+                  id: "clear-view",
+                  label: `Clear view: ${activeView.label}`,
+                  run: () => navigate("/applications"),
+                },
+              ]
+            : SAVED_VIEWS.map((v) => ({
+                id: `view-${v.key}`,
+                label: `View: ${v.label}`,
+                run: () => navigate(`/applications?view=${v.key}`),
+              }))),
+        ]}
+      />
 
       {/* The keyboard footer, shipped only now that every shortcut it advertises
           actually works — a legend for keys that do nothing is worse than no
