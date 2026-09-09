@@ -118,5 +118,10 @@ class ApplicationRead(ApplicationBase):
     # for this application yet. Read-only: it is written by POST /{id}/fit, not
     # by create or update, so no human-typed schema carries it.
     fit_report: FitReport | None = None
+    # Derived, never stored: the first time this row reached `applied`, read out
+    # of the status history by services/application.py. It exists so the list can
+    # answer "how long have I been waiting" without a per-row timeline fetch.
+    # Optional because a row that has never been applied to has no such event.
+    applied_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

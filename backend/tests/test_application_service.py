@@ -231,3 +231,65 @@ def test_deleting_an_application_keeps_its_status_suggestions(db, user) -> None:
     survivor = db.get(StatusSuggestion, suggestion_id)
     assert survivor is not None
     assert survivor.application_id is None
+
+
+# --- applied_at, derived from status history ---------------------------------
+
+
+def test_applied_at_is_none_before_the_row_is_applied(db, user):
+    created = _make(db, user.id)
+
+    rows = list_applications(db, user.id)
+
+    assert rows[0].id == created.id
+    assert rows[0].applied_at is None
+
+
+def test_applied_at_is_set_once_the_row_reaches_applied(db, user):
+    created = _make(db, user.id)
+    update_application(db, ApplicationUpdate(status="applied"), created.id, user.id)
+
+    assert list_applications(db, user.id)[0].applied_at is not None
+
+
+def test_applied_at_keeps_the_first_applied_not_the_latest(db, user):
+    """A row can re-enter `applied` — an interview falls through and you set it
+    back — and the original submission is the one that dates it."""
+    created = _make(db, user.id)
+    update_application(db, ApplicationUpdate(status="applied"), created.id, user.id)
+    first = list_applications(db, user.id)[0].applied_at
+
+    update_application(db, ApplicationUpdate(status="rejected"), created.id, user.id)
+    update_application(db, ApplicationUpdate(status="applied"), created.id, user.id)
+
+    assert list_applications(db, user.id)[0].applied_at == first
+
+
+def test_listing_stays_two_queries_however_many_rows(db, user):
+    """The reason applied_at is a grouped query rather than a relationship read:
+    the list must not become an N+1. It was one SELECT before this field; it is
+    two now, and it must not grow with the row count."""
+    import sqlalchemy
+    from sqlalchemy import event
+
+    for _ in range(5):
+        created = _make(db, user.id)
+        update_application(db, ApplicationUpdate(status="applied"), created.id, user.id)
+
+    # Read the id BEFORE measuring: the last commit expired the fixture, so
+    # touching user.id inside the window emits a refresh SELECT and counts as a
+    # third query that list_applications never ran.
+    user_id = user.id
+    seen: list[str] = []
+
+    def record(conn, cursor, statement, params, context, executemany):
+        seen.append(statement)
+
+    event.listen(sqlalchemy.engine.Engine, "before_cursor_execute", record)
+    try:
+        rows = list_applications(db, user_id)
+    finally:
+        event.remove(sqlalchemy.engine.Engine, "before_cursor_execute", record)
+
+    assert len(rows) >= 5
+    assert len(seen) == 2, "expected 2 queries, got:\n" + "\n".join(q[:90] for q in seen)
