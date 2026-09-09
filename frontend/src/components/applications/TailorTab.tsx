@@ -311,14 +311,6 @@ export function TailorTab({ application, onStatusChange }: Props) {
               </button>
               <button
                 type="button"
-                onClick={downloadPreview}
-                disabled={!preview || downloading}
-                className={secondaryBtn}
-              >
-                Download PDF
-              </button>
-              <button
-                type="button"
                 onClick={save}
                 disabled={saving || saved}
                 className={secondaryBtn}
@@ -336,17 +328,33 @@ export function TailorTab({ application, onStatusChange }: Props) {
               )}
             </div>
           </div>
-          {/* OUTSIDE the action row on purpose. Inside it, the row's
-              `flex items-center justify-between` made the preview a third flex
-              item sitting beside the buttons and vertically centred, which is
-              not a preview so much as a floating thumbnail. */}
-          {preview && (
-            <PdfPreview
-              blob={preview.blob}
-              loading={downloading}
-              className="mt-4 h-[80vh] w-full"
-            />
-          )}
+        </Section>
+      )}
+
+      {/* Its OWN section, deliberately not nested inside the Draft one.
+          `tailored` is session state: it is null every time you reopen an
+          application, so a preview living inside that block could only ever be
+          seen right after generating a draft. The PDF button on a SAVED version
+          sets the same preview, and on a revisit it silently rendered nothing.
+          Anything that produces a PDF now surfaces here. */}
+      {preview && (
+        <Section title="PDF preview">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-[12px] text-ink-muted">{preview.filename}</span>
+            <button
+              type="button"
+              onClick={downloadPreview}
+              disabled={downloading}
+              className={secondaryBtn}
+            >
+              Download PDF
+            </button>
+          </div>
+          <PdfPreview
+            blob={preview.blob}
+            loading={downloading}
+            className="mt-3 h-[80vh] w-full"
+          />
         </Section>
       )}
 
@@ -384,7 +392,7 @@ export function TailorTab({ application, onStatusChange }: Props) {
                   disabled={downloadingId === v.id}
                   className="rounded-interactive px-2.5 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:bg-surface-hover hover:text-ink disabled:opacity-50"
                 >
-                  {downloadingId === v.id ? "…" : "PDF"}
+                  {downloadingId === v.id ? "…" : "Preview"}
                 </button>
               </div>
             ))}
