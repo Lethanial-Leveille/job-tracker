@@ -2,6 +2,7 @@ import type { Application, ApplicationStatus } from "../../lib/types";
 import { HEADER_GRID } from "./grid";
 import { ApplicationRow } from "./ApplicationRow";
 import { groupByOrganization } from "./grouping";
+import { sectionByUrgency } from "./sections";
 
 interface Props {
   applications: Application[];
@@ -90,13 +91,37 @@ export function ApplicationsTable({
           ))}
         </div>
       ) : (
-        // Called through an arrow, NOT passed to map directly: map hands the
-        // array INDEX as its second argument, which would land in
+        // Ungrouped is not a flat list any more: it is cut into urgency bands,
+        // because deadline order answers "what is due next" and the question
+        // being asked is "what needs me today". Rows already out the door have
+        // no actionable deadline and were interleaved with ones that do.
+        //
+        // renderRow is called through an arrow, NOT passed to map directly: map
+        // hands the array INDEX as its second argument, which would land in
         // `underHeading` and make every row after the first think it sits under
         // a heading, blanking the employer. tsc -b caught this; tsc --noEmit
         // did not.
-        <div className="divide-y divide-line">
-          {applications.map((a) => renderRow(a))}
+        <div>
+          {sectionByUrgency(applications).map((section) => (
+            <div key={section.key}>
+              <div className="flex items-baseline gap-2.5 border-y border-line bg-base px-5 py-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-soft">
+                  {section.label}
+                </span>
+                <span className="text-[10px] tabular-nums text-ink-muted">
+                  {section.applications.length}
+                </span>
+                {section.hint && (
+                  <span className="truncate text-[10.5px] text-ink-muted">
+                    {section.hint}
+                  </span>
+                )}
+              </div>
+              <div className="divide-y divide-line">
+                {section.applications.map((a) => renderRow(a))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
