@@ -6,11 +6,19 @@
 // takes first and second years wants the later one. Getting it backwards is not
 // a wasted shot but an active disqualification in both directions.
 //
-// This is a HINT, never a switch. It reads the posting, suggests, and cites the
-// phrase it matched so the suggestion can be judged rather than trusted. The
-// checkbox stays manual: eligibility text is written by humans in endless
-// variations, and a wrong automatic flip prints a graduation date Lee did not
-// choose. Same instinct as dedupe.ts, which warns and never blocks.
+// The result carries a `basis` saying how it was reached, and the caller uses
+// that to decide whether to APPLY it or merely suggest it:
+//
+//   "standing" — the posting names a class standing outright. The caller
+//     pre-selects the checkbox and says so. Pre-selecting a VISIBLE control
+//     with the matched phrase shown is not a silent flip; it is still reviewed
+//     before anything downloads.
+//   "year" — inferred from a graduation year, which already involves a guess.
+//     Suggest only, never apply.
+//
+// The original rule here was "hint, never a switch", on the grounds that a wrong
+// automatic flip prints a date Lee did not choose. That still holds for the
+// inferred path, which is why the split exists rather than a blanket auto-apply.
 //
 // Pure and synchronous, running on data already in memory. No network, no
 // parse call, no backend change.
@@ -22,6 +30,14 @@ export type GradVariant = "primary" | "alternate";
 export interface GradHint {
   // "primary" = the earlier date (further along). "alternate" = the later one.
   suggest: GradVariant;
+  // How the suggestion was reached, which decides whether it may act on its own.
+  // "standing" — the posting names a class standing ("open to rising
+  //   sophomores"). That is a direct statement of eligibility, so it is safe to
+  //   APPLY, not merely suggest.
+  // "year" — inferred from a graduation year in a sentence about graduating.
+  //   That path already guesses: a range like "December 2028 - June 2029" is
+  //   read by taking the maximum. A guess may suggest; it may not decide.
+  basis: "standing" | "year";
   // The exact phrase from the posting that triggered this, shown to the user.
   // A suggestion you cannot check is a suggestion you either obey blindly or
   // ignore entirely, and both are worse than no suggestion.
@@ -93,10 +109,12 @@ export function gradDateHint(application: Application): GradHint | null {
   for (const raw of sources) {
     const lower = raw.toLowerCase();
     for (const phrase of LATER) {
-      if (lower.includes(phrase)) return { suggest: "alternate", evidence: excerpt(raw) };
+      if (lower.includes(phrase))
+        return { suggest: "alternate", basis: "standing", evidence: excerpt(raw) };
     }
     for (const phrase of EARLIER) {
-      if (lower.includes(phrase)) return { suggest: "primary", evidence: excerpt(raw) };
+      if (lower.includes(phrase))
+        return { suggest: "primary", basis: "standing", evidence: excerpt(raw) };
     }
   }
 
@@ -111,6 +129,7 @@ export function gradDateHint(application: Application): GradHint | null {
     const latest = Math.max(...years);
     return {
       suggest: latest > EARLIER_YEAR ? "alternate" : "primary",
+      basis: "year",
       evidence: excerpt(raw),
     };
   }

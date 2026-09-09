@@ -49,12 +49,24 @@ export function TailorTab({ application, onStatusChange }: Props) {
   // a per-download choice and deliberately NOT remembered or inferred: tailoring
   // is forbidden from picking it, because guessing an eligibility rule out of
   // posting text and guessing wrong prints a date you did not intend.
-  const [laterGradDate, setLaterGradDate] = useState(false);
+  // Computed BEFORE the checkbox state so the state can seed from it. The hint
+  // is pure and derived from the application, so this ordering costs nothing.
+  const gradHint = useMemo(() => gradDateHint(application), [application]);
+  // Auto-apply only an explicit class-standing match ("open to rising
+  // sophomores"). A year-based hint still only suggests, because that path
+  // guesses (a "Dec 2028 - Jun 2029" range is read by taking the maximum) and a
+  // wrong flip prints a graduation date Lee never chose.
+  const autoApplied = gradHint?.basis === "standing";
+  const [laterGradDate, setLaterGradDate] = useState(
+    () => autoApplied && gradHint?.suggest === "alternate",
+  );
+  // True until the user touches the checkbox, so the "set automatically" notice
+  // disappears the moment they take the decision back.
+  const [gradTouched, setGradTouched] = useState(false);
   // The rendered PDF, kept in memory for the inline preview.
   const [preview, setPreview] = useState<{ blob: Blob; filename: string } | null>(null);
   // Read straight from the posting already in memory: no call, no cost. It only
   // suggests, and cites what it matched so the suggestion can be judged.
-  const gradHint = useMemo(() => gradDateHint(application), [application]);
   const hintDisagrees =
     gradHint !== null && (gradHint.suggest === "alternate") !== laterGradDate;
   const [downloading, setDownloading] = useState(false);
@@ -252,7 +264,11 @@ export function TailorTab({ application, onStatusChange }: Props) {
               {/* The hint outranks the idle message only while it disagrees with
                   the current setting, so it reads as something to act on rather
                   than a permanent badge you stop seeing. */}
-              {hintDisagrees && !saved && !actionError
+              {autoApplied && !gradTouched && !saved && !actionError
+                ? `Set to the ${
+                    gradHint?.suggest === "alternate" ? "later" : "earlier"
+                  } grad date automatically — posting says: "${gradHint?.evidence}"`
+                : hintDisagrees && !saved && !actionError
                 ? `This posting suggests the ${
                     gradHint?.suggest === "alternate" ? "later" : "earlier"
                   } grad date: "${gradHint?.evidence}"`
@@ -272,7 +288,10 @@ export function TailorTab({ application, onStatusChange }: Props) {
                 <input
                   type="checkbox"
                   checked={laterGradDate}
-                  onChange={(e) => setLaterGradDate(e.target.checked)}
+                  onChange={(e) => {
+                    setLaterGradDate(e.target.checked);
+                    setGradTouched(true);
+                  }}
                   className="size-3.5 accent-accent"
                 />
                 Later grad date
@@ -316,16 +335,18 @@ export function TailorTab({ application, onStatusChange }: Props) {
                 </button>
               )}
             </div>
-            {/* Only mounts once something has been rendered, so the tab does not
-                show an empty frame before the first Preview press. */}
-            {preview && (
-              <PdfPreview
-                blob={preview.blob}
-                loading={downloading}
-                className="mt-4 h-[70vh]"
-              />
-            )}
           </div>
+          {/* OUTSIDE the action row on purpose. Inside it, the row's
+              `flex items-center justify-between` made the preview a third flex
+              item sitting beside the buttons and vertically centred, which is
+              not a preview so much as a floating thumbnail. */}
+          {preview && (
+            <PdfPreview
+              blob={preview.blob}
+              loading={downloading}
+              className="mt-4 h-[80vh] w-full"
+            />
+          )}
         </Section>
       )}
 

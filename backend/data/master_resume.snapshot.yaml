@@ -64,7 +64,6 @@ experience:
   role: Software Engineering Intern
   location: Singapore
   dates: June 2026 – July 2026
-  descriptor: B2B sales outreach automation platform
   bullets:
   - Replaced 4 prospect import flows with 1 review screen so users pick who gets imported before anyone is added or charged.
   - Found a background refresh silently logging **30 fake usage events** per minute, inflating the number the feature was judged on.
@@ -72,11 +71,11 @@ experience:
   - 'Rewrote the message thread scrolling as a state machine, fixing **4 bugs at once**: flicker on open, losing your place when older messages load in above you, a slow request overwriting the wrong conversation, and pages loading twice.'
   - Stopped the same prospect being imported twice, cutting a **4% duplicate rate** by letting only one import claim each record.
   - Raised **diff coverage from 36% to 100%** against the CI gate by extracting the timing-sensitive decision logic out of a 6,500 line component into pure, unit-tested helpers.
-  - Built the backing import API in NestJS, adding a preview endpoint that stages candidates without saving them and a single-use atomic claim so two clicks of Import cannot create the same contacts twice.
-  - Built onboarding checklist behavior in the React and TypeScript app, including an impersonation-safe, cross-tab gate that stops a setup step from checking itself off before the user has actually opened it.
-  - Added automated tests across the contacts module (service, controller, concurrency, and claim-recovery cases) as part of the team's testing standards.
+  - Built the import API in NestJS so a double click on Import cannot create the same prospects twice.
+  - Built onboarding checklist behavior in React so a setup step cannot check itself off before the user has opened it.
+  - Added automated tests across the contacts backend covering concurrent imports and recovery from a partly finished one.
   - Rebuilt inbox message-thread scrolling as a scroll state machine handling prepend-restore, bottom-pinning, and paginated load-more, proven by 4 regression tests each confirmed failing against the pre-fix code.
-  - Shipped a Sales Navigator preview-and-import flow on the contact-ingestion API (TypeScript), letting users review and select staged candidates before any records are created, reusing a shared dedup and batch-insert core across import paths.
+  - Built the Sales Navigator import backend so prospects are staged for review and only the ones a user picks get created.
 projects:
 - name: Voice AI Assistant (M.I.L.E.S.)
   tools:

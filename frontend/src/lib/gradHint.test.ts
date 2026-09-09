@@ -63,3 +63,29 @@ describe("gradDateHint", () => {
     expect(hint?.suggest).toBe("primary");
   });
 });
+
+describe("basis — whether a hint may act on its own", () => {
+  it("marks an explicit class standing as 'standing', which the UI may apply", () => {
+    const hint = gradDateHint(
+      app({ jd_text: "This program is open to rising sophomores only." }),
+    );
+    expect(hint?.suggest).toBe("alternate");
+    expect(hint?.basis).toBe("standing");
+  });
+
+  it("marks a graduation year as 'year', which may only suggest", () => {
+    // The year path takes the MAXIMUM of a range, so it is a guess by
+    // construction and must never flip the checkbox on its own.
+    const hint = gradDateHint(
+      app({ jd_text: "Open to candidates graduating between December 2028 and June 2029." }),
+    );
+    expect(hint?.suggest).toBe("alternate");
+    expect(hint?.basis).toBe("year");
+  });
+
+  it("marks an earlier-date standing match as 'standing' too", () => {
+    const hint = gradDateHint(app({ jd_text: "Must have junior standing by the summer." }));
+    expect(hint?.suggest).toBe("primary");
+    expect(hint?.basis).toBe("standing");
+  });
+});
