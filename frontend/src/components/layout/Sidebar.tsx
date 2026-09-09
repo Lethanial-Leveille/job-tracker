@@ -1,3 +1,5 @@
+import { Link, useSearchParams } from "react-router-dom";
+import { SAVED_VIEWS } from "../applications/views";
 import type { ReactNode } from "react";
 
 // --- Icons (thin line set, drawn to a shared 18px box) ----------------------
@@ -72,6 +74,11 @@ export function Sidebar({
   onLogout,
   onCollapse,
 }: Props) {
+  // Read here rather than threaded down: a saved view lives in the URL, so the
+  // nav can highlight the active one without the route above it holding state.
+  const [searchParams] = useSearchParams();
+  const activeView = searchParams.get("view");
+
   return (
     <aside className="relative z-10 flex h-screen flex-col gap-8 border-r border-line-strong bg-surface/60 px-4 py-6 backdrop-blur-sm">
       {/* Wordmark */}
@@ -128,6 +135,41 @@ export function Sidebar({
           );
         })}
       </nav>
+
+      {/* Saved views. A third block, deliberately below the two real
+          destinations: these are not places, they are questions asked of the
+          Applications list. Each is a client-side predicate over data already
+          fetched (components/applications/views.ts), so the nav still advertises
+          only what exists — clicking one takes you somewhere real.
+
+          Only rendered on the Applications screen: a view of a list you are not
+          looking at is a link to a different page wearing a filter's clothes. */}
+      {current === "applications" && (
+        <div className="flex flex-col gap-1">
+          <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+            Views
+          </div>
+          {SAVED_VIEWS.map((view) => {
+            const active = activeView === view.key;
+            return (
+              <Link
+                key={view.key}
+                // Clicking the active one clears it, so the block toggles rather
+                // than trapping you in a filter with no visible way out.
+                to={active ? "/applications" : `/applications?view=${view.key}`}
+                aria-current={active ? "true" : undefined}
+                className={`rounded-interactive px-3 py-1.5 text-[13px] transition-colors ${
+                  active
+                    ? "bg-surface-hover text-ink"
+                    : "text-ink-soft hover:text-ink"
+                }`}
+              >
+                {view.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {/* User card, pinned to the bottom. mt-auto pushes it down past the nav. */}
       <div className="mt-auto flex items-center gap-3 rounded-frame border border-line bg-surface-hover p-3">

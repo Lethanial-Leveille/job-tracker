@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import type { Application } from "../../lib/types";
 import type { ApplicationsState } from "../../lib/useApplications";
 import { ApplicationsTable } from "./ApplicationsTable";
@@ -9,6 +9,7 @@ import {
   type StatusFilter,
 } from "./ApplicationsToolbar";
 import { SuggestionsPanel } from "./SuggestionsPanel";
+import { findView } from "./views";
 
 // Deadline ascending with nulls last.
 function byDeadline(a: Application, b: Application): number {
@@ -39,6 +40,10 @@ export function ApplicationsPage({
   const [grouped, setGrouped] = useState(false);
 
   const navigate = useNavigate();
+  // The active saved view lives in the URL, so the sidebar can be plain links
+  // and a filtered list is a real address you can come back to.
+  const [searchParams] = useSearchParams();
+  const activeView = findView(searchParams.get("view"));
 
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -47,12 +52,16 @@ export function ApplicationsPage({
         const haystack = `${app.organization} ${app.role_or_program}`.toLowerCase();
         if (!haystack.includes(query)) return false;
       }
+      // A saved view narrows on top of the status tabs rather than replacing
+      // them, so "In process" + "Applied" is a legal (if redundant) combination
+      // instead of one control silently overriding the other.
+      if (activeView && !activeView.matches(app)) return false;
       return matchesStatusFilter(app.status, statusFilter);
     });
     // Deadline order, always. Sorting by priority went away with the priority
     // field, and nothing else competes with "what is due next".
     return [...filtered].sort(byDeadline);
-  }, [applications, statusFilter, search]);
+  }, [applications, statusFilter, search, activeView]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -65,6 +74,17 @@ export function ApplicationsPage({
           <h1 className="text-2xl font-semibold tracking-tight text-ink">
             Applications
           </h1>
+          {activeView && (
+            <button
+              type="button"
+              onClick={() => navigate("/applications")}
+              className="mt-1 inline-flex items-center gap-1.5 text-[12px] text-ink-muted transition-colors hover:text-ink"
+            >
+              {activeView.label}
+              <span aria-hidden="true">×</span>
+              <span className="sr-only">Clear this view</span>
+            </button>
+          )}
         </div>
 
         <div className="flex w-full items-center gap-3 sm:w-auto">
