@@ -10,6 +10,7 @@ import {
 } from "./ApplicationsToolbar";
 import { SuggestionsPanel } from "./SuggestionsPanel";
 import { findView } from "./views";
+import { useListKeyboard } from "./useListKeyboard";
 
 // Deadline ascending with nulls last.
 function byDeadline(a: Application, b: Application): number {
@@ -62,6 +63,12 @@ export function ApplicationsPage({
     // field, and nothing else competes with "what is due next".
     return [...filtered].sort(byDeadline);
   }, [applications, statusFilter, search, activeView]);
+
+  const keyboard = useListKeyboard({
+    applications: visible,
+    onOpen: (id) => navigate(`/applications/${id}`),
+    onStatusChange: setStatus,
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -143,11 +150,56 @@ export function ApplicationsPage({
       ) : (
         <ApplicationsTable
           applications={visible}
-          selectedId={null}
+          selectedId={keyboard.selectedId}
           onSelect={(id) => navigate(`/applications/${id}`)}
           onStatusChange={setStatus}
           grouped={grouped}
         />
+      )}
+
+      {/* The keyboard footer, shipped only now that every shortcut it advertises
+          actually works — a legend for keys that do nothing is worse than no
+          legend. ⇧S is deliberately absent; see useListKeyboard. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3 text-[11px] tabular-nums text-ink-muted">
+        <span>
+          <b className="font-medium text-ink-soft">j</b>/<b className="font-medium text-ink-soft">k</b> move
+          {" · "}
+          <b className="font-medium text-ink-soft">⏎</b> open
+          {" · "}
+          <b className="font-medium text-ink-soft">e</b> mark applied
+          {" · "}
+          <b className="font-medium text-ink-soft">⌘Z</b> undo
+        </span>
+        <span>
+          {visible.length} shown of {applications.length}
+        </span>
+      </div>
+
+      {/* Undo, not confirm. Marking applied fires immediately: a dialog on an
+          action taken forty times a morning costs more than the mistake it
+          prevents. Fixed so it is reachable wherever you are in the list. */}
+      {keyboard.lastChange && (
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-frame border border-line-strong bg-surface px-4 py-2.5 text-[13px] text-ink shadow-lg">
+          <span>
+            Marked <span className="font-medium">{keyboard.lastChange.organization}</span> as
+            applied
+          </span>
+          <button
+            type="button"
+            onClick={keyboard.undo}
+            className="rounded-interactive border border-line px-2.5 py-1 text-[12px] font-medium text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            onClick={keyboard.dismissUndo}
+            aria-label="Dismiss"
+            className="text-ink-muted transition-colors hover:text-ink"
+          >
+            ×
+          </button>
+        </div>
       )}
     </div>
   );
