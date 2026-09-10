@@ -53,7 +53,14 @@ class Eligibility(BaseModel):
     than no verdict — the same rule gradHint.ts follows for its suggestions.
     """
 
-    verdict: Literal["eligible", "eligible_early", "mismatch", "unclear"]
+    # "too_early" and "too_late" are both mismatches and they are not the same
+    # problem. Too early means the posting closed before you finish — a new-grad
+    # role, or a cycle already gone — and there is nothing you can do about it,
+    # so those never reach the inbox at all. Too late means it wants people who
+    # graduate after you do, which is rare, strange, and worth seeing.
+    verdict: Literal[
+        "eligible", "eligible_early", "too_early", "too_late", "unclear"
+    ]
     # The years the posting names, if any. Empty for a standing-only or silent
     # posting.
     wanted_years: list[int] = []
@@ -166,6 +173,16 @@ def assess(
 
         if in_span(default_year):
             verdict = "eligible"
+        elif span[-1] < min(your_years):
+            # The whole window closes before you can finish. A new-grad posting,
+            # or a cycle that has already gone. Nothing to decide and nothing to
+            # do, so services/discovery.py keeps these out of the inbox entirely
+            # rather than showing you a row you can only dismiss.
+            verdict = "too_early"
+        elif span[0] > max(your_years):
+            # Wants people finishing after you do. Rare and usually a mistake in
+            # the posting, so it is surfaced rather than hidden.
+            verdict = "too_late"
         elif any(in_span(year) for year in your_years):
             # The distinction worth having. A posting wanting the Class of 2028
             # when you are a 2029 is not a rejection — it is a prompt to claim
@@ -176,7 +193,10 @@ def assess(
             # being made on your behalf.
             verdict = "eligible_early"
         else:
-            verdict = "mismatch"
+            # Your dates straddle a gap the window falls into — possible only
+            # with a non-contiguous set of graduation dates, and not something
+            # to guess about.
+            verdict = "too_early"
 
         return Eligibility(
             verdict=verdict,

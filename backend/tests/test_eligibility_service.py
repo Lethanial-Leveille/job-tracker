@@ -80,11 +80,25 @@ def test_the_later_date_is_the_default_self() -> None:
     assert assess("Graduating 2028.", [], MINE).verdict == "eligible_early"
 
 
-def test_a_year_you_cannot_claim_is_a_mismatch() -> None:
+def test_a_window_that_closes_before_you_finish_is_too_early() -> None:
+    """The state that never reaches the inbox.
+
+    A posting wanting 2026 graduates is a new-grad role or a cycle already gone.
+    There is nothing to decide, so services/discovery.py drops it rather than
+    handing you a row whose only available action is dismiss.
+    """
     result = assess("Open to students graduating in 2026.", [], MINE)
 
-    assert result.verdict == "mismatch"
+    assert result.verdict == "too_early"
     assert result.wanted_years == [2026]
+
+
+def test_a_window_that_opens_after_you_finish_is_shown_not_hidden() -> None:
+    # Rare, and usually an error in the posting rather than a real requirement,
+    # which is exactly why it is worth seeing rather than silently dropping.
+    result = assess("For students graduating in 2031.", [], MINE)
+
+    assert result.verdict == "too_late"
 
 
 def test_a_range_is_treated_as_a_span_not_two_points() -> None:
@@ -173,7 +187,7 @@ def test_requirements_still_count_when_the_body_is_silent() -> None:
     # board's API can arrive as structured fields with little prose.
     result = assess("", ["Must be graduating in the Class of 2026"], [2028, 2029])
 
-    assert result.verdict == "mismatch"
+    assert result.verdict == "too_early"
 
 
 def test_a_posting_naming_only_a_standing_says_nothing_at_all() -> None:
@@ -197,7 +211,7 @@ def test_standing_travels_alongside_a_year_verdict() -> None:
         "Open to rising juniors. Must be graduating in 2026.", [], MINE
     )
 
-    assert result.verdict == "mismatch"
+    assert result.verdict == "too_early"
     assert result.standing is not None
 
 

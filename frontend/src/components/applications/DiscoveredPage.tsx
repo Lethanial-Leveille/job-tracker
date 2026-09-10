@@ -42,7 +42,8 @@ function eligibilityNote(eligibility: Eligibility | null, enriched: string | nul
       : { tone: "quiet" as const, text: "Posting couldn't be read" };
   }
   const wants = eligibility.wanted_years.join("–");
-  if (eligibility.verdict === "mismatch") {
+  // "too_early" is deliberately absent: those rows never reach this screen.
+  if (eligibility.verdict === "too_late") {
     return {
       tone: "warn" as const,
       text: `Wants ${wants} — you graduate ${eligibility.your_years.join(" or ")}`,
@@ -237,7 +238,12 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
       {lastPull && !pulling && (
         <p className="mt-4 text-[12.5px] text-ink-muted">
           Last pull: {lastPull.staged} new, {lastPull.enriched} read,{" "}
-          {lastPull.duplicates} already seen.
+          {lastPull.duplicates} already seen
+          {/* Shown because an inbox emptied by a broken eligibility check and
+              one emptied by a quiet night look identical without it. */}
+          {lastPull.ruled_out > 0 &&
+            `, ${lastPull.ruled_out} ruled out on graduation year`}
+          .
         </p>
       )}
 

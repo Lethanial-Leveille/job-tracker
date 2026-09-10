@@ -100,6 +100,10 @@ class PullResult(BaseModel):
     # is normal, not a fault: a good share of ordinary careers sites cannot be
     # read without a browser, and those rows still reach you with a working link.
     enriched: int = 0
+    # Discoveries reading has ruled out on graduation timing, cumulative. The
+    # number that says whether the eligibility check is doing real work or
+    # quietly eating the inbox.
+    ruled_out: int = 0
     dropped: dict[str, int] = {}
 
 

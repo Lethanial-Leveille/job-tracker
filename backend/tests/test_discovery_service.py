@@ -370,23 +370,41 @@ def _enrich(db: Session, user: User, *, text: str, parsed=None, years=(2028, 202
         return enrich_pending(db, user.id, _settings())
 
 
-def test_a_posting_that_excludes_you_says_so_before_you_open_it(
+def test_a_posting_that_closed_before_you_finish_leaves_the_inbox(
     db: Session, user: User
 ) -> None:
     """The whole point of reading overnight.
 
-    You should not have to open a posting to discover it wanted the Class of
-    2026. By morning the row already knows.
+    You should never open a posting to discover it wanted the Class of 2026.
+    There is nothing to decide about a job you cannot hold, so it does not
+    become a row whose only available action is dismiss — it is read, judged,
+    and filed out of sight, with the record kept so tomorrow's pull cannot
+    stage it again.
     """
     _stage(db, user, [_listing()], {0: "Software Engineer Intern"})
 
     count = _enrich(db, user, text="Must be graduating in the Class of 2026.")
 
-    row = _staged(db)[0]
     assert count == 1
-    assert row.eligibility["verdict"] == "mismatch"
+    assert _staged(db) == []
+    row = _all_rows(db)[0]
+    assert row.state is DiscoveryState.filtered
+    assert row.eligibility["verdict"] == "too_early"
     assert "2026" in row.eligibility["evidence"]
-    assert row.enriched_at is not None
+
+
+def test_a_posting_needing_your_earlier_date_stays_in_the_inbox(
+    db: Session, user: User
+) -> None:
+    # Not a rejection. It is a decision about which of two true graduation dates
+    # to claim, and only you can make it.
+    _stage(db, user, [_listing()], {0: "Software Engineer Intern"})
+
+    _enrich(db, user, text="Must be graduating in the Class of 2028.")
+
+    row = _staged(db)[0]
+    assert row.state is DiscoveryState.pending
+    assert row.eligibility["verdict"] == "eligible_early"
 
 
 def test_a_posting_that_cannot_be_read_keeps_its_row(db: Session, user: User) -> None:

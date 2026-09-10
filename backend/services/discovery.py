@@ -271,6 +271,7 @@ def run_pull(
     listings, result = pull(**filters)
     result = stage_listings(db, user_id, listings, settings, result)
     result.enriched = enrich_pending(db, user_id, settings, limit=enrich_limit)
+    result.ruled_out = filtered_by_graduation(db, user_id)
     return result
 
 
@@ -419,8 +420,20 @@ def enrich(db: Session, job: DiscoveredJob, settings: Settings, years: list[int]
         if parsed is not None
         else []
     )
-    job.eligibility = assess(fetched.text, requirements, years).model_dump()
+    verdict = assess(fetched.text, requirements, years)
+    job.eligibility = verdict.model_dump()
     job.enriched_at = datetime.now(UTC)
+
+    # A posting whose graduation window closes before you can finish is not a
+    # judgement call. It is a new-grad role or a cycle already gone, and there
+    # is nothing to decide, so it leaves the inbox rather than sitting there as
+    # a row you can only dismiss.
+    #
+    # Filtered rather than deleted, like every other rejection here: the record
+    # is what stops tomorrow's pull staging it again, and what lets you see why
+    # it went if you ever go looking.
+    if verdict.verdict == "too_early":
+        job.state = DiscoveryState.filtered
 
 
 def enrich_pending(db: Session, user_id: str, settings: Settings, limit: int = 50) -> int:
@@ -450,3 +463,21 @@ def enrich_pending(db: Session, user_id: str, settings: Settings, limit: int = 5
         enrich(db, job, settings, years)
     db.commit()
     return sum(1 for job in rows if job.enriched_at is not None)
+
+
+def filtered_by_graduation(db: Session, user_id: str) -> int:
+    """How many discoveries reading ruled out on graduation timing.
+
+    Not decoration. This is the number that says whether the eligibility check
+    is doing real work or quietly eating your inbox — if it climbs while the
+    inbox empties, the check has gone wrong, and nothing else would tell you.
+    """
+    return len(
+        db.execute(
+            select(DiscoveredJob.id).where(
+                DiscoveredJob.user_id == user_id,
+                DiscoveredJob.state == DiscoveryState.filtered,
+                DiscoveredJob.enriched_at.is_not(None),
+            )
+        ).scalars().all()
+    )

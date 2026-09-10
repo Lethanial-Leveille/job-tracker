@@ -175,7 +175,17 @@ export interface Eligibility {
   // "eligible_early" is the one worth understanding: the posting wants a
   // graduation year you can only claim by using your EARLIER date. Not a
   // rejection, and not a plain yes either — a decision to make deliberately.
-  verdict: "eligible" | "eligible_early" | "mismatch" | "unclear";
+  //
+  // "too_early" never appears in the inbox. Those postings closed before you
+  // can finish (a new-grad role, or a cycle already gone), so the backend files
+  // them away rather than handing you a row you could only dismiss. It is in
+  // this union because the field is stored on rows you can still go and find.
+  verdict:
+    | "eligible"
+    | "eligible_early"
+    | "too_early"
+    | "too_late"
+    | "unclear";
   wanted_years: number[];
   your_years: number[];
   // The sentence that produced the verdict. Always shown: a verdict you cannot
@@ -217,6 +227,9 @@ export interface PullResult {
   staged: number;
   duplicates: number;
   enriched: number;
+  // Cumulative count of discoveries ruled out on graduation timing. Surfaced so
+  // an inbox emptied by a broken check is distinguishable from a quiet night.
+  ruled_out: number;
   dropped: Record<string, number>;
 }
 
