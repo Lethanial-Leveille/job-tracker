@@ -187,7 +187,7 @@ projects:
       - "Diagnosed months of speaker-verification false rejections down to four compounding defects (an energy VAD that never fired at -53 dBFS capture, a follow-up loop that could not exit on hallucinated transcripts, an enrollment centroid poisoned to 0.63 average pairwise similarity, and mic gain leaving 7 of 16 bits unused), replacing the energy threshold with webrtcvad plus a 300ms pre-roll ring buffer and adding per-attempt logging that showed zero rejections across 94 attempts over two seconds."
   - name: Job Application Tracker (Prowl)
     # This project. Per CLAUDE.md hard rule #6, update this entry as the tracker grows.
-    tools: [Python, FastAPI, SQLAlchemy 2.0, Alembic, PostgreSQL, SQLite, React, TypeScript, Vite, Tailwind CSS, Claude API, WeasyPrint, Jinja, JWT, bcrypt, DigitalOcean, Linux, Caddy, Cloudflare Tunnel, systemd, GitHub Actions, n8n]
+    tools: [Python, FastAPI, SQLAlchemy 2.0, Alembic, PostgreSQL, SQLite, React, TypeScript, Vite, Tailwind CSS, Claude API, WeasyPrint, Jinja, JWT, bcrypt, DigitalOcean, Linux, Caddy, Cloudflare Tunnel, systemd, GitHub Actions, n8n, httpx]
     # Repo link removed from the printed resume Sep 2026; kept here:
     links: [github.com/Lethanial-Leveille/job-tracker]
     dates: July 2026 – Present
@@ -217,6 +217,8 @@ projects:
       - "Built an AI resume-tailoring pipeline that selects and rephrases bullets from a YAML master resume against a job description using Claude (Opus via structured outputs, constrained to never invent content), then renders a one-page PDF through a locked Jinja and WeasyPrint template, separating content from format so the model cannot alter layout."
       - "Deployed to production on a DigitalOcean droplet (Ubuntu): the built React frontend and FastAPI backend are served same-origin behind Caddy, the backend runs under systemd, and the site is exposed over HTTPS through a Cloudflare Tunnel with no open ports or public IP, backed by nightly pg_dump database backups."
       - "Automated deployment with a GitHub Actions pipeline so every push to main rebuilds, runs migrations, and restarts the app on the droplet, connecting as a least-privilege deploy user allowed only a single scoped sudo command."
+      - "Replaced copy-and-paste intake with a link: a pasted posting URL is dispatched on its hostname to the applicant tracking system behind it and read through that system's own JSON feed, which is required rather than a nicety because the most widely used of them renders entirely in the browser and hands a scraper a single character of visible text."
+      - "Made every fetch failure explicit instead of silent, refusing a page whose extracted text is too short to be a posting and truncating one large enough to be a whole web application, so a scrape that technically succeeds but returns navigation chrome becomes a prompt to paste the description rather than a job description the model invented from it."
   - name: Wearable Motion Classifier (MotionSense)
     tools: [Python, Raspberry Pi, AWS, scikit-learn, React, Docker]
     # Repo link removed from the printed resume Sep 2026; kept here:
