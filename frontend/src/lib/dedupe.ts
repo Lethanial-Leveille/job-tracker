@@ -38,6 +38,13 @@ const TRACKING_PARAMS = new Set([
   "trk",
   "trackingid",
   "originalsubdomain",
+  // Social share ids. A posting sent from a phone arrives carrying one of
+  // these, and the same posting off the company site does not.
+  "fbclid",
+  "igshid",
+  "gclid",
+  "mc_cid",
+  "mc_eid",
 ]);
 
 // Reduce a URL to a comparable key: scheme dropped, host lowercased and
@@ -65,8 +72,15 @@ export function normalizeUrl(raw: string): string | null {
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
   const path = url.pathname.replace(/\/+$/, "");
 
+  // Any utm_* key is tracking by definition, matched by PREFIX rather than by
+  // name. The enumerated list above missed utm_id on a real posting link, and
+  // enumerating is a losing game: analytics tools invent utm_ suffixes freely,
+  // and each one missed is a job you already track showing up as new.
   const params = [...url.searchParams.entries()]
-    .filter(([key]) => !TRACKING_PARAMS.has(key.toLowerCase()))
+    .filter(([key]) => {
+      const k = key.toLowerCase();
+      return !TRACKING_PARAMS.has(k) && !k.startsWith("utm_");
+    })
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([key, value]) => `${key}=${value}`);
   const query = params.length > 0 ? `?${params.join("&")}` : "";

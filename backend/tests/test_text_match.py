@@ -15,9 +15,11 @@ import pytest
 
 from services.text_match import (
     normalize_organization,
+    normalize_url,
     role_similarity,
     role_tokens,
     stem,
+    urls_match,
 )
 
 # Verified against dedupe.ts output.
@@ -95,3 +97,70 @@ def test_titles_with_no_meaningful_words_score_zero() -> None:
     with no title, and that has to match nothing rather than anything."""
     assert role_tokens("Summer Intern 2027") == set()
     assert role_similarity("Summer Intern 2027", "Software Engineer Intern") == 0.0
+
+
+# --- URL matching ------------------------------------------------------------
+# Twin of normalizeUrl in dedupe.ts. The whole reason these functions live in
+# two languages is that the browser warns you about a duplicate before a parse
+# call and the discovery feed drops one server-side — if they disagree, the same
+# posting is a repeat in one place and a new job in the other.
+
+URL_CASES: list[tuple[str, str]] = [
+    # Scheme, www, case, and trailing slash are all noise.
+    ("https://www.Example.com/jobs/1/", "example.com/jobs/1"),
+    ("http://example.com/jobs/1", "example.com/jobs/1"),
+    # A pasted link often has no scheme at all.
+    ("example.com/jobs/1", "example.com/jobs/1"),
+    # The fragment is where the browser scrolls to, not which job it is.
+    ("https://example.com/jobs/1#apply", "example.com/jobs/1"),
+    # Param ORDER must not make one link look like two.
+    ("https://example.com/j?b=2&a=1", "example.com/j?a=1&b=2"),
+]
+
+
+@pytest.mark.parametrize("raw,expected", URL_CASES)
+def test_normalize_url_matches_the_typescript(raw: str, expected: str) -> None:
+    assert normalize_url(raw) == expected
+
+
+def test_the_job_id_in_a_query_string_is_never_stripped() -> None:
+    """The reason the tracking list is short rather than "drop every param".
+
+    Greenhouse and Lever put the actual job id in the query string. A blanket
+    strip would collapse every posting at one company into a single key and
+    report constant false duplicates — hiding real jobs, which is the worst
+    outcome this feature has.
+    """
+    assert normalize_url("https://boards.greenhouse.io/x?gh_jid=4055123&utm_campaign=q") == (
+        "boards.greenhouse.io/x?gh_jid=4055123"
+    )
+
+
+def test_any_utm_parameter_is_stripped_by_prefix() -> None:
+    """Enumerating tracking keys is a losing game.
+
+    The named list missed utm_id on a real posting link, and every miss is a
+    duplicate that slips through as a new job. Analytics tools invent utm_
+    suffixes freely, so the prefix is the rule and the list is the exception.
+    """
+    assert normalize_url("https://x.com/j?utm_id=9&utm_whatever=z") == "x.com/j"
+
+
+def test_a_shared_link_matches_the_one_you_saved() -> None:
+    # The real case: a posting shared from a phone carries a Facebook click id,
+    # the same posting off the company site does not.
+    shared = "https://enterpriseplatform.dell.com/hcmUI/CandidateExperience/en/sites/careers/job/298217?fbclid=PAcG&utm_id=97760"
+    plain = "https://enterpriseplatform.dell.com/hcmUI/CandidateExperience/en/sites/careers/job/298217"
+
+    assert urls_match(shared, plain)
+
+
+def test_different_jobs_at_one_company_stay_different() -> None:
+    assert not urls_match("https://x.com/jobs/1", "https://x.com/jobs/2")
+
+
+def test_something_half_typed_is_compared_not_rejected() -> None:
+    # Faithful to the TypeScript, which falls back rather than throwing: you may
+    # have pasted something incomplete, and that is not an error worth raising.
+    assert normalize_url("  not a url  ") == "not a url"
+    assert normalize_url("   ") is None

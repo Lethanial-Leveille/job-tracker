@@ -19,6 +19,29 @@ describe("normalizeUrl", () => {
     );
   });
 
+  it("strips any utm_ param, not just the ones named in the list", () => {
+    // The named list missed utm_id on a real posting link. Every miss is a job
+    // you already track arriving as a discovery, so the prefix is the rule and
+    // the list is the exception. Twin of the Python test of the same name.
+    expect(normalizeUrl("https://x.com/j?utm_id=9&utm_whatever=z")).toBe(
+      normalizeUrl("https://x.com/j"),
+    );
+  });
+
+  it("matches a posting shared from a phone against the one you saved", () => {
+    // The real case: a share sheet appends a Facebook click id, the company
+    // site does not.
+    expect(
+      normalizeUrl(
+        "https://enterpriseplatform.dell.com/hcmUI/CandidateExperience/en/sites/careers/job/298217?fbclid=PAcG&utm_id=97760",
+      ),
+    ).toBe(
+      normalizeUrl(
+        "https://enterpriseplatform.dell.com/hcmUI/CandidateExperience/en/sites/careers/job/298217",
+      ),
+    );
+  });
+
   it("keeps the job-board job id, which identifies WHICH posting it is", () => {
     // The tempting shortcut is to drop every query param. That would collapse
     // every Greenhouse posting at a company into one link and warn constantly.
