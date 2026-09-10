@@ -10,6 +10,9 @@ dependencies = [
     "pydantic",
     "pydantic-settings",
     "anthropic",
+    # Used directly by services/fetch_posting.py. Already present as an
+    # anthropic dependency, declared here because we now import it ourselves.
+    "httpx",
     "pyyaml",
     "jinja2",
     "weasyprint==69",

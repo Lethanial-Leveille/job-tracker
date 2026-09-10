@@ -61,3 +61,64 @@ class ParsedJob(BaseModel):
 class ParseRequest(BaseModel):
     text: str
 
+
+# --- Adding a posting by link ------------------------------------------------
+# The link flow is the paste flow with a fetch bolted on the front: a URL comes
+# in, services/fetch_posting.py turns it into text, and that text goes through
+# the exact same parser. These three models describe that round trip.
+
+
+class FetchUrlRequest(BaseModel):
+    """A posting link to fetch and parse.
+
+    Deliberately a plain `str` and not Pydantic's HttpUrl. HttpUrl rejects a
+    link with no scheme, and "boards.greenhouse.io/acme/jobs/123" pasted out of
+    an address bar is the single most common way this field gets filled. The
+    fetch service already normalizes a bare host to https and rejects anything
+    that is not a real link, so HttpUrl here would only turn a case that works
+    into a validation error.
+    """
+
+    url: str
+
+
+class FetchedPosting(BaseModel):
+    """Posting text plus where it came from.
+
+    `source` names the path that produced this ("workday", "ashby", "generic").
+    It is not decoration. When a fetch comes back thin or wrong the first
+    question is always which path ran, and a compound value like
+    "greenhouse+generic" means the adapter for a known ATS came up empty and the
+    page got scraped instead — the tell that a hiring system changed its API, or
+    that the link points at a job that no longer exists.
+
+    `url` is the link AFTER redirects, so it is the one worth storing on the
+    application rather than whatever shortened link was pasted in.
+    """
+
+    text: str
+    source: str
+    url: str
+
+
+class ParsedFromUrl(BaseModel):
+    """What the parse-url route answers with.
+
+    The parsed fields are NESTED under `parsed` rather than flattened alongside
+    the rest. Flattening would let the frontend reuse its existing ParsedJob
+    handling directly, which is the argument for it, and it is the wrong trade:
+    ParsedJob is the model's output and everything beside it here is provenance.
+    Merging the two means a field added to ParsedJob later can collide with one
+    of these, and it makes "what did the AI actually say" impossible to answer
+    from the response.
+
+    jd_text rides along because the application row needs it. It is what resume
+    tailoring reads later, so a link add that dropped it would quietly produce
+    rows that cannot be tailored against.
+    """
+
+    parsed: ParsedJob
+    jd_text: str
+    posting_url: str
+    source: str
+

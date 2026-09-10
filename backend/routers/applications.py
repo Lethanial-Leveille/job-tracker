@@ -7,7 +7,12 @@ from dependencies import get_current_user
 from models.user import User
 from schemas.application import ApplicationCreate, ApplicationRead, ApplicationUpdate
 from schemas.fit import FitReport
-from schemas.parsing import ParsedJob, ParseRequest
+from schemas.parsing import (
+    FetchUrlRequest,
+    ParsedFromUrl,
+    ParsedJob,
+    ParseRequest,
+)
 from schemas.resume import Resume
 from schemas.status_event import StatusEventRead
 from services.application import (
@@ -18,6 +23,7 @@ from services.application import (
     update_application,
 )
 from services.matching import assess_requirements
+from services.fetch_posting import PostingFetchError, fetch_posting
 from services.parsing import parse_job_description
 from services.resume import get_master
 from services.status_event import delete_status_event, list_status_events
@@ -51,6 +57,48 @@ def parse(data: ParseRequest, settings: Settings = Depends(get_settings)) -> Par
     if result is None:
         raise HTTPException(status_code=502, detail="Could not parse the posting")
     return result
+
+
+@router.post("/parse-url", response_model=ParsedFromUrl)
+def parse_url(
+    data: FetchUrlRequest, settings: Settings = Depends(get_settings)
+) -> ParsedFromUrl:
+    """Fetch a posting link and parse it, without writing a row.
+
+    Same contract as /parse above: it spends a paid API call so it is not
+    anonymous, and it persists nothing. You review and submit through create,
+    passing jd_text and posting_url back in so the row keeps the real posting.
+
+    Two failure modes, two status codes, and the split is the whole point. A
+    fetch failure is routine — LinkedIn blocks scripts, a page needs a browser,
+    a link is dead — so it answers 400 with a sentence written to be shown to
+    you above the paste box. A parse failure means the fetch worked and the
+    model would not produce a result, which is the same 502 /parse already uses.
+    The frontend only has to know that 400 means "fall back to pasting".
+
+    400 rather than the more literal 422: FastAPI already emits 422 for request
+    validation, with a list of error objects as `detail` instead of a string.
+    Reusing it here would put two different detail SHAPES on one status code and
+    push that mess into the frontend. 400 is a status FastAPI never raises on
+    its own, so a 400 from this route is unambiguously our message.
+    """
+    try:
+        fetched = fetch_posting(data.url)
+    except PostingFetchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    result = parse_job_description(fetched.text, settings)
+    if result is None:
+        raise HTTPException(
+            status_code=502,
+            detail="Read the posting, but could not pull the details out of it.",
+        )
+    return ParsedFromUrl(
+        parsed=result,
+        jd_text=fetched.text,
+        posting_url=fetched.url,
+        source=fetched.source,
+    )
 
 
 @router.get("/{application_id}", response_model=ApplicationRead)
