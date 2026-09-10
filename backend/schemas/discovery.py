@@ -66,6 +66,15 @@ class DiscoveredJobRead(BaseModel):
     location: str | None = None
     posted_at: date | None = None
     state: DiscoveryState
+    role_family: str | None = None
+    # Applications this might already be. Non-empty means the inbox shows a
+    # "you may already have this" note rather than hiding the row.
+    possible_application_ids: list[str] | None = None
+    # What reading the posting found. None means it has not been read, or could
+    # not be — distinct from a verdict of "unclear", which means it WAS read and
+    # said nothing about graduation timing.
+    eligibility: dict | None = None
+    enriched_at: datetime | None = None
     application_id: str | None = None
     created_at: datetime
 
@@ -87,6 +96,10 @@ class PullResult(BaseModel):
     kept: int = 0
     staged: int = 0
     duplicates: int = 0
+    # How many newly staged postings were successfully read. Lower than `staged`
+    # is normal, not a fault: a good share of ordinary careers sites cannot be
+    # read without a browser, and those rows still reach you with a working link.
+    enriched: int = 0
     dropped: dict[str, int] = {}
 
 

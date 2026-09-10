@@ -25,9 +25,13 @@ from models.application import Application, ApplicationStatus, ApplicationType
 from models.discovered_job import DiscoveredJob, DiscoveryState
 from schemas.application import ApplicationCreate
 from schemas.discovery import FeedListing, PullResult
+from schemas.resume import Resume
 from services.application import create_application
+from services.resume import get_master
+from services.eligibility import assess, graduation_years
 from services.feed import FEED_SOURCE, pull
-from services.parsing import classify_role_families
+from services.fetch_posting import PostingFetchError, fetch_posting
+from services.parsing import classify_role_families, parse_job_description
 from services.text_match import (
     normalize_organization,
     normalize_url,
@@ -245,15 +249,29 @@ def stage_listings(
     return result
 
 
-def run_pull(db: Session, user_id: str, settings: Settings, **filters: object) -> PullResult:
-    """Fetch the feed and stage what survives, for one user.
+def run_pull(
+    db: Session,
+    user_id: str,
+    settings: Settings,
+    enrich_limit: int = 50,
+    **filters: object,
+) -> PullResult:
+    """Fetch the feed, stage what survives, then read what was staged.
 
     The entry point behind both triggers: the refresh button and the nightly
     webhook call the same function, so the two can never drift into behaving
     differently.
+
+    Reading happens HERE rather than when you accept a job, which is the whole
+    point of doing it overnight — by morning the inbox already knows which
+    postings want the Class of 2026, and you never open one to find out. It is
+    capped so that a first run finishes rather than timing out; the remainder is
+    picked up by the next pass.
     """
     listings, result = pull(**filters)
-    return stage_listings(db, user_id, listings, settings, result)
+    result = stage_listings(db, user_id, listings, settings, result)
+    result.enriched = enrich_pending(db, user_id, settings, limit=enrich_limit)
+    return result
 
 
 def resolve(
@@ -330,9 +348,13 @@ def accept(db: Session, job: DiscoveredJob, user_id: str) -> Application:
             role_or_program=job.role_or_program,
             posting_url=job.posting_url,
             status=ApplicationStatus.discovered,
-            # Carried across so accepting does not throw away what the
-            # classifier already paid to work out.
+            # Carried across so accepting does not throw away what was already
+            # paid for: the classifier's verdict, and the posting itself. The
+            # text is what resume tailoring reads, so a row that arrived without
+            # it would look complete and quietly refuse to tailor.
             role_family=job.role_family,
+            jd_text=job.jd_text,
+            jd_parsed=job.jd_parsed,
         ),
         user_id,
     )
@@ -343,3 +365,88 @@ def accept(db: Session, job: DiscoveredJob, user_id: str) -> Application:
 def dismiss(db: Session, job: DiscoveredJob) -> DiscoveredJob:
     """Turn a discovery down. The row stays so the feed cannot re-offer it."""
     return resolve(db, job, DiscoveryState.dismissed)
+
+
+# --- Enrichment --------------------------------------------------------------
+# Reading each newly staged posting so the inbox can answer "am I even eligible"
+# before you open anything. Separate from staging because it is the slow half:
+# staging is one feed download and one batched classifier call, while this is a
+# network round trip per posting.
+
+
+def _your_graduation_years(db: Session, user_id: str) -> list[int]:
+    """Graduation years from the master resume, or empty if there is none.
+
+    Empty is not a failure. eligibility.assess returns "unclear" with nothing to
+    compare against, which is the honest answer for a user who has not filled in
+    their education yet.
+    """
+    master = get_master(db, user_id)
+    if master is None or not master.resume_json:
+        return []
+    return graduation_years(Resume.model_validate(master.resume_json))
+
+
+def enrich(db: Session, job: DiscoveredJob, settings: Settings, years: list[int]) -> None:
+    """Read one posting and record what it says. Never raises.
+
+    A failure here must not cost you the row. Roughly four in ten ordinary
+    careers sites cannot be read without a browser, and a discovery you can
+    still click through to is worth far more than a pull that aborted. So every
+    failure path leaves the row exactly as it was and moves on — the fields stay
+    null, which the UI reads as "not read yet" rather than as a verdict.
+
+    enriched_at is stamped only on success, so a failed posting is retried by a
+    later pass rather than being permanently marked as done.
+    """
+    try:
+        fetched = fetch_posting(job.posting_url)
+    except PostingFetchError:
+        # Expected and common: a blocked site, a page that needs a browser, a
+        # link that has already gone dead. Not worth a log line each.
+        return
+    except Exception:
+        # Anything else is a surprise rather than a known limitation, and it
+        # still must not take the pull down with it.
+        return
+
+    parsed = parse_job_description(fetched.text, settings)
+
+    job.jd_text = fetched.text
+    job.jd_parsed = parsed.model_dump(mode="json") if parsed is not None else None
+    requirements = (
+        [*parsed.key_requirements, *parsed.preferred_qualifications]
+        if parsed is not None
+        else []
+    )
+    job.eligibility = assess(fetched.text, requirements, years).model_dump()
+    job.enriched_at = datetime.now(UTC)
+
+
+def enrich_pending(db: Session, user_id: str, settings: Settings, limit: int = 50) -> int:
+    """Read the postings staged for this user that have not been read yet.
+
+    Capped, and the cap is the point. A first run against an empty table stages
+    a few hundred jobs, and reading all of them in one request would take many
+    minutes and time out whatever called it. Later passes pick up the rest,
+    newest first, because that is the end of the list you would actually work
+    through.
+    """
+    rows = db.execute(
+        select(DiscoveredJob)
+        .where(
+            DiscoveredJob.user_id == user_id,
+            DiscoveredJob.state == DiscoveryState.pending,
+            DiscoveredJob.enriched_at.is_(None),
+        )
+        .order_by(DiscoveredJob.posted_at.desc().nullslast())
+        .limit(limit)
+    ).scalars().all()
+    if not rows:
+        return 0
+
+    years = _your_graduation_years(db, user_id)
+    for job in rows:
+        enrich(db, job, settings, years)
+    db.commit()
+    return sum(1 for job in rows if job.enriched_at is not None)

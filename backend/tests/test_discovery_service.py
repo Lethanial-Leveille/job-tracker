@@ -29,7 +29,7 @@ from models.application import Application, ApplicationStatus, ApplicationType
 from models.discovered_job import DiscoveredJob, DiscoveryState
 from models.user import User
 from schemas.discovery import FeedListing, PullResult
-from services.discovery import resolve, stage_listings
+from services.discovery import enrich_pending, resolve, stage_listings
 
 
 def _settings() -> Settings:
@@ -349,6 +349,115 @@ def test_a_rejected_posting_is_never_judged_twice(db: Session, user: User) -> No
     classifier.assert_not_called()
     assert _staged(db) == []
     assert result.duplicates == 1
+
+
+# --- Enrichment --------------------------------------------------------------
+
+
+def _enrich(db: Session, user: User, *, text: str, parsed=None, years=(2028, 2029), fails=False):
+    from services.fetch_posting import PostingFetchError
+    from schemas.parsing import FetchedPosting
+
+    with patch("services.discovery.fetch_posting") as fetch, patch(
+        "services.discovery.parse_job_description"
+    ) as parse, patch("services.discovery._your_graduation_years") as grad:
+        grad.return_value = list(years)
+        parse.return_value = parsed
+        if fails:
+            fetch.side_effect = PostingFetchError("needs a browser")
+        else:
+            fetch.return_value = FetchedPosting(text=text, source="workday", url="https://x/1")
+        return enrich_pending(db, user.id, _settings())
+
+
+def test_a_posting_that_excludes_you_says_so_before_you_open_it(
+    db: Session, user: User
+) -> None:
+    """The whole point of reading overnight.
+
+    You should not have to open a posting to discover it wanted the Class of
+    2026. By morning the row already knows.
+    """
+    _stage(db, user, [_listing()], {0: "Software Engineer Intern"})
+
+    count = _enrich(db, user, text="Must be graduating in the Class of 2026.")
+
+    row = _staged(db)[0]
+    assert count == 1
+    assert row.eligibility["verdict"] == "mismatch"
+    assert "2026" in row.eligibility["evidence"]
+    assert row.enriched_at is not None
+
+
+def test_a_posting_that_cannot_be_read_keeps_its_row(db: Session, user: User) -> None:
+    """A failed fetch must not cost you the discovery.
+
+    Four in ten ordinary careers sites need a browser. A row you can still click
+    through to is worth far more than a pull that gave up, so the fields stay
+    null and the UI reads that as "not read" rather than as a verdict.
+    """
+    _stage(db, user, [_listing()], {0: "Software Engineer Intern"})
+
+    count = _enrich(db, user, text="", fails=True)
+
+    row = _staged(db)[0]
+    assert count == 0
+    assert row.eligibility is None
+    # Not stamped, so a later pass tries again instead of treating it as done.
+    assert row.enriched_at is None
+
+
+def test_reading_is_capped_so_a_first_run_finishes(db: Session, user: User) -> None:
+    # A first pull stages hundreds. Reading all of them in one request would
+    # take minutes and time out whatever called it.
+    listings = [_listing(id=f"f{i}", url=f"https://x/{i}") for i in range(5)]
+    _stage(db, user, listings, {i: "Software Engineer Intern" for i in range(5)})
+
+    from schemas.parsing import FetchedPosting
+
+    with patch("services.discovery.fetch_posting") as fetch, patch(
+        "services.discovery.parse_job_description", return_value=None
+    ), patch("services.discovery._your_graduation_years", return_value=[2029]):
+        fetch.return_value = FetchedPosting(text="hello", source="generic", url="https://x/1")
+        first = enrich_pending(db, user.id, _settings(), limit=2)
+
+    assert first == 2
+    assert sum(1 for r in _staged(db) if r.enriched_at is None) == 3
+
+
+def test_an_already_read_posting_is_not_read_again(db: Session, user: User) -> None:
+    _stage(db, user, [_listing()], {0: "Software Engineer Intern"})
+    _enrich(db, user, text="Graduating in 2029.")
+
+    from schemas.parsing import FetchedPosting
+
+    with patch("services.discovery.fetch_posting") as fetch, patch(
+        "services.discovery.parse_job_description", return_value=None
+    ), patch("services.discovery._your_graduation_years", return_value=[2029]):
+        fetch.return_value = FetchedPosting(text="x", source="generic", url="https://x/1")
+        again = enrich_pending(db, user.id, _settings())
+
+    assert again == 0
+    fetch.assert_not_called()
+
+
+def test_accepting_carries_the_posting_onto_the_application(
+    db: Session, user: User
+) -> None:
+    """The text is what resume tailoring reads.
+
+    A row that arrived without it would look complete and then quietly refuse to
+    tailor, which is the kind of gap you find at the worst moment.
+    """
+    from services.discovery import accept
+
+    _stage(db, user, [_listing()], {0: "Software Engineer Intern"})
+    _enrich(db, user, text="Graduating in 2029 required.")
+
+    application = accept(db, _staged(db)[0], user.id)
+
+    assert application.jd_text == "Graduating in 2029 required."
+    assert application.role_family == "Software Engineer Intern"
 
 
 # --- Fields carried across ---------------------------------------------------

@@ -29,6 +29,7 @@ from sqlalchemy import (
     Enum as SqlEnum,
     ForeignKey,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -145,6 +146,34 @@ class DiscoveredJob(Base):
     # A JSON list rather than a join table because it is read whole with the row
     # and discarded when you resolve it. Same call as every other JSON column here.
     possible_application_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
+    # --- What reading the posting found -------------------------------------
+    # Filled by the enrichment pass, which fetches and parses each newly staged
+    # posting. Everything here is nullable because roughly four in ten ordinary
+    # careers sites cannot be read without a browser, and a row that could not
+    # be read is still a row worth showing you.
+
+    # The posting text as fetched. Copied onto the application on accept, which
+    # is what makes an accepted discovery immediately tailorable instead of
+    # needing you to go and paste the description in by hand.
+    jd_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # The parser's output, same shape and same JSON-blob reasoning as
+    # Application.jd_parsed. Also copied across on accept.
+    jd_parsed: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # The graduation-eligibility verdict (schemas via services/eligibility.py):
+    # eligible, mismatch, or unclear, with the sentence that decided it.
+    #
+    # This is the "check compatibility automatically instead of me checking"
+    # column. It exists so a posting that wants the Class of 2026 says so in the
+    # inbox, before you spend an evening on it.
+    eligibility: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # When the posting was last read. Distinct from a boolean because it also
+    # answers "is this verdict stale" — the check compares against graduation
+    # dates from the master resume, and those change.
+    enriched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     state: Mapped[DiscoveryState] = mapped_column(
         SqlEnum(DiscoveryState),
