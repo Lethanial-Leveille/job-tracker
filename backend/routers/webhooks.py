@@ -7,9 +7,11 @@ Keeping them in their own module means the two can never be confused, and the
 router-level dependency guards every route here by default so a new one cannot
 be added unprotected by accident.
 
-Currently one endpoint: Gmail ingestion. n8n on the Raspberry Pi polls Gmail on
-a schedule and POSTs a rolling two day window of messages here. See
-services/email_ingest.py for why there is no cursor and why that is safe.
+Two endpoints, both called by n8n on the Raspberry Pi on a schedule. Gmail
+ingestion POSTs a rolling two day window of messages (see
+services/email_ingest.py for why there is no cursor and why that is safe), and
+the discovery pull runs the internship feed overnight so the inbox is filled in
+by morning.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -18,11 +20,13 @@ from sqlalchemy.orm import Session
 from config import Settings, get_settings
 from database import get_db
 from dependencies import verify_service_token
+from schemas.discovery import DiscoveryPullRequest, PullResult
 from schemas.email import (
     EmailIngestRequest,
     EmailIngestResponse,
     MessageResult,
 )
+from services.discovery import run_pull
 from services.email_ingest import ingest_messages
 from services.user import get_user_by_email
 
@@ -84,3 +88,32 @@ def ingest_email(
             for o in outcomes
         ],
     )
+
+
+@router.post("/discovery/pull", response_model=PullResult)
+def pull_discoveries(
+    data: DiscoveryPullRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> PullResult:
+    """Run the discovery feed pull for one user, on a schedule.
+
+    Calls exactly the same run_pull the refresh button does, so the nightly job
+    and the manual one can never drift apart.
+
+    Safe to fire as often as you like, and safe to retry: the unique constraint
+    on the feed's own id means a second run within the same night stages only
+    what is genuinely new, and re-running after a partial failure picks up the
+    listings that did not get written rather than duplicating those that did.
+
+    The 404 is the same one the email route raises and means the same thing —
+    the automation is configured for an account that does not exist here, which
+    is worth failing loudly and repeatedly until someone fixes the Pi.
+    """
+    user = get_user_by_email(db, data.email)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No user for that email",
+        )
+    return run_pull(db, user.id, settings)
