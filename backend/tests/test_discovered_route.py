@@ -119,39 +119,79 @@ def test_a_dismissed_job_keeps_its_row(
     assert job.resolved_at is not None
 
 
-@patch("routers.discovered.run_pull")
-def test_refresh_runs_the_pull_for_the_signed_in_user(
-    mock_pull: MagicMock, db: Session, user: User, client: TestClient
+@patch("routers.discovered.execute_run")
+def test_refresh_starts_a_run_and_answers_at_once(
+    mock_execute: MagicMock, db: Session, user: User, client: TestClient
 ) -> None:
-    from schemas.discovery import PullResult
+    """202, not 200, and the work happens afterwards.
 
-    mock_pull.return_value = PullResult(fetched=100, kept=10, staged=3)
-
-    body = client.post("/discovered/refresh").json()
-
-    assert body["staged"] == 3
-    assert mock_pull.call_args.args[1] == user.id
-
-
-@patch("routers.webhooks.run_pull")
-def test_the_webhook_and_the_button_run_the_same_pull(
-    mock_pull: MagicMock, db: Session, user: User, client: TestClient
-) -> None:
-    """The whole reason both triggers call one function.
-
-    If the nightly job and the manual button ever diverge, the one you cannot
-    watch is the one that breaks.
+    Cloudflare abandons any request the origin has not answered in 100 seconds.
+    A first pull is comfortably past that, so holding the request open would
+    show a failure for a run that succeeded.
     """
-    from schemas.discovery import PullResult
+    resp = client.post("/discovered/refresh")
 
-    mock_pull.return_value = PullResult(staged=2)
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["state"] == "running"
+    assert body["finished_at"] is None
+    # The run row exists before the work starts — that is what makes "is one
+    # already going" answerable.
+    assert mock_execute.call_args.args[0] == body["id"]
 
-    body = client.post(
-        "/webhooks/discovery/pull", json={"email": user.email}
-    ).json()
 
-    assert body["staged"] == 2
-    assert mock_pull.call_args.args[1] == user.id
+@patch("routers.discovered.execute_run")
+def test_a_second_pull_is_refused_while_one_is_running(
+    mock_execute: MagicMock, db: Session, user: User, client: TestClient
+) -> None:
+    """Two concurrent pulls would fetch the same feed twice and race each other
+    into the same unique constraint. A schedule that fires twice should say so
+    rather than be quietly queued."""
+    client.post("/discovered/refresh")
+
+    resp = client.post("/discovered/refresh")
+
+    assert resp.status_code == 409
+
+
+@patch("routers.discovered.execute_run")
+def test_the_latest_run_is_readable_while_it_is_still_going(
+    mock_execute: MagicMock, db: Session, user: User, client: TestClient
+) -> None:
+    # What makes a background run legible: without this, a quiet night, a run in
+    # progress, and a run that died all look like an inbox that did not change.
+    assert client.get("/discovered/runs/latest").json() is None
+
+    client.post("/discovered/refresh")
+
+    assert client.get("/discovered/runs/latest").json()["state"] == "running"
+
+
+@patch("routers.webhooks.execute_run")
+def test_the_webhook_also_answers_before_the_work_happens(
+    mock_execute: MagicMock, db: Session, user: User, client: TestClient
+) -> None:
+    """The endpoint n8n calls, and the one the 524 was actually about.
+
+    Held open, it would hand n8n a failure for a working run, n8n would retry,
+    and the retry would collide with the run still going.
+    """
+    resp = client.post("/webhooks/discovery/pull", json={"email": user.email})
+
+    assert resp.status_code == 202
+    assert resp.json()["state"] == "running"
+    assert mock_execute.called
+
+
+@patch("routers.webhooks.execute_run")
+def test_the_webhook_refuses_to_start_a_second_run(
+    mock_execute: MagicMock, db: Session, user: User, client: TestClient
+) -> None:
+    client.post("/webhooks/discovery/pull", json={"email": user.email})
+
+    resp = client.post("/webhooks/discovery/pull", json={"email": user.email})
+
+    assert resp.status_code == 409
 
 
 def test_the_webhook_fails_loudly_for_an_unknown_account(

@@ -9,9 +9,9 @@ import type {
   ApplicationCreateInput,
   FitReport,
   DiscoveredJob,
+  DiscoveryRun,
   ParsedFromUrl,
   ParsedJob,
-  PullResult,
   Resume,
   ResumeVersion,
   StatusEvent,
@@ -148,14 +148,28 @@ export function listDiscovered(): Promise<DiscoveredJob[]> {
   return getJson<DiscoveredJob[]>("/discovered");
 }
 
-// Run the feed pull now rather than waiting for the nightly job. Deliberately
-// slow and synchronous: it downloads the feed, classifies what is new, and
-// reads each newly staged posting. A background job would return instantly and
-// leave you watching an inbox that might fill in or might have failed, with no
-// way to tell which — the counts that come back are the answer.
-export async function refreshDiscovered(): Promise<PullResult> {
-  const res = await request("/discovered/refresh", { method: "POST" });
-  return res.json() as Promise<PullResult>;
+// Start a pull. Returns immediately with the run that was started, NOT with the
+// result — the work happens in the background.
+//
+// It has to. The site is behind Cloudflare, which abandons any request the
+// origin has not answered within 100 seconds and returns a 524. A first pull
+// downloads a 12MB feed, classifies hundreds of titles, and reads up to fifty
+// postings one at a time, so a synchronous version would report a failure for a
+// run that was working fine.
+//
+// 409 is allowed through rather than thrown: a pull already running is a normal
+// thing to bump into (the nightly job may be going), not an error worth an
+// alarming message.
+export async function startPull(): Promise<DiscoveryRun | "already-running"> {
+  const res = await request("/discovered/refresh", { method: "POST" }, [409]);
+  if (res.status === 409) return "already-running";
+  return res.json() as Promise<DiscoveryRun>;
+}
+
+// The most recent run, finished or not. Polled while one is in flight, and read
+// once on load so the page can say what the last night did.
+export function latestRun(): Promise<DiscoveryRun | null> {
+  return getJson<DiscoveryRun | null>("/discovered/runs/latest");
 }
 
 // File a discovery into the pipeline. Answers with the created application,

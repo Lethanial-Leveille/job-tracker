@@ -11,6 +11,7 @@ from datetime import UTC, date, datetime
 from pydantic import BaseModel
 
 from models.discovered_job import DiscoveryState
+from models.discovery_run import RunState
 
 
 class FeedListing(BaseModel):
@@ -117,3 +118,27 @@ class DiscoveryPullRequest(BaseModel):
     """
 
     email: str
+
+
+class DiscoveryRunRead(BaseModel):
+    """One pull attempt, as the Discovered page sees it.
+
+    The page shows the most recent of these for one reason: with the pull
+    running in the background, an inbox that did not change could mean the feed
+    was quiet, the run is still going, or the run died. Those need to look
+    different on screen.
+    """
+
+    id: str
+    state: RunState
+    started_at: datetime
+    finished_at: datetime | None = None
+    fetched: int = 0
+    staged: int = 0
+    duplicates: int = 0
+    enriched: int = 0
+    ruled_out: int = 0
+    sources: dict | None = None
+    error: str | None = None
+
+    model_config = {"from_attributes": True}

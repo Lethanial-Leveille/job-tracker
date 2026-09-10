@@ -19,6 +19,7 @@ list when you create them.
 
 from models.application import Application
 from models.discovered_job import DiscoveredJob
+from models.discovery_run import DiscoveryRun
 from models.ingested_email import IngestedEmail
 from models.resume import MasterResume
 from models.resume_version import ResumeVersion
@@ -29,6 +30,7 @@ from models.user import User
 __all__ = [
     "Application",
     "DiscoveredJob",
+    "DiscoveryRun",
     "IngestedEmail",
     "MasterResume",
     "ResumeVersion",

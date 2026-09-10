@@ -218,6 +218,27 @@ export interface DiscoveredJob {
   created_at: string;
 }
 
+// One pull attempt. The pull runs in the background now — the site is behind
+// Cloudflare, which abandons any request the origin has not answered in 100
+// seconds, and a first pull is comfortably past that — so this record is how a
+// run becomes visible at all.
+//
+// Without it, an inbox that did not change could mean the feed was quiet, the
+// run is still going, or the run died. Those need to look different.
+export interface DiscoveryRun {
+  id: string;
+  state: "running" | "succeeded" | "failed";
+  started_at: string;
+  finished_at: string | null;
+  fetched: number;
+  staged: number;
+  duplicates: number;
+  enriched: number;
+  ruled_out: number;
+  sources: Record<string, unknown> | null;
+  error: string | null;
+}
+
 // What one run of the feed pull did. `dropped` is keyed by reason, which is the
 // only thing that distinguishes a quiet night from a filter that has silently
 // stopped recognizing the feed's labels.

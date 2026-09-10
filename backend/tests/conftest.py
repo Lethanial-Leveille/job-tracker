@@ -18,6 +18,7 @@ from database import Base
 # The noqa silences "imported but unused" — the import's side effect IS the use.
 import models.application  # noqa: F401
 import models.discovered_job  # noqa: F401
+import models.discovery_run  # noqa: F401
 import models.ingested_email  # noqa: F401
 import models.resume_version  # noqa: F401
 import models.status_suggestion  # noqa: F401

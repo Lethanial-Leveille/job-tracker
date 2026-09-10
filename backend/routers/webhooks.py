@@ -14,19 +14,19 @@ the discovery pull runs the internship feed overnight so the inbox is filled in
 by morning.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from config import Settings, get_settings
 from database import get_db
 from dependencies import verify_service_token
-from schemas.discovery import DiscoveryPullRequest, PullResult
+from schemas.discovery import DiscoveryPullRequest, DiscoveryRunRead
 from schemas.email import (
     EmailIngestRequest,
     EmailIngestResponse,
     MessageResult,
 )
-from services.discovery import run_pull
+from services.discovery import RunAlreadyGoing, execute_run, start_run
 from services.email_ingest import ingest_messages
 from services.user import get_user_by_email
 
@@ -90,25 +90,37 @@ def ingest_email(
     )
 
 
-@router.post("/discovery/pull", response_model=PullResult)
+@router.post(
+    "/discovery/pull",
+    response_model=DiscoveryRunRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 def pull_discoveries(
     data: DiscoveryPullRequest,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-) -> PullResult:
-    """Run the discovery feed pull for one user, on a schedule.
+) -> DiscoveryRunRead:
+    """Start the nightly discovery pull for one user and answer immediately.
 
-    Calls exactly the same run_pull the refresh button does, so the nightly job
-    and the manual one can never drift apart.
+    202 rather than 200, and it is Cloudflare that forces it. The site sits
+    behind a tunnel, and Cloudflare abandons any request the origin has not
+    answered within 100 seconds, returning a 524 to the caller. A pull downloads
+    a 12MB feed, classifies every new title, and then fetches and reads up to
+    fifty postings one at a time — well past that. Held open, this endpoint
+    would hand n8n a failure for a run that was working fine, and n8n would
+    retry it, and the retry would collide with the run still going.
 
-    Safe to fire as often as you like, and safe to retry: the unique constraint
-    on the feed's own id means a second run within the same night stages only
-    what is genuinely new, and re-running after a partial failure picks up the
-    listings that did not get written rather than duplicating those that did.
+    So the request validates, claims a run, hands the work to a background task,
+    and returns the run row. Poll nothing from n8n: the row is the record, and
+    the Discovered page reads it.
 
-    The 404 is the same one the email route raises and means the same thing —
-    the automation is configured for an account that does not exist here, which
-    is worth failing loudly and repeatedly until someone fixes the Pi.
+    Three answers worth knowing about:
+      202 — accepted, the run is going. The body carries its id.
+      409 — one is already in progress. Not an error to alert on; it means the
+            schedule fired twice or a manual pull is running.
+      404 — no user for that email. A misconfigured automation rather than a
+            transient failure, so it fails loudly and keeps failing.
     """
     user = get_user_by_email(db, data.email)
     if user is None:
@@ -116,4 +128,14 @@ def pull_discoveries(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No user for that email",
         )
-    return run_pull(db, user.id, settings)
+
+    try:
+        run = start_run(db, user.id)
+    except RunAlreadyGoing as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A pull is already running for that user.",
+        ) from exc
+
+    background.add_task(execute_run, run.id, user.id, settings)
+    return DiscoveryRunRead.model_validate(run)

@@ -10,7 +10,7 @@ pipeline, dismiss turns it down, and both keep the row so tomorrow's pull cannot
 hand you the same posting again.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from config import Settings, get_settings
@@ -18,13 +18,16 @@ from database import get_db
 from dependencies import get_current_user
 from models.user import User
 from schemas.application import ApplicationRead
-from schemas.discovery import DiscoveredJobRead, PullResult
+from schemas.discovery import DiscoveredJobRead, DiscoveryRunRead
 from services.discovery import (
+    RunAlreadyGoing,
     accept,
     dismiss,
+    execute_run,
     get_discovered,
+    latest_run,
     list_pending,
-    run_pull,
+    start_run,
 )
 
 router = APIRouter(
@@ -43,25 +46,55 @@ def list_discovered(
     return [DiscoveredJobRead.model_validate(job) for job in list_pending(db, user.id)]
 
 
-@router.post("/refresh", response_model=PullResult)
+@router.post(
+    "/refresh", response_model=DiscoveryRunRead, status_code=status.HTTP_202_ACCEPTED
+)
 def refresh(
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
-) -> PullResult:
-    """Run the pull now, rather than waiting for tonight.
+) -> DiscoveryRunRead:
+    """Start a pull and answer immediately with the run that was started.
 
-    The same run_pull the webhook calls, so the button and the schedule can
-    never drift into behaving differently. It is safe to press repeatedly: the
-    unique constraint on the feed's own id means a second run stages only what
-    is genuinely new.
+    202, not 200, and the reason is the network rather than the code: the site
+    is behind Cloudflare, which abandons any request the origin has not answered
+    in 100 seconds and returns a 524. A first pull downloads a 12MB feed,
+    classifies hundreds of titles, and then reads up to fifty postings one at a
+    time — comfortably past that. Doing the work inside the request would show
+    you a failure for a run that succeeded.
 
-    Deliberately synchronous, and it can take a while on a first run. A
-    background job would return instantly and leave you watching an inbox that
-    might fill in or might have failed, with no way to tell which. The count
-    that comes back is the answer.
+    So this claims the run, hands the work to a background task, and returns the
+    row. The page polls /discovered/runs/latest to watch it finish.
+
+    409 when one is already going. Two concurrent pulls would fetch the same
+    feed twice and race each other into the same unique constraint, and a
+    nightly job that fires twice ought to say so rather than be quietly queued.
     """
-    return run_pull(db, user.id, settings)
+    try:
+        run = start_run(db, user.id)
+    except RunAlreadyGoing as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A pull is already running.",
+        ) from exc
+    background.add_task(execute_run, run.id, user.id, settings)
+    return DiscoveryRunRead.model_validate(run)
+
+
+@router.get("/runs/latest", response_model=DiscoveryRunRead | None)
+def read_latest_run(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> DiscoveryRunRead | None:
+    """The most recent pull, running or finished.
+
+    What makes a background run legible. Without it, an inbox that did not
+    change could mean the feed was quiet, the run is still going, or the run
+    died — and all three look identical.
+    """
+    run = latest_run(db, user.id)
+    return DiscoveryRunRead.model_validate(run) if run else None
 
 
 @router.post("/{job_id}/accept", response_model=ApplicationRead)

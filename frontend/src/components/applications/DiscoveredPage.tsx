@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Application, DiscoveredJob, Eligibility } from "../../lib/types";
+import type {
+  Application,
+  DiscoveredJob,
+  DiscoveryRun,
+  Eligibility,
+} from "../../lib/types";
 import { acceptDiscovered, dismissDiscovered } from "../../lib/api";
 import { useDiscovered } from "../../lib/useDiscovered";
 import { shortDate } from "../../lib/format";
@@ -177,8 +182,52 @@ function Row({
   );
 }
 
+function relative(iso: string): string {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function RunBanner({ run }: { run: DiscoveryRun }) {
+  if (run.state === "running") {
+    return (
+      <div className="mt-4 flex items-center gap-3 rounded-frame border border-line bg-surface px-4 py-3">
+        <span className="size-3.5 animate-spin rounded-full border-2 border-line-strong border-t-accent motion-reduce:animate-none" />
+        <p className="text-[12.5px] text-ink-soft">
+          Pulling since {relative(run.started_at)}. Downloading the feed, then
+          reading whatever is new. You can leave this page.
+        </p>
+      </div>
+    );
+  }
+  if (run.state === "failed") {
+    // Shown in full rather than summarised. A pull that failed silently is the
+    // exact thing the run record exists to prevent.
+    return (
+      <div className="mt-4 rounded-frame border border-line-strong bg-surface-hover px-4 py-3">
+        <p className="text-[12.5px] font-medium text-ink">
+          The last pull failed {relative(run.started_at)}.
+        </p>
+        {run.error && (
+          <p className="mt-1 text-[11.5px] leading-relaxed text-ink-muted">{run.error}</p>
+        )}
+      </div>
+    );
+  }
+  return (
+    <p className="mt-4 text-[12.5px] text-ink-muted">
+      Last pull {relative(run.started_at)}: {run.staged} new, {run.enriched} read,{" "}
+      {run.duplicates} already seen
+      {run.ruled_out > 0 && `, ${run.ruled_out} ruled out on graduation year`}.
+    </p>
+  );
+}
+
 export function DiscoveredPage({ applications, onChanged }: Props) {
-  const { jobs, loading, error, pulling, lastPull, refetch, pull } = useDiscovered();
+  const { jobs, loading, error, pulling, run, refetch, pull } = useDiscovered();
   const [busy, setBusy] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -228,24 +277,10 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
         </button>
       </div>
 
-      {pulling && (
-        <p className="mt-4 text-[12.5px] text-ink-muted">
-          Downloading the feed, then reading whatever is new. This takes a minute
-          the first time.
-        </p>
-      )}
-
-      {lastPull && !pulling && (
-        <p className="mt-4 text-[12.5px] text-ink-muted">
-          Last pull: {lastPull.staged} new, {lastPull.enriched} read,{" "}
-          {lastPull.duplicates} already seen
-          {/* Shown because an inbox emptied by a broken eligibility check and
-              one emptied by a quiet night look identical without it. */}
-          {lastPull.ruled_out > 0 &&
-            `, ${lastPull.ruled_out} ruled out on graduation year`}
-          .
-        </p>
-      )}
+      {/* The run banner. With the pull happening in the background, a quiet
+          night, a run still going, and a run that died all look like an inbox
+          that did not change — so each one has to say which it is. */}
+      {run && <RunBanner run={run} />}
 
       {error && (
         <p className="mt-4 rounded-interactive border border-line bg-surface px-3 py-2 text-[13px] text-ink">
