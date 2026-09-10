@@ -8,6 +8,7 @@ import type {
   Application,
   ApplicationCreateInput,
   FitReport,
+  ParsedFromUrl,
   ParsedJob,
   Resume,
   ResumeVersion,
@@ -105,6 +106,37 @@ export async function parseJobDescription(text: string): Promise<ParsedJob> {
     body: JSON.stringify({ text }),
   });
   return res.json() as Promise<ParsedJob>;
+}
+
+// POST a posting LINK. The server fetches the page, turns it into text, and
+// runs the same parser the paste path uses — so this returns the extraction
+// plus the text it was read from, which the caller stores as jd_text.
+//
+// 400 is allowed through rather than thrown by request(), because a fetch
+// failure is the ROUTINE outcome here, not an exception: some job sites block
+// scripts, some pages need a browser to render, some links are dead. The
+// backend puts a sentence written for a person in `detail`, and this rethrows
+// exactly that so the add screen can show it above the paste box. Every other
+// non-ok status keeps request()'s generic error, including the 502 that means
+// the page was read but could not be parsed — different problem, and pasting
+// the same text again would not fix it.
+export async function parseJobUrl(url: string): Promise<ParsedFromUrl> {
+  const res = await request(
+    "/applications/parse-url",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    },
+    [400],
+  );
+  if (res.status === 400) {
+    const body = (await res.json()) as { detail?: string };
+    throw new Error(
+      body.detail ?? "Could not read that link. Paste the posting text instead.",
+    );
+  }
+  return res.json() as Promise<ParsedFromUrl>;
 }
 
 // PATCH an existing application. The backend's update schema treats every field

@@ -7,7 +7,7 @@ import type {
   RoleFamily,
 } from "../../lib/types";
 import { ROLE_FAMILIES } from "../../lib/types";
-import { createApplication, parseJobDescription } from "../../lib/api";
+import { createApplication, parseJobDescription, parseJobUrl } from "../../lib/api";
 import { statusLabel } from "../../lib/format";
 import { findByOrganization, findSimilarPosting, findUrlMatch } from "../../lib/dedupe";
 import { Select } from "../ui/Select";
@@ -34,9 +34,16 @@ function FieldChevron() {
 }
 
 // The full-screen "Add an opportunity" flow that replaces the create modal.
-// Three steps: Input (paste the posting) -> Parse (Claude reads it) -> Review
-// (confirm the extracted fields, then save). Nothing is written until you hit
-// Save on the Review step — hard rule #1, review before submit.
+// Three steps: Input -> Parse (Claude reads it) -> Review (confirm the extracted
+// fields, then save). Nothing is written until you hit Save on the Review step —
+// hard rule #1, review before submit.
+//
+// The Input step now takes EITHER a link or pasted text. The link is the fast
+// path: the server fetches the page and reads it, so most postings need nothing
+// but a URL. Pasting stays the path that always works, because some job sites
+// block scripts outright and some pages only exist once a browser has run them.
+// When a fetch fails you land back here with the reason and the textarea
+// waiting, which is the whole reason both inputs live on one screen.
 
 interface Props {
   onClose: () => void; // back to the list
@@ -98,6 +105,27 @@ function defaultDeadline(): string {
   return `${d.getFullYear()}-${month}-${day}`;
 }
 
+// Turn the fetch path into a sentence for the review step.
+//
+// Worth showing because the two paths do not deserve equal trust. A job board
+// Prowl knows returns the posting as structured data, straight from the system
+// the employer publishes through. Any other site gets read off the rendered
+// page, which is accurate far more often than not and is still the one worth
+// glancing at before you save.
+const SOURCE_NAMES: Record<string, string> = {
+  workday: "Workday",
+  greenhouse: "Greenhouse",
+  lever: "Lever",
+  ashby: "Ashby",
+};
+
+function sourceNote(source: string): string {
+  const board = SOURCE_NAMES[source];
+  return board
+    ? `Read from ${board}'s own listing for this job.`
+    : "Read off the page itself, since this isn't a job board Prowl knows. Worth a quick look before saving.";
+}
+
 const labelClass =
   "flex flex-col gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted";
 const fieldClass =
@@ -118,6 +146,19 @@ export function AddOpportunity({
   const [postingUrl, setPostingUrl] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedJob | null>(null);
+  // The posting text as the SERVER read it, set only on the link path. On the
+  // paste path the text is already in pasteText, but on the link path this is
+  // the only copy that exists anywhere in the browser — and save() has to store
+  // it, because it is what resume tailoring reads later.
+  const [fetchedText, setFetchedText] = useState<string | null>(null);
+  // Which path the fetch took ("workday", "generic", "workday+generic"). Shown
+  // at review so a thin extraction has a visible explanation instead of looking
+  // like the parser did a bad job.
+  const [fetchSource, setFetchSource] = useState<string | null>(null);
+  // Whether the parse step is fetching a page or reading pasted text. Only
+  // changes the wording, and the wording is the difference between a spinner
+  // that looks stuck and one that tells you what it is waiting on.
+  const [fetching, setFetching] = useState(false);
   const [form, setForm] = useState<ReviewForm>(() => ({
     ...BLANK,
     deadline: defaultDeadline(),
@@ -135,42 +176,81 @@ export function AddOpportunity({
   // typed. There is nothing to keep in sync and nothing to invalidate.
   const urlDuplicate = findUrlMatch(applications, postingUrl);
 
+  // Everything that happens once a parse comes back, from either path. Pulled
+  // out so the link path and the paste path cannot drift apart: the duplicate
+  // checks and the prefill have to behave identically no matter how the posting
+  // arrived, and two copies of this would eventually disagree.
+  //
+  // `resolvedUrl` matters on the link path. The server follows redirects, so
+  // the link you pasted and the link the posting actually lives at can differ,
+  // and the second one is what belongs on the row and what the duplicate check
+  // should run against.
+  function applyParse(p: ParsedJob, resolvedUrl: string) {
+    setParsed(p);
+    setForm((f) => ({
+      ...f,
+      type: p.type,
+      organization: p.organization,
+      role_or_program: p.role_or_program,
+      role_family: p.role_family,
+      deadline: p.deadline ?? defaultDeadline(),
+      // Carried from the input step so the link never gets typed twice. Still
+      // editable at review.
+      posting_url: resolvedUrl,
+    }));
+    // Re-run the link check against the RESOLVED url. The derived urlDuplicate
+    // above only ever saw what you typed, so a shortened or redirecting link
+    // that lands on a posting you already track would slip past it.
+    const urlMatch = urlDuplicate ?? findUrlMatch(applications, resolvedUrl);
+    // The second check, on employer + title. Catches the same job posted to
+    // two boards, which the URL check cannot see. Skipped when the URL check
+    // already matched, so you never get two warnings about one row.
+    const match = urlMatch
+      ? null
+      : findSimilarPosting(applications, p.organization, p.role_or_program);
+    setSimilar(match);
+    // Only when nothing stronger fired, so one posting never produces two
+    // notices about the same row.
+    setSameEmployer(
+      urlMatch || match ? [] : findByOrganization(applications, p.organization),
+    );
+    setStep("review");
+  }
+
   async function readWithProwl() {
-    if (pasteText.trim() === "") return;
+    const url = postingUrl.trim();
+    const text = pasteText.trim();
+    if (url === "" && text === "") return;
+
+    // Pasted text wins when both are filled. It is already in hand, so using it
+    // costs no fetch and cannot fail — and if you went to the trouble of pasting
+    // the posting, that is the copy you meant to use.
+    const byLink = text === "";
+
     setStep("parse");
+    setFetching(byLink);
     setParseError(null);
     try {
-      const p = await parseJobDescription(pasteText);
-      setParsed(p);
-      setForm((f) => ({
-        ...f,
-        type: p.type,
-        organization: p.organization,
-        role_or_program: p.role_or_program,
-        role_family: p.role_family,
-        deadline: p.deadline ?? defaultDeadline(),
-        // Carried from the input step so the link never gets typed twice. Still
-        // editable at review.
-        posting_url: postingUrl.trim(),
-      }));
-      // The second check, on employer + title. Catches the same job posted to
-      // two boards, which the URL check cannot see. Skipped when the URL check
-      // already matched, so you never get two warnings about one row.
-      const match = urlDuplicate
-        ? null
-        : findSimilarPosting(applications, p.organization, p.role_or_program);
-      setSimilar(match);
-      // Only when nothing stronger fired, so one posting never produces two
-      // notices about the same row.
-      setSameEmployer(
-        urlDuplicate || match ? [] : findByOrganization(applications, p.organization),
-      );
-      setStep("review");
+      if (byLink) {
+        const result = await parseJobUrl(url);
+        setFetchedText(result.jd_text);
+        setFetchSource(result.source);
+        applyParse(result.parsed, result.posting_url);
+      } else {
+        setFetchedText(null);
+        setFetchSource(null);
+        applyParse(await parseJobDescription(pasteText), url);
+      }
     } catch (err: unknown) {
+      // The backend writes fetch failures as a sentence meant to be read here,
+      // and api.ts rethrows it verbatim, so this is usually already the right
+      // message. The fallback only covers a network drop.
       setParseError(
         err instanceof Error ? err.message : "Could not read the posting",
       );
       setStep("input");
+    } finally {
+      setFetching(false);
     }
   }
 
@@ -198,7 +278,10 @@ export function AddOpportunity({
               preferred_qualifications: parsed.preferred_qualifications,
             }
           : null,
-        jd_text: pasteText.trim() === "" ? null : pasteText,
+        // Whichever path produced the posting. On the link path this is the
+        // server's copy, which the browser never showed you — dropping it would
+        // create a row that looks complete and cannot be tailored against.
+        jd_text: fetchedText ?? (pasteText.trim() === "" ? null : pasteText),
       });
       onSaved();
     } catch (err: unknown) {
@@ -242,30 +325,16 @@ export function AddOpportunity({
               Add an opportunity
             </h1>
             <p className="mx-auto mt-3.5 max-w-[460px] text-balance text-center text-[15px] leading-relaxed text-ink-soft">
-              Paste a job description, or drop a link. Prowl reads
-              it and fills in the details for you.
+              Drop a link and Prowl opens the posting and fills in the details.
+              Paste the description instead if a site won't let it in.
             </p>
 
-            <textarea
-              value={pasteText}
-              onChange={(e) => setPasteText(e.target.value)}
-              rows={11}
-              placeholder="Paste the full job description here…"
-              className="mt-9 min-h-[280px] w-full resize-y rounded-[14px] border border-line-strong bg-surface/60 px-6 py-5 text-sm leading-relaxed text-ink placeholder:text-ink-muted focus:border-accent focus:shadow-glow focus:outline-none"
-            />
-
-            <div className="my-6 flex items-center gap-4 text-[10.5px] uppercase tracking-[0.16em] text-ink-muted">
-              <span className="h-px flex-1 bg-line" />
-              Or paste a URL
-              <span className="h-px flex-1 bg-line" />
-            </div>
-
-            {/* The link. This field used to be disabled behind a "URL reading is
-                coming soon" promise; it now does real work. Prowl still does not
-                FETCH the page (most job sites block that), but having the link
-                before the parse call is what lets an already-tracked posting be
-                caught for free, and it saves retyping the URL at review. */}
-            <div className="relative">
+            {/* The link, now the primary way in rather than a companion to the
+                paste box. It does two jobs on this screen: it is checked against
+                what you already track before anything is spent, and it is what
+                the server fetches and reads. Ordered first because it is the
+                path that should work for most postings. */}
+            <div className="relative mt-9">
               <svg className="pointer-events-none absolute left-4 top-1/2 size-[17px] -translate-y-1/2 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
                 <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
@@ -292,8 +361,31 @@ export function AddOpportunity({
                   <circle cx="12" cy="12" r="9" />
                   <path d="M12 8h.01M11 12h1v4h1" />
                 </svg>
-                Prowl checks this against what you're already tracking before
-                reading anything.
+                Checked against what you're already tracking before anything is
+                read.
+              </p>
+            )}
+
+            <div className="my-6 flex items-center gap-4 text-[10.5px] uppercase tracking-[0.16em] text-ink-muted">
+              <span className="h-px flex-1 bg-line" />
+              Or paste the description
+              <span className="h-px flex-1 bg-line" />
+            </div>
+
+            {/* The fallback, and the path that always works. Kept full size
+                rather than tucked behind a disclosure toggle: this is where you
+                land when a fetch fails, and a textarea you have to go find is a
+                worse place to land than one already open. */}
+            <textarea
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              rows={8}
+              placeholder="Paste the full job description here…"
+              className="min-h-[190px] w-full resize-y rounded-[14px] border border-line-strong bg-surface/60 px-6 py-5 text-sm leading-relaxed text-ink placeholder:text-ink-muted focus:border-accent focus:shadow-glow focus:outline-none"
+            />
+            {pasteText.trim() !== "" && postingUrl.trim() !== "" && (
+              <p className="ml-1 mt-1.5 text-[11px] text-ink-muted">
+                Prowl will read your pasted text and keep the link on the row.
               </p>
             )}
 
@@ -306,7 +398,7 @@ export function AddOpportunity({
             <button
               type="button"
               onClick={readWithProwl}
-              disabled={pasteText.trim() === ""}
+              disabled={pasteText.trim() === "" && postingUrl.trim() === ""}
               className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl border border-line-strong bg-surface-hover py-[18px] text-[15px] font-medium text-ink transition-colors hover:border-accent-line disabled:opacity-50"
             >
               <svg className="size-[17px] text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -324,10 +416,12 @@ export function AddOpportunity({
           <div className="flex flex-col items-center pt-16 text-center">
             <div className="mb-6 size-[66px] animate-spin rounded-full border-2 border-line-strong border-t-accent motion-reduce:animate-none" />
             <h2 className="font-serif text-[26px] font-semibold text-ink">
-              Reading the posting
+              {fetching ? "Opening the posting" : "Reading the posting"}
             </h2>
             <p className="mt-2 text-sm text-ink-soft">
-              Prowl is pulling out the role, deadline, and key details…
+              {fetching
+                ? "Prowl is loading the page, then pulling out the role, deadline, and key details…"
+                : "Prowl is pulling out the role, deadline, and key details…"}
             </p>
           </div>
         )}
@@ -342,6 +436,11 @@ export function AddOpportunity({
                 Prowl filled these in. Check them, fix anything, then save.
                 Nothing is stored until you do.
               </p>
+              {fetchSource && (
+                <p className="mx-auto mt-3.5 w-fit max-w-[520px] rounded-interactive border border-line bg-surface px-3.5 py-2 text-[12px] leading-relaxed text-ink-muted">
+                  {sourceNote(fetchSource)}
+                </p>
+              )}
             </div>
 
             {similar && (

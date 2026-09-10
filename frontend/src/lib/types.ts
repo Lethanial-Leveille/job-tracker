@@ -144,6 +144,24 @@ export interface ParsedJob {
   preferred_qualifications: string[];
 }
 
+// What POST /applications/parse-url returns. Mirror of the backend ParsedFromUrl
+// schema. The parsed fields are NESTED rather than spread alongside the rest,
+// matching the backend, so a field added to ParsedJob later can never collide
+// with one of the three below.
+//
+// jd_text is the load-bearing extra: on the paste path the raw posting is
+// already in hand, but on the link path the server is the only one that ever
+// saw it, and resume tailoring reads it later. `posting_url` is the link AFTER
+// redirects, which is the one worth storing. `source` names the path the fetch
+// took ("workday", "generic"), and a compound value like "workday+generic"
+// means a known job board's API came up empty and the page got scraped instead.
+export interface ParsedFromUrl {
+  parsed: ParsedJob;
+  jd_text: string;
+  posting_url: string;
+  source: string;
+}
+
 // The body we send to POST /applications. Mirror of the backend ApplicationCreate
 // schema: the four identifying fields are required; status and priority are
 // optional (the backend fills discovered/medium if omitted); deadline and notes
