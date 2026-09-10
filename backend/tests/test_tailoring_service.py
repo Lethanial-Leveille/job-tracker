@@ -15,6 +15,7 @@ plumbing returns what the SDK gives it.
 from unittest.mock import MagicMock, patch
 
 from config import Settings
+from pydantic import ValidationError
 from schemas.resume import (
     Contact,
     Education,
@@ -104,6 +105,42 @@ def test_returns_none_when_model_declines(mock_anthropic: MagicMock) -> None:
     result = tailor_resume(_fake_master(), "some job description", _fake_settings())
 
     assert result is None
+
+
+@patch("services.tailoring.Anthropic")
+def test_retries_once_when_the_reply_is_not_valid_json(mock_anthropic: MagicMock) -> None:
+    """The same malformed-reply gap found in services/parsing.py.
+
+    One retry, not more: this call runs the expensive model over a long prompt,
+    so a second attempt costs real money and a third is not worth it once two
+    well-formed replies in a row have failed to appear.
+    """
+    good = MagicMock()
+    good.parsed_output = TailoredResume(contact=Contact(name="Lee"))
+    mock_client = MagicMock()
+    mock_client.messages.parse.side_effect = [
+        ValidationError.from_exception_data("TailoredResume", []),
+        good,
+    ]
+    mock_anthropic.return_value = mock_client
+
+    result = tailor_resume(_fake_master(), "some job description", _fake_settings())
+
+    assert result is not None
+    assert mock_client.messages.parse.call_count == 2
+
+
+@patch("services.tailoring.Anthropic")
+def test_gives_up_after_a_second_bad_reply(mock_anthropic: MagicMock) -> None:
+    # None is what the route already knows how to present. An exception escaping
+    # a function documented as returning None reaches the user as a bare 500.
+    bad = ValidationError.from_exception_data("TailoredResume", [])
+    mock_client = MagicMock()
+    mock_client.messages.parse.side_effect = [bad, bad]
+    mock_anthropic.return_value = mock_client
+
+    assert tailor_resume(_fake_master(), "some jd", _fake_settings()) is None
+    assert mock_client.messages.parse.call_count == 2
 
 
 # --- One-page fit ------------------------------------------------------------

@@ -128,3 +128,46 @@ def test_classify_gives_up_after_max_rounds(mock_anthropic: MagicMock) -> None:
 
     assert result == {0: "Software Engineer Intern"}
     assert mock_client.messages.parse.call_count == 3  # max_rounds
+
+
+@patch("services.parsing.Anthropic")
+def test_retries_once_when_the_reply_is_not_valid_json(mock_anthropic: MagicMock) -> None:
+    """Roughly one live call in ten returns JSON the schema rejects.
+
+    Structured outputs are meant to prevent that, it is not truncation, and it
+    will not reproduce on demand — so the service does not try to diagnose it,
+    it just does not let it through. A fresh sample of a short object almost
+    always comes back well-formed, which is why one retry is enough.
+    """
+    expected = ParsedJob(
+        type="internship",
+        organization="Acme Corp",
+        role_or_program="Software Engineering Intern",
+        role_family="Software Engineer Intern",
+    )
+    mock_client = MagicMock()
+    bad = ValidationError.from_exception_data("ParsedJob", [])
+    mock_client.messages.parse.side_effect = [bad, MagicMock(parsed_output=expected)]
+    mock_anthropic.return_value = mock_client
+
+    result = parse_job_description("some posting text", _fake_settings())
+
+    assert result == expected
+    assert mock_client.messages.parse.call_count == 2
+
+
+@patch("services.parsing.Anthropic")
+def test_gives_up_after_a_second_bad_reply(mock_anthropic: MagicMock) -> None:
+    """Two malformed replies become None, not an exception.
+
+    None is the answer the route already knows how to present. Letting the
+    exception escape a service documented as returning None on failure is what
+    turned this into a 500 with no explanation.
+    """
+    mock_client = MagicMock()
+    bad = ValidationError.from_exception_data("ParsedJob", [])
+    mock_client.messages.parse.side_effect = [bad, bad]
+    mock_anthropic.return_value = mock_client
+
+    assert parse_job_description("some posting text", _fake_settings()) is None
+    assert mock_client.messages.parse.call_count == 2

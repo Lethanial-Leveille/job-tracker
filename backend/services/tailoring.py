@@ -25,6 +25,7 @@ import logging
 import re
 
 from anthropic import Anthropic
+from pydantic import ValidationError
 
 from config import Settings
 from schemas.resume import Resume, TailoredResume
@@ -135,6 +136,19 @@ def tailor_resume(
     Returns None when the model declines or the reply is truncated before a
     complete object (the SDK surfaces both as parsed_output=None). Network or
     auth failures raise; the route decides how to present them.
+
+    Also returns None, rather than raising, when the reply is JSON the schema
+    cannot validate. That was found in services/parsing.py, which documents it
+    at length: it happens on roughly one call in ten, structured outputs are
+    supposed to make it impossible, it is not truncation, and it does not
+    reproduce on demand. It is fixed here as well because this is the same SDK
+    call and had the same gap — an exception escaping a function documented as
+    returning None, which reaches you as a 500 with no explanation.
+
+    One retry only. Unlike parsing, this call runs the expensive model over a
+    long prompt, so a second attempt costs real money; a third would cost more
+    than the answer is worth when two well-formed replies in a row have already
+    failed to appear.
     """
     client = Anthropic(api_key=settings.anthropic_api_key)
     user_content = (
@@ -143,17 +157,24 @@ def tailor_resume(
         "JOB DESCRIPTION:\n"
         f"{job_description}"
     )
-    response = client.messages.parse(
-        model=settings.anthropic_tailoring_model,
-        max_tokens=8192,
-        system=_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_content}],
-        # TailoredResume, not Resume: `activities` is restored from the master
-        # below, and including it here pushed the compiled grammar past the API's
-        # size limit, failing every call. See the TailoredResume docstring.
-        output_format=TailoredResume,
-    )
-    draft = response.parsed_output
+    draft = None
+    for _ in range(2):
+        try:
+            response = client.messages.parse(
+                model=settings.anthropic_tailoring_model,
+                max_tokens=8192,
+                system=_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_content}],
+                # TailoredResume, not Resume: `activities` is restored from the
+                # master below, and including it here pushed the compiled grammar
+                # past the API's size limit, failing every call. See the
+                # TailoredResume docstring.
+                output_format=TailoredResume,
+            )
+        except ValidationError:
+            continue
+        draft = response.parsed_output
+        break
     if draft is None:
         return None
 

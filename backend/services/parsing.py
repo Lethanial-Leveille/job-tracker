@@ -13,7 +13,7 @@ formatted it right.
 from anthropic import Anthropic
 
 from config import Settings
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from schemas.parsing import ParsedJob
 from schemas.roles import ROLE_FAMILIES, RoleFamily
@@ -60,16 +60,37 @@ def parse_job_description(text: str, settings: Settings) -> ParsedJob | None:
     Returns None when the model declines (safety refusal) or the reply is cut
     off before a complete object — the SDK surfaces both as parsed_output=None.
     Network or auth failures raise instead; the route decides how to present them.
+
+    A third failure mode was added after it showed up in live testing: roughly
+    one call in ten comes back as JSON the schema cannot validate (a trailing
+    comma before the closing brace, in the cases observed). Structured outputs
+    are supposed to make that impossible, and it is not truncation — the reply
+    stops normally, using a fraction of max_tokens. It also would not reproduce
+    on demand: the same posting failed three times in one run and passed nine
+    times in the next.
+
+    So this does not try to diagnose it. One retry, because a fresh sample of a
+    short object almost always comes back well-formed, and then None. What
+    matters is that a malformed reply becomes the same clean "could not parse"
+    the caller already handles, rather than an exception escaping a service that
+    documents itself as returning None on failure — which reaches the user as a
+    500 with no explanation.
     """
     client = Anthropic(api_key=settings.anthropic_api_key)
-    response = client.messages.parse(
-        model=settings.anthropic_model,
-        max_tokens=2048,
-        system=_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": text}],
-        output_format=ParsedJob,
-    )
-    return response.parsed_output
+    for attempt in range(2):
+        try:
+            response = client.messages.parse(
+                model=settings.anthropic_model,
+                max_tokens=2048,
+                system=_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": text}],
+                output_format=ParsedJob,
+            )
+        except ValidationError:
+            # Retry once; on the second failure fall through to None below.
+            continue
+        return response.parsed_output
+    return None
 
 
 # --- Backfill classification -------------------------------------------------

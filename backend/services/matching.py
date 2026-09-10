@@ -23,6 +23,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from anthropic import Anthropic
+from pydantic import ValidationError
 
 from config import Settings
 from models.application import Application
@@ -153,22 +154,31 @@ def assess_requirements(
         # Numbered by ORIGINAL index, not by position within this round's
         # subset, so a second-round answer needs no re-mapping to be applied.
         numbered = "\n".join(f"{i}. {all_items[i]}" for i in missing)
-        response = client.messages.parse(
-            model=settings.anthropic_model,
-            max_tokens=2048,
-            system=_SYSTEM_PROMPT,
-            messages=[
-                {
-                    "role": "user",
-                    "content": (
-                        f"TODAY'S DATE: {today}\n\n"
-                        f"RESUME:\n{resume_json}\n\n"
-                        f"REQUIREMENTS:\n{numbered}"
-                    ),
-                }
-            ],
-            output_format=RequirementVerdicts,
-        )
+        try:
+            response = client.messages.parse(
+                model=settings.anthropic_model,
+                max_tokens=2048,
+                system=_SYSTEM_PROMPT,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": (
+                            f"TODAY'S DATE: {today}\n\n"
+                            f"RESUME:\n{resume_json}\n\n"
+                            f"REQUIREMENTS:\n{numbered}"
+                        ),
+                    }
+                ],
+                output_format=RequirementVerdicts,
+            )
+        except ValidationError:
+            # A reply that is JSON the schema rejects — see the note in
+            # services/parsing.py, which is where this was found. No special
+            # retry is needed here because the loop already is one: the next
+            # round recomputes `missing` and re-asks for exactly the same
+            # unresolved items. Falling out of the loop with nothing resolved is
+            # handled after it.
+            continue
         result = response.parsed_output
         if result is None:
             # Nothing at all on the first round means nothing to report. On a
@@ -181,6 +191,13 @@ def assess_requirements(
             # Ignore an index the model invented or already answered.
             if entry.index in missing:
                 resolved[entry.index] = (entry.verdict, entry.evidence)
+
+    if not resolved:
+        # Every round failed to produce a single usable verdict. Returning the
+        # report anyway would fill it with "unknown" for every line, which reads
+        # on screen as a computed assessment of a weak candidate rather than as
+        # what it is: no assessment at all. None becomes a 502 and says so.
+        return None
 
     if len(resolved) < len(all_items):
         logger.warning(

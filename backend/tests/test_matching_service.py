@@ -15,6 +15,7 @@ from datetime import date
 from unittest.mock import MagicMock, patch
 
 from config import Settings
+from pydantic import ValidationError
 from schemas.fit import RequirementVerdict, RequirementVerdicts
 from schemas.resume import Contact, Resume
 from services.matching import assess_requirements
@@ -64,6 +65,50 @@ def test_counts_are_computed_not_taken_from_the_model(
     assert report.met_count == 1
     assert report.partial_count == 1
     assert report.total == 3
+
+
+@patch("services.matching.Anthropic")
+def test_a_bad_reply_is_re_asked_on_the_next_round(mock_anthropic: MagicMock) -> None:
+    """The malformed-reply gap from services/parsing.py, handled by the loop.
+
+    No dedicated retry is needed here because the round loop already is one: it
+    recomputes which items are unresolved and re-asks for exactly those, so a
+    round that produced nothing simply leaves everything to the next one.
+    """
+    good = MagicMock()
+    good.parsed_output = RequirementVerdicts(
+        verdicts=[RequirementVerdict(index=0, verdict="met", evidence="Built X")]
+    )
+    mock_client = MagicMock()
+    mock_client.messages.parse.side_effect = [
+        ValidationError.from_exception_data("RequirementVerdicts", []),
+        good,
+    ]
+    mock_anthropic.return_value = mock_client
+
+    report = assess_requirements(_master(), ["Python"], _fake_settings())
+
+    assert report is not None
+    assert report.met_count == 1
+    assert mock_client.messages.parse.call_count == 2
+
+
+@patch("services.matching.Anthropic")
+def test_no_usable_verdict_at_all_is_none_not_a_report_of_unknowns(
+    mock_anthropic: MagicMock,
+) -> None:
+    """An all-unknown report is worse than no report.
+
+    Filling every line with "unknown" reads on screen as a computed assessment
+    of a weak candidate, when in fact nothing was assessed. None becomes a 502
+    that says so.
+    """
+    bad = ValidationError.from_exception_data("RequirementVerdicts", [])
+    mock_client = MagicMock()
+    mock_client.messages.parse.side_effect = [bad, bad]
+    mock_anthropic.return_value = mock_client
+
+    assert assess_requirements(_master(), ["Python", "Go"], _fake_settings()) is None
 
 
 @patch("services.matching.Anthropic")
