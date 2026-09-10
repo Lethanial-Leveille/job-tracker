@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from routers.applications import router as applications_router
 from routers.auth import router as auth_router
+from routers.companies import router as companies_router
 from routers.discovered import router as discovered_router
 from routers.resume import router as resume_router
 from routers.suggestions import router as suggestions_router
@@ -20,6 +21,7 @@ app = FastAPI(title="Prowl", version="0.1.0")
 
 app.include_router(auth_router)
 app.include_router(applications_router)
+app.include_router(companies_router)
 app.include_router(discovered_router)
 app.include_router(resume_router)
 app.include_router(suggestions_router)

@@ -56,6 +56,31 @@ class FeedListing(BaseModel):
             return None
 
 
+class StageCandidate(BaseModel):
+    """One job on its way into the inbox, from any source.
+
+    The neutral shape that lets the aggregator feed and a company's own board
+    share a staging path. Everything downstream of here — deduplication,
+    classification, writing the row — must treat the two identically, and the
+    only way to guarantee that is for them to arrive identical.
+
+    What the two sources do NOT share is the step before this. The feed carries
+    a term, a degree list and a category, so most of its entries are discarded
+    for free; a board carries none of that, so its postings go straight to the
+    classifier. That asymmetry belongs upstream, not here.
+    """
+
+    source: str
+    external_id: str
+    organization: str
+    role_or_program: str
+    posting_url: str
+    location: str | None = None
+    posted_at: date | None = None
+    target_company_id: str | None = None
+    raw: dict | None = None
+
+
 class DiscoveredJobRead(BaseModel):
     """A staged job as the UI sees it."""
 
@@ -67,6 +92,9 @@ class DiscoveredJobRead(BaseModel):
     location: str | None = None
     posted_at: date | None = None
     state: DiscoveryState
+    # Which company's board produced this, when it came from one. Null for
+    # anything the aggregator found.
+    target_company_id: str | None = None
     role_family: str | None = None
     # Applications this might already be. Non-empty means the inbox shows a
     # "you may already have this" note rather than hiding the row.
@@ -105,6 +133,10 @@ class PullResult(BaseModel):
     # number that says whether the eligibility check is doing real work or
     # quietly eating the inbox.
     ruled_out: int = 0
+    # What each directly-polled company contributed, by name. A company sitting
+    # at zero week after week is either paused-worthy or misconfigured, and
+    # there is no other way to notice.
+    by_company: dict[str, int] = {}
     dropped: dict[str, int] = {}
 
 

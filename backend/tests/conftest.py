@@ -19,6 +19,7 @@ from database import Base
 import models.application  # noqa: F401
 import models.discovered_job  # noqa: F401
 import models.discovery_run  # noqa: F401
+import models.target_company  # noqa: F401
 import models.ingested_email  # noqa: F401
 import models.resume_version  # noqa: F401
 import models.status_suggestion  # noqa: F401

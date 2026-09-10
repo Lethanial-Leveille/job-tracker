@@ -22,6 +22,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from unittest.mock import MagicMock, patch
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -624,3 +625,172 @@ def test_a_successful_run_records_the_counts(db: Session, user: User) -> None:
     assert (row.staged, row.enriched, row.ruled_out) == (7, 5, 2)
     # Per source, so a second source later needs no migration to be counted.
     assert "simplify" in row.sources
+
+
+# --- Two sources -------------------------------------------------------------
+# A company's own board and the aggregator overlap constantly, and the two
+# number the same job differently. Everything here is about staging it once and
+# keeping the better of the two records.
+
+
+def _company(db: Session, user: User, **overrides):
+    from models.target_company import TargetCompany
+
+    base = {
+        "user_id": user.id,
+        "name": "Acme Corp",
+        "ats": "greenhouse",
+        "board": "acme",
+    }
+    base.update(overrides)
+    row = TargetCompany(**base)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def _posting(**overrides):
+    from services.boards import BoardPosting
+
+    base = {
+        "external_id": "board-1",
+        "title": "Software Engineer Intern",
+        "url": "https://jobs.example.com/acme/1",
+        "location": "Austin, TX",
+    }
+    base.update(overrides)
+    return BoardPosting(**base)
+
+
+def _poll(db: Session, user: User, postings, families=None):
+    from services.discovery import poll_companies
+
+    with patch("services.discovery.read_board", return_value=postings) as reader, patch(
+        "services.discovery.classify_role_families"
+    ) as classifier:
+        classifier.return_value = (
+            families
+            if families is not None
+            else {i: "Software Engineer Intern" for i in range(len(postings))}
+        )
+        result = PullResult()
+        by_company = poll_companies(db, user.id, _settings(), result)
+    return result, by_company, reader
+
+
+def test_a_board_posting_is_staged_and_tagged_with_its_source(
+    db: Session, user: User
+) -> None:
+    company = _company(db, user)
+
+    result, by_company, _ = _poll(db, user, [_posting()])
+
+    row = _staged(db)[0]
+    assert result.staged == 1
+    # The ATS name, not "simplify" — every row says where it came from.
+    assert row.source == "greenhouse"
+    assert row.target_company_id == company.id
+    # The name YOU typed, not anything scraped: a board does not reliably say
+    # who it belongs to.
+    assert row.organization == "Acme Corp"
+    assert by_company == {"Acme Corp": 1}
+
+
+def test_the_same_job_from_both_sources_is_staged_once(
+    db: Session, user: User
+) -> None:
+    """The link is the only thing that says they are the same job.
+
+    A board and the aggregator number their postings independently, so an id
+    comparison cannot see the overlap. Boards run first, so the record that
+    survives is the direct one — fresher, and its link goes to the posting
+    rather than through a list.
+    """
+    _company(db, user)
+    _poll(db, user, [_posting(url="https://jobs.example.com/acme/1")])
+
+    # The aggregator's copy of the same job: different id, same posting, and the
+    # link arrives wrapped in tracking parameters as it would in life.
+    result, _ = _stage(
+        db,
+        user,
+        [_listing(id="feed-99", url="https://www.jobs.example.com/acme/1/?utm_source=x")],
+        {0: "Software Engineer Intern"},
+    )
+
+    rows = _staged(db)
+    assert len(rows) == 1
+    assert rows[0].source == "greenhouse"
+    assert result.duplicates == 1
+
+
+def test_one_failing_company_does_not_end_the_run(db: Session, user: User) -> None:
+    """Five companies, one unreachable, four still read.
+
+    The failure is written to that company's own row rather than only a log. A
+    board quietly returning nothing for a fortnight is otherwise invisible: the
+    run finishes, the inbox is thinner than it should be, and nothing says why.
+    """
+    from services.discovery import poll_companies
+
+    broken = _company(db, user, name="Broken", board="broken")
+    fine = _company(db, user, name="Fine", board="fine")
+
+    def read(ats, host, board, site):
+        if board == "broken":
+            raise httpx.ConnectError("no route to host")
+        return [_posting()]
+
+    with patch("services.discovery.read_board", side_effect=read), patch(
+        "services.discovery.classify_role_families",
+        return_value={0: "Software Engineer Intern"},
+    ):
+        result = PullResult()
+        by_company = poll_companies(db, user.id, _settings(), result)
+
+    assert result.staged == 1
+    assert by_company == {"Broken": 0, "Fine": 1}
+    db.refresh(broken)
+    db.refresh(fine)
+    assert "ConnectError" in broken.last_error
+    assert fine.last_error is None
+    # Stamped either way, so "when did we last look" is separate from "did it work".
+    assert broken.last_checked_at is not None
+
+
+def test_an_empty_board_is_recorded_as_such(db: Session, user: User) -> None:
+    # Not an exception, but worth saying. A board that has returned nothing for
+    # weeks is either misconfigured or worth pausing.
+    company = _company(db, user)
+
+    _poll(db, user, [])
+
+    db.refresh(company)
+    assert "no postings" in company.last_error
+
+
+def test_a_paused_company_is_not_polled(db: Session, user: User) -> None:
+    _company(db, user, active=False)
+
+    _, by_company, reader = _poll(db, user, [_posting()])
+
+    reader.assert_not_called()
+    assert by_company == {}
+
+
+def test_a_board_posting_still_goes_through_the_graduation_rules(
+    db: Session, user: User
+) -> None:
+    """Both sources are held to the same standard.
+
+    A direct board is fresher, not more trustworthy about whether you are
+    eligible, so its postings are read and filtered exactly like the feed's.
+    """
+    _company(db, user)
+    _poll(db, user, [_posting()])
+
+    _enrich(db, user, text="Must be graduating in the Class of 2026.")
+
+    assert _staged(db) == []
+    assert _all_rows(db)[0].state is DiscoveryState.filtered

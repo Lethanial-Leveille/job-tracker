@@ -84,12 +84,32 @@ class DiscoveredJob(Base):
         String(36), ForeignKey("users.id"), nullable=False
     )
 
-    # Which feed this came from, e.g. "simplify". A plain VARCHAR rather than an
-    # enum, deliberately: more feeds are expected (a second aggregator, or
-    # polling a target company's job board directly), and adding a value to a
-    # native Postgres enum needs an ALTER TYPE migration. Same call, and the
-    # same reasoning, as Application.role_family.
+    # Where this came from: "simplify" for the aggregator feed, or the name of
+    # an applicant tracking system ("greenhouse", "workday") for a company board
+    # we polled directly. A plain VARCHAR rather than an enum, deliberately —
+    # adding a source is a code change, where a native Postgres enum would need
+    # an ALTER TYPE migration. Same call as Application.role_family.
     source: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    # The company whose board produced this, when it came from one. Null for
+    # anything the aggregator found.
+    #
+    # ondelete="SET NULL" rather than a cascade: removing a company from your
+    # watchlist should not silently delete discoveries it already found, some of
+    # which you may have accepted. The row survives with its source name intact.
+    target_company_id: Mapped[str | None] = mapped_column(
+        String(36),
+        # Named explicitly. An unnamed constraint cannot be dropped by a
+        # downgrade — alembic autogenerates `op.drop_constraint(None, ...)`,
+        # which fails outright — so the migration is only reversible if the
+        # name exists here.
+        ForeignKey(
+            "target_companies.id",
+            ondelete="SET NULL",
+            name="fk_discovered_jobs_target_company",
+        ),
+        nullable=True,
+    )
 
     # The feed's OWN id for this posting, stored exactly as given. This is what
     # makes re-running the pull idempotent, and it is worth more than any

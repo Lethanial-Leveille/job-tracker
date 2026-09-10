@@ -25,12 +25,14 @@ from database import SessionLocal
 from models.application import Application, ApplicationStatus, ApplicationType
 from models.discovered_job import DiscoveredJob, DiscoveryState
 from models.discovery_run import DiscoveryRun, RunState
+from models.target_company import TargetCompany
 from schemas.application import ApplicationCreate
-from schemas.discovery import FeedListing, PullResult
+from schemas.discovery import FeedListing, PullResult, StageCandidate
 from schemas.resume import Resume
 from services.application import create_application
 from services.resume import get_master
 from services.eligibility import assess, graduation_dates
+from services.boards import read_board
 from services.feed import FEED_SOURCE, pull
 from services.fetch_posting import PostingFetchError, fetch_posting
 from services.parsing import classify_role_families, parse_job_description
@@ -78,7 +80,7 @@ def _existing_applications(db: Session, user_id: str) -> list[Application]:
 
 
 def _match(
-    listing: FeedListing, applications: list[Application]
+    candidate: "StageCandidate", applications: list[Application]
 ) -> tuple[bool, list[str]]:
     """Decide what this listing already is, if anything.
 
@@ -101,13 +103,13 @@ def _match(
     server making the same judgement the add screen makes in the browser, and if
     the two drift, a job is a duplicate in one place and new in the other.
     """
-    key = normalize_url(listing.url)
+    key = normalize_url(candidate.posting_url)
     if key is not None:
         for application in applications:
             if normalize_url(application.posting_url) == key:
                 return True, []
 
-    org_key = normalize_organization(listing.company_name)
+    org_key = normalize_organization(candidate.organization)
     if not org_key:
         return False, []
 
@@ -115,13 +117,13 @@ def _match(
         application.id
         for application in applications
         if normalize_organization(application.organization) == org_key
-        and role_similarity(application.role_or_program, listing.title)
+        and role_similarity(application.role_or_program, candidate.role_or_program)
         >= _SIMILAR_ENOUGH
     ]
     return False, possible
 
 
-def _already_staged_keys(db: Session, user_id: str) -> set[str]:
+def _already_staged_keys(db: Session, user_id: str) -> set[tuple[str, str]]:
     """The feed ids already sitting in this user's inbox, resolved or not.
 
     Every state counts, including `filtered`. That is the point of keeping them:
@@ -130,70 +132,87 @@ def _already_staged_keys(db: Session, user_id: str) -> set[str]:
     be paid for again every night.
     """
     rows = db.execute(
-        select(DiscoveredJob.external_id).where(
-            DiscoveredJob.user_id == user_id,
-            DiscoveredJob.source == FEED_SOURCE,
+        select(DiscoveredJob.source, DiscoveredJob.external_id).where(
+            DiscoveredJob.user_id == user_id
         )
+    ).all()
+    # Keyed by SOURCE and id together, not id alone. Two systems number their
+    # jobs independently, and a bare id set would let one source's "12345" hide
+    # another's.
+    return {(source, external_id) for source, external_id in rows}
+
+
+def _staged_urls(db: Session, user_id: str) -> set[str]:
+    """Normalized links of every discovery this user already has, any source.
+
+    This is what makes deduplication work ACROSS sources. The per-source id
+    check cannot see that a job on Stripe's own board is the same job the
+    aggregator lists, because the two sources number it differently — only the
+    link says so.
+
+    Ordering upstream does the rest: boards are polled before the feed, so when
+    both carry a job, the one already staged is the direct board record, which
+    is the fresher of the two.
+    """
+    rows = db.execute(
+        select(DiscoveredJob.posting_url).where(DiscoveredJob.user_id == user_id)
     ).scalars()
-    return set(rows)
+    return {key for key in (normalize_url(url) for url in rows) if key}
 
 
-def stage_listings(
+def stage_candidates(
     db: Session,
     user_id: str,
-    listings: list[FeedListing],
+    candidates: list[StageCandidate],
     settings: Settings,
     result: PullResult,
     wanted_families: frozenset[str] = DEFAULT_WANTED_FAMILIES,
 ) -> PullResult:
-    """Dedupe, classify, and write the survivors. Returns the filled-in result.
+    """Dedupe, classify, and write. The one path both sources go through.
 
-    Takes an existing PullResult rather than making one because feed.pull()
-    already counted what it fetched and dropped; this fills in the rest of the
-    same story.
+    Order matters and is the whole design: deduplication is free and eliminates
+    the most, classification costs money per call. Backwards, this bills you to
+    re-judge the same few hundred postings every night and nothing about the
+    output would look wrong.
     """
-    seen = _already_staged_keys(db, user_id)
+    seen_ids = _already_staged_keys(db, user_id)
+    seen_urls = _staged_urls(db, user_id)
     applications = _existing_applications(db, user_id)
 
     # --- 1. Dedupe, free ----------------------------------------------------
-    candidates: list[tuple[FeedListing, list[str]]] = []
-    for listing in listings:
-        if listing.id in seen:
-            # Already in the inbox from a previous run. Not a duplicate of an
-            # application — a duplicate of ourselves — so it is counted
-            # separately from the ones you are actually tracking.
+    fresh: list[tuple[StageCandidate, list[str]]] = []
+    for candidate in candidates:
+        if (candidate.source, candidate.external_id) in seen_ids:
             result.duplicates += 1
             continue
-        certain, possible = _match(listing, applications)
+        key = normalize_url(candidate.posting_url)
+        if key is not None and key in seen_urls:
+            # Already staged from another source. Counted as a duplicate rather
+            # than dropped silently, so a run that finds the same jobs twice is
+            # visible in the numbers.
+            result.duplicates += 1
+            continue
+        certain, possible = _match(candidate, applications)
         if certain:
             result.duplicates += 1
             continue
-        candidates.append((listing, possible))
+        if key is not None:
+            # Guard against one batch carrying the same link twice, which a
+            # board and its own paging can produce.
+            seen_urls.add(key)
+        fresh.append((candidate, possible))
 
-    if not candidates:
+    if not fresh:
         return result
 
     # --- 2. Classify, paid --------------------------------------------------
-    # Chunked, because the first run against an empty table is hundreds of
-    # titles at once and one reply cannot hold that many answers. Discovered by
-    # running it: 150 titles overflowed the budget and the reply came back cut
-    # off mid-string. Chunking is the caller's job rather than the classifier's
-    # because only the caller knows how big its list is.
-    #
-    # Indices are local to each chunk, so they are shifted back to positions in
-    # `candidates` as they come in.
-    titles = [listing.title for listing, _ in candidates]
+    titles = [candidate.role_or_program for candidate, _ in fresh]
     families: dict[int, str] = {}
-    # Indices whose whole chunk failed. Tracked separately from indices the
-    # classifier simply skipped, because the two are different problems and
-    # collapsing them would report a dead API as a batch of odd job titles.
     unavailable: set[int] = set()
     for start in range(0, len(titles), _CLASSIFY_BATCH):
         chunk = titles[start : start + _CLASSIFY_BATCH]
         answered = classify_role_families(chunk, settings)
         if answered is None:
-            # One dead chunk does not condemn the others. Its listings go
-            # unstaged and unwritten, so the next run retries exactly them.
             unavailable.update(range(start, start + len(chunk)))
             result.dropped["classifier unavailable"] = (
                 result.dropped.get("classifier unavailable", 0) + len(chunk)
@@ -203,16 +222,11 @@ def stage_listings(
             families[start + index] = family
 
     # --- 3. Write -----------------------------------------------------------
-    for index, (listing, possible) in enumerate(candidates):
+    for index, (candidate, possible) in enumerate(fresh):
         if index in unavailable:
-            # Already counted as unavailable above. Counting it again as
-            # unclassified would double-report one listing under two reasons and
-            # break the tally as a breakdown.
             continue
         family = families.get(index)
         if family is None:
-            # Unclassified after every round. Left alone rather than guessed at,
-            # the same call classify_role_families makes for the backfill.
             result.dropped["unclassified"] = result.dropped.get("unclassified", 0) + 1
         elif family not in wanted_families:
             result.dropped[f"family:{family}"] = (
@@ -224,11 +238,44 @@ def stage_listings(
             if family in wanted_families
             else DiscoveryState.filtered
         )
-
         db.add(
             DiscoveredJob(
                 state=state,
                 user_id=user_id,
+                source=candidate.source,
+                target_company_id=candidate.target_company_id,
+                external_id=candidate.external_id,
+                organization=candidate.organization,
+                role_or_program=candidate.role_or_program,
+                posting_url=candidate.posting_url,
+                location=candidate.location,
+                posted_at=candidate.posted_at,
+                role_family=family,
+                possible_application_ids=possible or None,
+                raw=candidate.raw,
+            )
+        )
+        if state is DiscoveryState.pending:
+            result.staged += 1
+
+    db.commit()
+    return result
+
+
+def stage_listings(
+    db: Session,
+    user_id: str,
+    listings: list[FeedListing],
+    settings: Settings,
+    result: PullResult,
+    wanted_families: frozenset[str] = DEFAULT_WANTED_FAMILIES,
+) -> PullResult:
+    """Stage what survived the feed's free filters."""
+    return stage_candidates(
+        db,
+        user_id,
+        [
+            StageCandidate(
                 source=FEED_SOURCE,
                 external_id=listing.id,
                 organization=listing.company_name,
@@ -239,16 +286,84 @@ def stage_listings(
                 # is a fact worth having when you decide whether to apply.
                 location=", ".join(listing.locations) or None,
                 posted_at=listing.posted_on(),
-                role_family=family,
-                possible_application_ids=possible or None,
                 raw=listing.model_dump(),
             )
-        )
-        if state is DiscoveryState.pending:
-            result.staged += 1
+            for listing in listings
+        ],
+        settings,
+        result,
+        wanted_families,
+    )
+
+
+# --- Direct company boards ---------------------------------------------------
+
+
+def active_companies(db: Session, user_id: str) -> list[TargetCompany]:
+    return list(
+        db.execute(
+            select(TargetCompany)
+            .where(TargetCompany.user_id == user_id, TargetCompany.active.is_(True))
+            .order_by(TargetCompany.name)
+        ).scalars().all()
+    )
+
+
+def poll_companies(
+    db: Session, user_id: str, settings: Settings, result: PullResult
+) -> dict[str, int]:
+    """Read every active company's board and stage what is new.
+
+    Returns a per-company count of what was staged, for the run record.
+
+    One company failing must never end the run, so each is wrapped
+    individually. A failure is written to that company's row rather than only
+    into a log: a board that has been quietly returning nothing for a fortnight
+    is invisible otherwise — the run finishes, the inbox is thinner than it
+    should be, and nothing says why.
+
+    Companies are read one at a time, and services/boards.py spaces requests to
+    the same vendor. These are other people's servers being polled nightly by a
+    personal tool with no arrangement in place; a trickle is the right shape.
+    """
+    staged_by_company: dict[str, int] = {}
+
+    for company in active_companies(db, user_id):
+        before = result.staged
+        try:
+            postings = read_board(company.ats, company.host, company.board, company.site)
+            if postings:
+                stage_candidates(
+                    db,
+                    user_id,
+                    [
+                        StageCandidate(
+                            source=company.ats,
+                            external_id=posting.external_id,
+                            # The company's OWN name, not anything scraped. A
+                            # board does not reliably say who it belongs to, and
+                            # the name you typed is the one you will recognise.
+                            organization=company.name,
+                            role_or_program=posting.title,
+                            posting_url=posting.url,
+                            location=posting.location,
+                            posted_at=posting.posted_at,
+                            target_company_id=company.id,
+                            raw=posting.model_dump(mode="json"),
+                        )
+                        for posting in postings
+                    ],
+                    settings,
+                    result,
+                )
+            company.last_error = None if postings else "Board returned no postings."
+        except Exception as exc:  # noqa: BLE001 - see docstring
+            company.last_error = f"{type(exc).__name__}: {exc}"[:1000]
+        company.last_checked_at = datetime.now(UTC)
+        staged_by_company[company.name] = result.staged - before
 
     db.commit()
-    return result
+    return staged_by_company
 
 
 def run_pull(
@@ -270,8 +385,21 @@ def run_pull(
     capped so that a first run finishes rather than timing out; the remainder is
     picked up by the next pass.
     """
-    listings, result = pull(**filters)
+    result = PullResult()
+
+    # Companies FIRST, deliberately. When a job appears on its employer's own
+    # board and in the aggregator, whichever source runs first is the one that
+    # gets staged — and the direct board record is the fresher of the two, with
+    # a link that goes to the posting rather than through a list.
+    result.by_company = poll_companies(db, user_id, settings, result)
+
+    listings, feed_result = pull(**filters)
+    result.fetched = feed_result.fetched
+    result.kept = feed_result.kept
+    for reason, count in feed_result.dropped.items():
+        result.dropped[reason] = result.dropped.get(reason, 0) + count
     result = stage_listings(db, user_id, listings, settings, result)
+
     result.enriched = enrich_pending(db, user_id, settings, limit=enrich_limit)
     result.ruled_out = filtered_by_graduation(db, user_id)
     return result

@@ -20,6 +20,7 @@ from database import Base, DATABASE_URL  # noqa: E402
 from models.application import Application  # noqa: E402, F401
 from models.discovered_job import DiscoveredJob  # noqa: E402, F401
 from models.discovery_run import DiscoveryRun  # noqa: E402, F401
+from models.target_company import TargetCompany  # noqa: E402, F401
 from models.resume import MasterResume  # noqa: E402, F401
 from models.resume_version import ResumeVersion  # noqa: E402, F401
 from models.user import User  # noqa: E402, F401

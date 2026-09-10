@@ -25,6 +25,7 @@ from models.resume import MasterResume
 from models.resume_version import ResumeVersion
 from models.status_event import StatusEvent
 from models.status_suggestion import StatusSuggestion
+from models.target_company import TargetCompany
 from models.user import User
 
 __all__ = [
@@ -36,5 +37,6 @@ __all__ = [
     "ResumeVersion",
     "StatusEvent",
     "StatusSuggestion",
+    "TargetCompany",
     "User",
 ]
