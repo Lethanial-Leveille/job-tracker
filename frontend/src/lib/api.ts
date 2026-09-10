@@ -10,6 +10,8 @@ import type {
   FitReport,
   DiscoveredJob,
   DiscoveryRun,
+  TargetCompany,
+  TargetCompanyInput,
   ParsedFromUrl,
   ParsedJob,
   Resume,
@@ -139,6 +141,64 @@ export async function parseJobUrl(url: string): Promise<ParsedFromUrl> {
     );
   }
   return res.json() as Promise<ParsedFromUrl>;
+}
+
+// --- Target companies -------------------------------------------------------
+
+export function listCompanies(): Promise<TargetCompany[]> {
+  return getJson<TargetCompany[]>("/companies");
+}
+
+// Which identifier fields each system needs, served rather than duplicated so
+// the form and the backend validator cannot drift apart.
+export function atsRequirements(): Promise<Record<string, string[]>> {
+  return getJson<Record<string, string[]>>("/companies/requirements");
+}
+
+// 422 is allowed through so the specific message survives. The backend names
+// the field you actually have to fill — "workday needs a site id, e.g.
+// external_experienced" — and request()'s generic error would throw that away
+// for "Request failed: 422", which tells you nothing about which box is empty.
+async function saveCompany(
+  path: string,
+  method: "POST" | "PATCH",
+  input: Partial<TargetCompanyInput>,
+): Promise<TargetCompany> {
+  const res = await request(
+    path,
+    {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    [422],
+  );
+  if (res.status === 422) {
+    const body = (await res.json()) as { detail?: unknown };
+    const detail = body.detail;
+    throw new Error(
+      typeof detail === "string"
+        ? detail
+        : // FastAPI's own validation errors arrive as a list of objects.
+          ((detail as { msg?: string }[])?.[0]?.msg ?? "That company is incomplete"),
+    );
+  }
+  return res.json() as Promise<TargetCompany>;
+}
+
+export function createCompany(input: TargetCompanyInput): Promise<TargetCompany> {
+  return saveCompany("/companies", "POST", input);
+}
+
+export function updateCompany(
+  id: string,
+  input: Partial<TargetCompanyInput>,
+): Promise<TargetCompany> {
+  return saveCompany(`/companies/${id}`, "PATCH", input);
+}
+
+export async function deleteCompany(id: string): Promise<void> {
+  await request(`/companies/${id}`, { method: "DELETE" });
 }
 
 // --- Discovery feed ---------------------------------------------------------

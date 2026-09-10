@@ -10,6 +10,7 @@ import {
 } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import { ApplicationsPage } from "./components/applications/ApplicationsPage";
+import { CompaniesPage } from "./components/applications/CompaniesPage";
 import { DiscoveredPage } from "./components/applications/DiscoveredPage";
 import { ApplicationDetailPage } from "./components/applications/ApplicationDetailPage";
 import { AddOpportunity } from "./components/applications/AddOpportunity";
@@ -100,6 +101,8 @@ function AuthedApp({ onLogout }: { onLogout: () => void }) {
     >
       <Routes>
         <Route path="/applications" element={<ApplicationsPage {...state} />} />
+        {/* Static before dynamic, same rule as /applications/new. */}
+        <Route path="/discovered/companies" element={<CompaniesPage />} />
         <Route
           path="/discovered"
           element={

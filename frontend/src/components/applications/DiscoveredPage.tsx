@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type {
   Application,
   DiscoveredJob,
@@ -129,6 +129,11 @@ function Row({
 
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             {job.role_family && <Chip>{job.role_family}</Chip>}
+            {/* Only for direct board records. The aggregator is the default, so
+                labelling every feed row would be noise; a row read straight off
+                the employer's board is the one worth pointing at, because it is
+                fresher and its link goes to the posting rather than a list. */}
+            {job.source !== "simplify" && <Chip>From their board</Chip>}
             {job.location && <Chip>{job.location}</Chip>}
             {note && <Chip tone={note.tone}>{note.text}</Chip>}
           </div>
@@ -265,16 +270,25 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
             you say so.
           </p>
         </div>
-        {/* The one primary action on the screen, and so the one place purple
-            appears (docs/design.md: purple should feel like it costs something). */}
-        <button
-          type="button"
-          onClick={pull}
-          disabled={pulling}
-          className="rounded-interactive border border-accent-line bg-surface-hover px-4 py-2 text-[13px] font-medium text-ink transition-colors hover:shadow-glow disabled:opacity-60"
-        >
-          {pulling ? "Pulling…" : "Pull now"}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/discovered/companies"
+            className="rounded-interactive border border-line px-3 py-2 text-[12.5px] text-ink-muted transition-colors hover:border-line-strong hover:text-ink-soft"
+          >
+            Watchlist
+          </Link>
+          {/* The one primary action on the screen, and so the one place purple
+              appears (docs/design.md: purple should feel like it costs
+              something). */}
+          <button
+            type="button"
+            onClick={pull}
+            disabled={pulling}
+            className="rounded-interactive border border-accent-line bg-surface-hover px-4 py-2 text-[13px] font-medium text-ink transition-colors hover:shadow-glow disabled:opacity-60"
+          >
+            {pulling ? "Pulling…" : "Pull now"}
+          </button>
+        </div>
       </div>
 
       {/* The run banner. With the pull happening in the background, a quiet

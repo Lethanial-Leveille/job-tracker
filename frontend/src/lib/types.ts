@@ -162,6 +162,41 @@ export interface ParsedFromUrl {
   source: string;
 }
 
+// --- Target companies -------------------------------------------------------
+
+// The five applicant tracking systems we can read a whole board from.
+export type Ats = "greenhouse" | "lever" | "ashby" | "workday" | "oracle";
+
+// An employer whose job board is polled directly, alongside the aggregator feed.
+//
+// The identifier is spread across three fields because three of the five
+// systems name a board with one string and two need three. Which ones are
+// required is served by the API (atsRequirements) rather than duplicated here,
+// so the form and the validator cannot drift.
+export interface TargetCompany {
+  id: string;
+  name: string;
+  ats: Ats;
+  board: string | null; // Greenhouse token, Lever slug, Ashby org, Workday tenant
+  host: string | null; // Workday and Oracle only
+  site: string | null; // Workday site id, Oracle site number
+  active: boolean;
+  last_checked_at: string | null;
+  // Cleared when a poll succeeds or the row is edited. A board failing quietly
+  // for a fortnight is otherwise invisible.
+  last_error: string | null;
+  created_at: string;
+}
+
+export interface TargetCompanyInput {
+  name: string;
+  ats: Ats;
+  board?: string | null;
+  host?: string | null;
+  site?: string | null;
+  active?: boolean;
+}
+
 // --- Discovery feed ---------------------------------------------------------
 
 // What reading a discovered posting found about graduation timing. Mirror of
@@ -208,6 +243,9 @@ export interface DiscoveredJob {
   location: string | null;
   posted_at: string | null; // ISO date, per the employer, not when we found it
   state: "pending" | "accepted" | "dismissed" | "filtered";
+  // "simplify" for the aggregator, or an ATS name for a company board we polled
+  // directly. Direct records are fresher and link straight to the posting.
+  target_company_id: string | null;
   role_family: RoleFamily | null;
   // Applications this might already be. Non-empty means "show a warning", never
   // "hide the row" — reapplying to a role in a new cycle is a real thing to do.
