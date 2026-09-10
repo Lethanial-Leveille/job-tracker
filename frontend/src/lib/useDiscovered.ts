@@ -22,6 +22,14 @@ export interface DiscoveredState {
 // enough that a thirty-second one does not feel stuck.
 const POLL_MS = 5_000;
 
+// After this long, a run that still claims to be going is treated as stalled
+// and the button unlocks. The server clears runs killed by a restart when it
+// boots, which covers the common case exactly; this covers the other one — a
+// run that hangs without the process dying — where nothing on the server knows
+// yet. Generously past a real first pull, which reads fifty postings one at a
+// time.
+const STALLED_AFTER_MS = 20 * 60_000;
+
 // The discovery inbox: jobs the feed found, waiting to be accepted or dismissed.
 //
 // The pull is asynchronous, so this hook has two jobs rather than one. It loads
@@ -109,7 +117,13 @@ export function useDiscovered(): DiscoveredState {
     loading,
     error,
     run,
-    pulling: run?.state === "running",
+    // A stalled run does not count as pulling. Leaving the button disabled
+    // against a run nobody is going to finish is a deadlock with a spinner on
+    // top of it — pressing again is safe, since a genuinely live run answers
+    // 409 and the page just goes back to watching it.
+    pulling:
+      run?.state === "running" &&
+      Date.now() - new Date(run.started_at).getTime() < STALLED_AFTER_MS,
     refetch: load,
     pull,
   };

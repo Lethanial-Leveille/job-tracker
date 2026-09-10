@@ -644,6 +644,35 @@ class RunAlreadyGoing(Exception):
     """
 
 
+def release_orphaned_runs(db: Session) -> int:
+    """Mark every in-progress run as failed. Called once at startup.
+
+    A pull runs as a background task inside the web process, so a restart kills
+    it outright — and every deploy restarts the process. The run row is left
+    saying "running" with nothing left to finish it, and because the button is
+    disabled while a run appears to be in progress, the screen deadlocks: the
+    spinner never stops and you cannot start another.
+
+    Startup is the exact moment this is knowable. If the process is booting,
+    nothing it was running is still running, so this needs no timeout and no
+    guessing. The hour-old sweep in start_run stays as a backstop for the other
+    case — a run that hangs without the process dying — which startup cannot see.
+
+    Found the hard way: a deploy went out while a pull was in flight and left the
+    page spinning.
+    """
+    orphans = db.execute(
+        select(DiscoveryRun).where(DiscoveryRun.state == RunState.running)
+    ).scalars().all()
+    for run in orphans:
+        run.state = RunState.failed
+        run.finished_at = datetime.now(UTC)
+        run.error = "Interrupted: the server restarted while this was running."
+    if orphans:
+        db.commit()
+    return len(orphans)
+
+
 def latest_run(db: Session, user_id: str) -> DiscoveryRun | None:
     return db.execute(
         select(DiscoveryRun)

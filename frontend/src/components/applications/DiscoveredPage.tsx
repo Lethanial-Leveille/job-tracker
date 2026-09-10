@@ -198,6 +198,22 @@ function relative(iso: string): string {
 
 function RunBanner({ run }: { run: DiscoveryRun }) {
   if (run.state === "running") {
+    const stalled = Date.now() - new Date(run.started_at).getTime() > 20 * 60_000;
+    if (stalled) {
+      // Says what happened rather than spinning forever. The usual cause is a
+      // deploy landing mid-pull, which kills the background task; the server
+      // clears those when it next boots.
+      return (
+        <div className="mt-4 rounded-frame border border-line-strong bg-surface-hover px-4 py-3">
+          <p className="text-[12.5px] font-medium text-ink">
+            A pull started {relative(run.started_at)} and never reported back.
+          </p>
+          <p className="mt-1 text-[11.5px] text-ink-muted">
+            Usually a deploy landing mid-run. Press Pull now to start a fresh one.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="mt-4 flex items-center gap-3 rounded-frame border border-line bg-surface px-4 py-3">
         <span className="size-3.5 animate-spin rounded-full border-2 border-line-strong border-t-accent motion-reduce:animate-none" />
