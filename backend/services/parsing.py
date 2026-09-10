@@ -164,13 +164,26 @@ def classify_role_families(
         # Number by the ORIGINAL index, not by position in this round's subset,
         # so a second-round answer needs no re-mapping to be applied.
         numbered = "\n".join(f"{i}. {titles[i]}" for i in missing)
-        response = client.messages.parse(
-            model=settings.anthropic_model,
-            max_tokens=2048,
-            system=_CLASSIFY_PROMPT,
-            messages=[{"role": "user", "content": numbered}],
-            output_format=_ClassifiedRoles,
-        )
+        try:
+            response = client.messages.parse(
+                model=settings.anthropic_model,
+                # Each answer is an index plus a family, so a long list needs
+                # real room. 2048 was sized for the original backfill of sixteen
+                # rows and silently became a hard ceiling: at 150 titles the
+                # reply was cut off mid-string and raised instead of coming back
+                # partial, so the retry loop below never got its chance. Callers
+                # should still chunk — see services/discovery.py — but the budget
+                # should not be the thing that breaks first.
+                max_tokens=8192,
+                system=_CLASSIFY_PROMPT,
+                messages=[{"role": "user", "content": numbered}],
+                output_format=_ClassifiedRoles,
+            )
+        except ValidationError:
+            # A reply that is JSON the schema rejects, whether malformed or cut
+            # off. Same handling as a partial answer: the next round re-asks for
+            # exactly the indices still missing.
+            continue
         result = response.parsed_output
         if result is None:
             # A refusal on the first round means nothing to report; on a later
