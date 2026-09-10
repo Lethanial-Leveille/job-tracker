@@ -538,6 +538,86 @@ def _fetch_ashby(client: httpx.Client, url: str, parts: list[str], host: str) ->
     return f"{header}\n\n{body}"
 
 
+def _fetch_oracle(client: httpx.Client, url: str, parts: list[str], host: str) -> str | None:
+    """Oracle Cloud recruiting: the one adapter matched on PATH, not hostname.
+
+    Every other job board has a hostname you can recognize. Oracle's is hosted
+    per employer and the host tells you nothing useful: Dell serves its postings
+    from enterpriseplatform.dell.com, American Express from
+    egug.fa.us2.oraclecloud.com. What they share is the path, /hcmUI/
+    CandidateExperience/, which is why dispatch here takes a predicate rather
+    than a hostname suffix.
+
+    Worth the trouble because it is not a niche: a quarter of the live postings
+    in the discovery feed are Oracle, all of them large employers, and every one
+    of those pages is a JavaScript shell that returns six characters of text to a
+    scraper. Without this adapter they can only ever be pasted by hand.
+
+    The API needs nothing but the job id. The site number that appears in most of
+    these URLs is genuinely optional, which is lucky, because Dell's links carry
+    a site NAME there instead and there would be no way to tell them apart.
+
+    Same trap as Lever: the posting is split across four fields and the obvious
+    one is only part of it. Some employers put the requirements in
+    ExternalQualificationsStr and leave the description to the sales pitch.
+    """
+    if "job" not in parts:
+        raise _UnknownShape(url)
+    index = parts.index("job")
+    if index + 1 >= len(parts):
+        raise _UnknownShape(url)
+    job_id = parts[index + 1]
+
+    # The real netloc, not the www-stripped comparison key: this is going into a
+    # request, so it has to be the host as the site actually serves it.
+    netloc = urlparse(url).netloc
+    response = _get(
+        client,
+        f"https://{netloc}/hcmRestApi/resources/latest/recruitingCEJobRequisitionDetails",
+        params={
+            "expand": "all",
+            "onlyData": "true",
+            # Oracle's own query syntax, quotes included. httpx percent-encodes
+            # them, which is what the API expects.
+            "finder": f'ById;Id="{job_id}"',
+        },
+        headers={"Accept": "application/json"},
+    )
+    if response is None:
+        return None
+    try:
+        items = response.json().get("items") or []
+    except ValueError:
+        return None
+    if not items:
+        # The API answered and had no such requisition. That is the board saying
+        # no, so it returns None and the caller refuses rather than scraping.
+        return None
+
+    job = items[0]
+    body = "\n\n".join(
+        _html_to_text(job[field])
+        for field in (
+            "ExternalDescriptionStr",
+            "ExternalQualificationsStr",
+            "ExternalResponsibilitiesStr",
+            "CorporateDescriptionStr",
+        )
+        if job.get(field)
+    )
+    if not body:
+        return None
+
+    header = _header(
+        url,
+        Title=job.get("Title"),
+        Location=job.get("PrimaryLocation"),
+        Posted=job.get("ExternalPostedStartDate"),
+        Deadline=job.get("ExternalPostedEndDate"),
+    )
+    return f"{header}\n\n{body}"
+
+
 def _fetch_generic(client: httpx.Client, url: str) -> str | None:
     """Any other host: fetch the page and strip it to text.
 
@@ -570,13 +650,28 @@ SOURCE_LABELS = {
     "greenhouse": "Greenhouse",
     "lever": "Lever",
     "ashby": "Ashby",
+    "oracle": "Oracle recruiting",
 }
 
-_ADAPTERS: tuple[tuple[str, str, object], ...] = (
-    ("myworkdayjobs.com", "workday", _fetch_workday),
-    ("greenhouse.io", "greenhouse", _fetch_greenhouse),
-    ("lever.co", "lever", _fetch_lever),
-    ("ashbyhq.com", "ashby", _fetch_ashby),
+
+def _by_host(suffix: str):
+    """Match on hostname, which is how all but one job board identifies itself."""
+    return lambda host, parts: host.endswith(suffix)
+
+
+def _is_oracle(host: str, parts: list[str]) -> bool:
+    """Match on path. See _fetch_oracle for why this one is different."""
+    return "hcmUI" in parts and "CandidateExperience" in parts
+
+
+# Matcher, adapter name, adapter. Every adapter takes the same four arguments.
+# The matchers are mutually exclusive, so order does not matter.
+_ADAPTERS: tuple[tuple[object, str, object], ...] = (
+    (_by_host("myworkdayjobs.com"), "workday", _fetch_workday),
+    (_by_host("greenhouse.io"), "greenhouse", _fetch_greenhouse),
+    (_by_host("lever.co"), "lever", _fetch_lever),
+    (_by_host("ashbyhq.com"), "ashby", _fetch_ashby),
+    (_is_oracle, "oracle", _fetch_oracle),
 )
 
 
@@ -708,8 +803,8 @@ def fetch_posting(url: str) -> FetchedPosting:
         for candidate_url, candidate in candidates:
             host = _host_of(candidate)
             parts = [segment for segment in candidate.path.split("/") if segment]
-            for suffix, name, adapter in _ADAPTERS:
-                if not host.endswith(suffix):
+            for matches, name, adapter in _ADAPTERS:
+                if not matches(host, parts):  # type: ignore[operator]
                     continue
                 try:
                     text = adapter(client, candidate_url, parts, host)  # type: ignore[operator]
