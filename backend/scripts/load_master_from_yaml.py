@@ -23,6 +23,23 @@ Run it from backend/ with the venv active:
     python scripts/load_master_from_yaml.py you@x.com  # loads into a specific user
     python scripts/load_master_from_yaml.py --dry-run  # print the diff, write nothing
     python scripts/load_master_from_yaml.py --force    # overwrite builder-only edits
+    python scripts/load_master_from_yaml.py --merge    # YAML wins, database-only bullets kept
+
+--merge is what the deploy runs on every push, so that editing the YAML actually
+changes what the app serves. The problem it solves: the master has two editors,
+this file and the resume builder, and a plain load refuses whenever the database
+holds a bullet the YAML lacks. That refusal is correct for a human at a terminal
+and useless on a deploy — it would either fail the deployment or skip the load
+forever, and either way the YAML edit never reaches you.
+
+So --merge takes the YAML as the source of truth for everything it carries and
+APPENDS any bullet that exists only in the database. Nothing is ever destroyed,
+which makes it safe to run unattended on every push.
+
+The cost, stated plainly: deleting a bullet from the YAML will not delete it
+from the stored resume, because merge cannot tell a deletion from a bullet the
+builder added. To actually remove one, edit it in the builder, or run this with
+--force.
 
 The email arg matters once there is more than one user (e.g. after mom is
 seeded): pass it to be explicit about whose master you are loading into.
@@ -63,6 +80,36 @@ def _bullet_index(resume: dict) -> dict[str, list[str]]:
     return index
 
 
+def _merge_bullets(stored: dict, incoming: dict) -> int:
+    """Append every database-only bullet onto the incoming resume, in place.
+
+    The YAML stays the source of truth for everything it carries — contact,
+    education, skills, and the bullets it lists. This only adds back what the
+    file has no opinion about: bullets typed into the resume builder that were
+    never copied down.
+
+    Appended rather than interleaved because the master is a bullet bank, not a
+    finished document. Tailoring selects from it, so order within an entry
+    decides nothing, and appending keeps the file's own ordering intact for the
+    bullets it does carry.
+
+    Returns how many were rescued, for the log.
+    """
+    stored_bullets = _bullet_index(stored)
+    rescued = 0
+    for entries, label in ((incoming.get("experience", []), "organization"),
+                           (incoming.get("projects", []), "name")):
+        for entry in entries:
+            prefix = "experience" if label == "organization" else "project"
+            key = f"{prefix}: {entry.get(label)}"
+            existing = entry.setdefault("bullets", [])
+            for bullet in stored_bullets.get(key, []):
+                if bullet not in existing:
+                    existing.append(bullet)
+                    rescued += 1
+    return rescued
+
+
 def report_changes(stored: dict, incoming: dict) -> list[str]:
     """Print what the load would change; return the bullets it would DESTROY.
 
@@ -95,6 +142,12 @@ def main() -> None:
     args = sys.argv[1:]
     dry_run = "--dry-run" in args
     force = "--force" in args
+    # Skip rather than fail when the load would destroy database-only bullets.
+    # For the deploy, where exiting non-zero would break the deployment over a
+    # resume edit.
+    # Keep database-only bullets instead of refusing. See the module docstring:
+    # this is what makes an unattended load on every deploy safe.
+    merge = "--merge" in args
     positional = [a for a in args if not a.startswith("--")]
 
     # Optional first arg: the target user's email. Without it, default to the
@@ -131,15 +184,32 @@ def main() -> None:
         if stored is not None:
             print(f"Changes for {user.email} (stored {stored.updated_at}):")
             lost = report_changes(stored.resume_json, incoming)
-            if lost and not force:
+            if lost and merge:
+                kept = _merge_bullets(stored.resume_json, incoming)
+                print(
+                    f"\n--merge: keeping {kept} bullet(s) that exist only in the "
+                    "database. Nothing was discarded."
+                )
+            elif lost and not force:
                 print(f"\n{len(lost)} bullet(s) exist only in the database and would be DESTROYED:")
                 for item in lost:
                     print(f"  - {item[:140]}")
+                if if_safe:
+                    # Deploy path: say what is blocking and leave the stored
+                    # resume alone. Exiting non-zero here would fail a
+                    # deployment because of a resume edit, which is a worse
+                    # outcome than the YAML not winning this time.
+                    print(
+                        "\n--if-safe: leaving the stored resume alone. Copy these "
+                        "bullets into the YAML, or run with --force, to let the "
+                        "file win."
+                    )
+                    return
                 sys.exit(
                     "\nRefusing to overwrite. Copy these into the YAML first, "
                     "or re-run with --force to discard them."
                 )
-            if lost:
+            if lost and force and not merge:
                 print(f"\n--force: discarding {len(lost)} database-only bullet(s).")
         else:
             print(f"No master stored for {user.email} yet; this is a first load.")

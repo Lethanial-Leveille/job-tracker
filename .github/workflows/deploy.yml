@@ -40,6 +40,17 @@ jobs:
           cd /opt/job-tracker
           git pull --ff-only
           cd backend && uv sync --no-dev && uv run alembic upgrade head
+          # The master resume lives in Postgres; the YAML is a separate copy the
+          # running app never reads. Without this step, editing the file and
+          # pushing changes nothing you can see and tailoring keeps using the
+          # old bullets — which is exactly what happened.
+          #
+          # --merge so this is safe to run unattended: the YAML wins on
+          # everything it carries, and any bullet that exists only in the
+          # database (typed into the resume builder) is kept rather than
+          # destroyed. Nothing is ever lost, so a resume edit can never fail a
+          # deployment or be silently skipped.
+          uv run python scripts/load_master_from_yaml.py --merge
           cd ../frontend && npm ci && npm run build
           sudo /usr/local/bin/deploy-job-tracker.sh
           echo "deploy complete"
