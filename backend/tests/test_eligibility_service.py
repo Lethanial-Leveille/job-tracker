@@ -50,12 +50,34 @@ def test_a_resume_with_no_education_yields_nothing() -> None:
 # --- The verdict -------------------------------------------------------------
 
 
-def test_a_year_you_can_claim_is_eligible() -> None:
-    result = assess("Must be graduating in the Class of 2028.", [], MINE)
+def test_your_own_graduation_year_is_plainly_eligible() -> None:
+    result = assess("Must be graduating in 2029.", [], MINE)
 
     assert result.verdict == "eligible"
+    assert result.wanted_years == [2029]
+    assert "2029" in result.evidence
+
+
+def test_a_posting_wanting_your_earlier_date_is_flagged_not_rejected() -> None:
+    """The state that stops a real job being thrown away.
+
+    You have two true graduation dates. A posting wanting the Class of 2028
+    when you are on track for 2029 is not a rejection — it is a prompt to claim
+    the earlier one, which is a decision with consequences for the rest of the
+    resume. Calling it "mismatch" loses a job you can have; calling it plain
+    "eligible" hides that a choice is being made for you.
+    """
+    result = assess("Must be graduating in the Class of 2028.", [], MINE)
+
+    assert result.verdict == "eligible_early"
     assert result.wanted_years == [2028]
-    assert "Class of 2028" in result.evidence
+
+
+def test_the_later_date_is_the_default_self() -> None:
+    # Taking the full degree is the plan; finishing early is an option you can
+    # exercise, not one you are already committed to.
+    assert assess("Graduating 2029.", [], MINE).verdict == "eligible"
+    assert assess("Graduating 2028.", [], MINE).verdict == "eligible_early"
 
 
 def test_a_year_you_cannot_claim_is_a_mismatch() -> None:
@@ -154,18 +176,19 @@ def test_requirements_still_count_when_the_body_is_silent() -> None:
     assert result.verdict == "mismatch"
 
 
-def test_class_standing_is_reported_but_never_judged() -> None:
-    """Deliberate restraint.
+def test_a_posting_naming_only_a_standing_says_nothing_at_all() -> None:
+    """Silence beats a chip that means "go read it yourself".
 
-    Whether "rising senior" includes you depends on your credit hours at a date
-    a year away, which this module would be guessing at. Surfacing the sentence
-    lets you decide in two seconds; guessing would be wrong quietly.
+    Whether "rising senior" includes you depends on credit hours at a date a
+    year away, which this module would be guessing at. The phrase is still
+    carried on the object for anything that wants it, but the verdict stays
+    unclear so the inbox shows nothing — a warning that appears on half your
+    rows is one you stop reading.
     """
     result = assess("Open to rising seniors with strong fundamentals.", [], MINE)
 
     assert result.verdict == "unclear"
     assert result.standing is not None
-    assert "rising seniors" in result.standing
 
 
 def test_standing_travels_alongside_a_year_verdict() -> None:
@@ -189,12 +212,13 @@ def test_no_dates_of_your_own_means_unclear_not_a_guess() -> None:
 @pytest.mark.parametrize(
     "text",
     [
-        "Class of 2028 candidates preferred.",
-        "Expected graduation: May 2028.",
-        "Degree completion in 2028 required.",
+        "Class of 2029 candidates preferred.",
+        "Expected graduation: May 2029.",
+        "Degree completion in 2029 required.",
     ],
 )
 def test_the_phrases_that_count_as_graduation_context(text: str) -> None:
     # Twin of GRAD_CONTEXT in gradHint.ts — these must stay in step, or a
-    # posting reads one way in the browser and another on the server.
+    # posting reads one way in the browser and another on the server. Each
+    # phrase must be enough on its own to make the year beside it count.
     assert assess(text, [], MINE).verdict == "eligible"

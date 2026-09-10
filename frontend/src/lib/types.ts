@@ -172,7 +172,10 @@ export interface ParsedFromUrl {
 // the whole object being null, which means the posting was never read — a site
 // that needs a browser, or a link that had already gone dead.
 export interface Eligibility {
-  verdict: "eligible" | "mismatch" | "unclear";
+  // "eligible_early" is the one worth understanding: the posting wants a
+  // graduation year you can only claim by using your EARLIER date. Not a
+  // rejection, and not a plain yes either — a decision to make deliberately.
+  verdict: "eligible" | "eligible_early" | "mismatch" | "unclear";
   wanted_years: number[];
   your_years: number[];
   // The sentence that produced the verdict. Always shown: a verdict you cannot

@@ -53,7 +53,7 @@ class Eligibility(BaseModel):
     than no verdict — the same rule gradHint.ts follows for its suggestions.
     """
 
-    verdict: Literal["eligible", "mismatch", "unclear"]
+    verdict: Literal["eligible", "eligible_early", "mismatch", "unclear"]
     # The years the posting names, if any. Empty for a standing-only or silent
     # posting.
     wanted_years: list[int] = []
@@ -61,7 +61,12 @@ class Eligibility(BaseModel):
     # 2028 or 2029" without going and looking them up.
     your_years: list[int] = []
     evidence: str | None = None
-    # A class-standing phrase found in the posting, reported without a verdict.
+    # A class-standing phrase found in the posting ("open to rising seniors").
+    # Carried alongside a verdict as extra context, never used to produce one:
+    # whether a standing includes you depends on credit hours at a date a year
+    # out, which this module would be guessing at. A posting that says ONLY this
+    # stays "unclear" and shows nothing, because a chip that appears on half
+    # your inbox saying "read the posting" is a chip you stop reading.
     standing: str | None = None
 
 
@@ -152,9 +157,29 @@ def assess(
                 evidence=evidence,
                 standing=standing,
             )
-        overlaps = any(span[0] <= year <= span[-1] for year in your_years)
+
+        # Your LATEST graduation year is the default self. Taking the full
+        # degree is the plan; finishing early is the option you can exercise,
+        # not the one you are already committed to.
+        default_year = max(your_years)
+        in_span = lambda year: span[0] <= year <= span[-1]  # noqa: E731
+
+        if in_span(default_year):
+            verdict = "eligible"
+        elif any(in_span(year) for year in your_years):
+            # The distinction worth having. A posting wanting the Class of 2028
+            # when you are a 2029 is not a rejection — it is a prompt to claim
+            # the earlier of your two true graduation dates, which is a real
+            # decision with real consequences for the rest of the resume.
+            # Reporting it as "mismatch" would throw away a job you can have;
+            # reporting it as plain "eligible" would hide that a choice is
+            # being made on your behalf.
+            verdict = "eligible_early"
+        else:
+            verdict = "mismatch"
+
         return Eligibility(
-            verdict="eligible" if overlaps else "mismatch",
+            verdict=verdict,
             wanted_years=span,
             your_years=your_years,
             evidence=evidence,

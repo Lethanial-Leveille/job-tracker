@@ -25,43 +25,53 @@ interface Props {
 }
 
 function eligibilityNote(eligibility: Eligibility | null, enriched: string | null) {
-  // Three distinct states that look alike if you are careless. Null with no
-  // read timestamp means the posting was never read (a site needing a browser,
-  // a dead link). "unclear" means it WAS read and said nothing about graduation
-  // timing, which is the common and correct answer for most postings. Only
-  // "mismatch" is a warning.
+  // Four states that look alike if you are careless.
+  //
+  // A null object with no read timestamp means the posting was never read — a
+  // site needing a browser, or a link already gone dead. "unclear" means it WAS
+  // read and said nothing about graduation timing, which is true of most
+  // postings and deliberately shows NOTHING: a chip appearing on half your
+  // inbox that amounts to "go read it yourself" is a chip you stop seeing.
+  //
+  // Only two states earn a mark, and they are different marks. A mismatch is
+  // out of reach. "eligible_early" is within reach on your earlier graduation
+  // date, which is a choice to make on purpose rather than by accident.
   if (!eligibility) {
     return enriched
       ? null
       : { tone: "quiet" as const, text: "Posting couldn't be read" };
   }
+  const wants = eligibility.wanted_years.join("–");
   if (eligibility.verdict === "mismatch") {
-    const wants = eligibility.wanted_years.join(" or ");
-    const yours = eligibility.your_years.join(" or ");
     return {
       tone: "warn" as const,
-      text: `Wants ${wants}, you graduate ${yours}`,
+      text: `Wants ${wants} — you graduate ${eligibility.your_years.join(" or ")}`,
+      detail: eligibility.evidence ?? undefined,
+    };
+  }
+  if (eligibility.verdict === "eligible_early") {
+    return {
+      tone: "warn" as const,
+      text: `Wants ${wants} — only if you use your earlier date`,
       detail: eligibility.evidence ?? undefined,
     };
   }
   if (eligibility.verdict === "eligible") {
     return {
       tone: "ok" as const,
-      text: `Graduation year fits (${eligibility.wanted_years.join("–")})`,
+      text: `Graduation year fits (${wants})`,
       detail: eligibility.evidence ?? undefined,
     };
   }
-  if (eligibility.standing) {
-    // Reported without a verdict on purpose: whether "rising senior" includes
-    // you depends on credit hours at a date a year out. You can judge it in two
-    // seconds; the backend guessing would be wrong quietly.
-    return { tone: "quiet" as const, text: "Names a class standing", detail: eligibility.standing };
-  }
+  // Read, and it said nothing that decides anything. Show nothing.
   return null;
 }
 
 const TONE = {
-  warn: "border-line-strong bg-surface-hover text-ink",
+  // The only chip meant to stop you. Still grey, not purple: docs/design.md
+  // reserves the accent for the primary action and one genuine win state, and a
+  // warning that shouted would break "calm in the data" on every row it hit.
+  warn: "border-line-strong bg-surface-hover font-medium text-ink",
   ok: "border-line bg-surface text-ink-soft",
   quiet: "border-line bg-surface text-ink-muted",
 };
