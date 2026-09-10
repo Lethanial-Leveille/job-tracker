@@ -19,6 +19,7 @@ behavior is covered in test_parsing_service.py.
 """
 
 from datetime import UTC, datetime, timedelta
+import pytest
 from unittest.mock import MagicMock, patch
 
 from sqlalchemy import select
@@ -354,13 +355,13 @@ def test_a_rejected_posting_is_never_judged_twice(db: Session, user: User) -> No
 # --- Enrichment --------------------------------------------------------------
 
 
-def _enrich(db: Session, user: User, *, text: str, parsed=None, years=(2028, 2029), fails=False):
+def _enrich(db: Session, user: User, *, text: str, parsed=None, years=((2028, 5), (2029, 5)), fails=False):
     from services.fetch_posting import PostingFetchError
     from schemas.parsing import FetchedPosting
 
     with patch("services.discovery.fetch_posting") as fetch, patch(
         "services.discovery.parse_job_description"
-    ) as parse, patch("services.discovery._your_graduation_years") as grad:
+    ) as parse, patch("services.discovery._your_graduation_dates") as grad:
         grad.return_value = list(years)
         parse.return_value = parsed
         if fails:
@@ -435,7 +436,7 @@ def test_reading_is_capped_so_a_first_run_finishes(db: Session, user: User) -> N
 
     with patch("services.discovery.fetch_posting") as fetch, patch(
         "services.discovery.parse_job_description", return_value=None
-    ), patch("services.discovery._your_graduation_years", return_value=[2029]):
+    ), patch("services.discovery._your_graduation_dates", return_value=[(2029, 5)]):
         fetch.return_value = FetchedPosting(text="hello", source="generic", url="https://x/1")
         first = enrich_pending(db, user.id, _settings(), limit=2)
 
@@ -451,7 +452,7 @@ def test_an_already_read_posting_is_not_read_again(db: Session, user: User) -> N
 
     with patch("services.discovery.fetch_posting") as fetch, patch(
         "services.discovery.parse_job_description", return_value=None
-    ), patch("services.discovery._your_graduation_years", return_value=[2029]):
+    ), patch("services.discovery._your_graduation_dates", return_value=[(2029, 5)]):
         fetch.return_value = FetchedPosting(text="x", source="generic", url="https://x/1")
         again = enrich_pending(db, user.id, _settings())
 
@@ -511,3 +512,115 @@ def test_resolving_records_the_application_it_became(db: Session, user: User) ->
     assert row.state is DiscoveryState.accepted
     assert row.application_id == application.id
     assert row.resolved_at is not None
+
+
+# --- Runs --------------------------------------------------------------------
+# The pull became asynchronous because Cloudflare abandons any request the
+# origin has not answered in 100 seconds. Asynchronous work that leaves no trace
+# is work nobody can trust, so these cover the record it leaves behind.
+
+
+def test_a_run_is_claimed_before_any_work_happens(db: Session, user: User) -> None:
+    from models.discovery_run import RunState
+    from services.discovery import start_run
+
+    run = start_run(db, user.id)
+
+    assert run.state is RunState.running
+    assert run.finished_at is None
+
+
+def test_a_second_run_is_refused_while_one_is_going(db: Session, user: User) -> None:
+    from services.discovery import RunAlreadyGoing, start_run
+
+    start_run(db, user.id)
+
+    with pytest.raises(RunAlreadyGoing):
+        start_run(db, user.id)
+
+
+def test_a_stale_run_does_not_jam_the_pipeline_forever(
+    db: Session, user: User
+) -> None:
+    """The failure mode that would be invisible and permanent.
+
+    A process killed mid-pull leaves a `running` row behind with nothing to
+    finish it. Without this, every future run — nightly, forever — is refused
+    with a 409 and the inbox silently stops filling. No honest pull takes an
+    hour, so anything older is treated as abandoned.
+    """
+    from models.discovery_run import DiscoveryRun, RunState
+    from services.discovery import start_run
+
+    stale = DiscoveryRun(
+        user_id=user.id,
+        started_at=datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=3),
+    )
+    db.add(stale)
+    db.commit()
+
+    run = start_run(db, user.id)
+
+    assert run.id != stale.id
+    db.refresh(stale)
+    assert stale.state is RunState.failed
+    assert "Abandoned" in stale.error
+
+
+def test_another_users_run_does_not_block_yours(db: Session, user: User) -> None:
+    from services.discovery import start_run
+
+    other = User(email="other@example.com", password_hash="x")
+    db.add(other)
+    db.commit()
+    start_run(db, other.id)
+
+    # No exception: the claim is per user, like everything else here.
+    assert start_run(db, user.id) is not None
+
+
+def test_a_failed_run_records_why_instead_of_raising(db: Session, user: User) -> None:
+    """execute_run has no caller left to raise to.
+
+    The response went out long before it ran, so an exception would vanish into
+    a background task and the run would sit as "running" until the stale check
+    swept it up an hour later. The error belongs on the row.
+    """
+    from models.discovery_run import DiscoveryRun, RunState
+    from services.discovery import execute_run, start_run
+
+    run = start_run(db, user.id)
+
+    # execute_run owns and closes the session it opens. Here it is being lent
+    # the fixture's, so the close is neutralised — otherwise every assertion
+    # below hits a detached instance.
+    with patch("services.discovery.SessionLocal", return_value=db), patch.object(
+        db, "close"
+    ), patch("services.discovery.run_pull", side_effect=RuntimeError("feed is down")):
+        execute_run(run.id, user.id, _settings())
+
+    row = db.get(DiscoveryRun, run.id)
+    assert row.state is RunState.failed
+    assert "feed is down" in row.error
+    assert row.finished_at is not None
+
+
+def test_a_successful_run_records_the_counts(db: Session, user: User) -> None:
+    from models.discovery_run import DiscoveryRun, RunState
+    from services.discovery import execute_run, start_run
+
+    run = start_run(db, user.id)
+
+    with patch("services.discovery.SessionLocal", return_value=db), patch.object(
+        db, "close"
+    ), patch(
+        "services.discovery.run_pull",
+        return_value=PullResult(fetched=16502, staged=7, duplicates=3, enriched=5, ruled_out=2),
+    ):
+        execute_run(run.id, user.id, _settings())
+
+    row = db.get(DiscoveryRun, run.id)
+    assert row.state is RunState.succeeded
+    assert (row.staged, row.enriched, row.ruled_out) == (7, 5, 2)
+    # Per source, so a second source later needs no migration to be counted.
+    assert "simplify" in row.sources

@@ -15,20 +15,22 @@ Nothing here decides anything on your behalf. Everything that survives is staged
 for you to accept or dismiss, exactly like a status suggestion.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from config import Settings
+from database import SessionLocal
 from models.application import Application, ApplicationStatus, ApplicationType
 from models.discovered_job import DiscoveredJob, DiscoveryState
+from models.discovery_run import DiscoveryRun, RunState
 from schemas.application import ApplicationCreate
 from schemas.discovery import FeedListing, PullResult
 from schemas.resume import Resume
 from services.application import create_application
 from services.resume import get_master
-from services.eligibility import assess, graduation_years
+from services.eligibility import assess, graduation_dates
 from services.feed import FEED_SOURCE, pull
 from services.fetch_posting import PostingFetchError, fetch_posting
 from services.parsing import classify_role_families, parse_job_description
@@ -375,8 +377,12 @@ def dismiss(db: Session, job: DiscoveredJob) -> DiscoveredJob:
 # network round trip per posting.
 
 
-def _your_graduation_years(db: Session, user_id: str) -> list[int]:
-    """Graduation years from the master resume, or empty if there is none.
+def _your_graduation_dates(db: Session, user_id: str) -> list[tuple[int, int | None]]:
+    """Graduation dates from the master resume, or empty if there is none.
+
+    Months included, because the too-early rule turns on them: "Expected May
+    2028" against a posting wanting January 2028 graduates is not a match, and a
+    year-only comparison calls it one.
 
     Empty is not a failure. eligibility.assess returns "unclear" with nothing to
     compare against, which is the honest answer for a user who has not filled in
@@ -385,10 +391,15 @@ def _your_graduation_years(db: Session, user_id: str) -> list[int]:
     master = get_master(db, user_id)
     if master is None or not master.resume_json:
         return []
-    return graduation_years(Resume.model_validate(master.resume_json))
+    return graduation_dates(Resume.model_validate(master.resume_json))
 
 
-def enrich(db: Session, job: DiscoveredJob, settings: Settings, years: list[int]) -> None:
+def enrich(
+    db: Session,
+    job: DiscoveredJob,
+    settings: Settings,
+    your_dates: list[tuple[int, int | None]],
+) -> None:
     """Read one posting and record what it says. Never raises.
 
     A failure here must not cost you the row. Roughly four in ten ordinary
@@ -420,7 +431,7 @@ def enrich(db: Session, job: DiscoveredJob, settings: Settings, years: list[int]
         if parsed is not None
         else []
     )
-    verdict = assess(fetched.text, requirements, years)
+    verdict = assess(fetched.text, requirements, your_dates)
     job.eligibility = verdict.model_dump()
     job.enriched_at = datetime.now(UTC)
 
@@ -458,9 +469,9 @@ def enrich_pending(db: Session, user_id: str, settings: Settings, limit: int = 5
     if not rows:
         return 0
 
-    years = _your_graduation_years(db, user_id)
+    your_dates = _your_graduation_dates(db, user_id)
     for job in rows:
-        enrich(db, job, settings, years)
+        enrich(db, job, settings, your_dates)
     db.commit()
     return sum(1 for job in rows if job.enriched_at is not None)
 
@@ -481,3 +492,99 @@ def filtered_by_graduation(db: Session, user_id: str) -> int:
             )
         ).scalars().all()
     )
+
+
+# --- Runs --------------------------------------------------------------------
+# The pull is asynchronous now, for a reason that has nothing to do with the
+# code: the site sits behind Cloudflare, which gives up on any request the
+# origin takes more than 100 seconds to answer and returns a 524. A first pull
+# downloads a 12MB feed, classifies hundreds of titles, and then fetches and
+# reads up to fifty postings one at a time. It will exceed that, and n8n would
+# record a failure for a run that actually succeeded.
+#
+# So the request starts the work and answers immediately, and the work leaves a
+# record behind. Everything below exists to make an invisible run legible.
+
+
+class RunAlreadyGoing(Exception):
+    """A pull is already in progress for this user.
+
+    Two concurrent runs would fetch the same feed twice, classify the same
+    titles twice, and race each other into the same unique constraint. The
+    second caller is told to wait rather than being quietly queued, because a
+    nightly job that fires twice should say so.
+    """
+
+
+def latest_run(db: Session, user_id: str) -> DiscoveryRun | None:
+    return db.execute(
+        select(DiscoveryRun)
+        .where(DiscoveryRun.user_id == user_id)
+        .order_by(DiscoveryRun.started_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
+def start_run(db: Session, user_id: str) -> DiscoveryRun:
+    """Claim the right to run, or raise RunAlreadyGoing.
+
+    The row is written BEFORE any work happens, which is what makes the claim
+    mean anything: a second caller arriving a moment later sees a running row
+    and is turned away.
+
+    A stale `running` row — one left behind by a process that died mid-pull —
+    would otherwise block every future run forever. Anything older than an hour
+    is treated as abandoned and marked failed, because no honest pull takes that
+    long and a permanently jammed pipeline is worse than a duplicated one.
+    """
+    current = latest_run(db, user_id)
+    if current is not None and current.state is RunState.running:
+        age = datetime.now(UTC) - current.started_at.replace(tzinfo=UTC)
+        if age < timedelta(hours=1):
+            raise RunAlreadyGoing(current.id)
+        current.state = RunState.failed
+        current.finished_at = datetime.now(UTC)
+        current.error = "Abandoned: no result after an hour."
+
+    run = DiscoveryRun(user_id=user_id)
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    return run
+
+
+def execute_run(run_id: str, user_id: str, settings: Settings, **filters: object) -> None:
+    """Do the pull and record the outcome. Runs detached from any request.
+
+    Opens its OWN session rather than borrowing the request's. By the time this
+    executes, FastAPI has already returned the response and closed that session,
+    so using it would fail on the first query — the kind of bug that only shows
+    up in production under real timing.
+
+    Never raises. It has no caller left to raise to: the response went out long
+    ago. Every failure ends up on the run row instead, which is the only place
+    anyone will look.
+    """
+    db = SessionLocal()
+    try:
+        run = db.get(DiscoveryRun, run_id)
+        if run is None:
+            return
+        try:
+            result = run_pull(db, user_id, settings, **filters)
+            run.fetched = result.fetched
+            run.staged = result.staged
+            run.duplicates = result.duplicates
+            run.enriched = result.enriched
+            run.ruled_out = result.ruled_out
+            run.sources = {FEED_SOURCE: result.model_dump()}
+            run.state = RunState.succeeded
+        except Exception as exc:  # noqa: BLE001 - see docstring
+            run.state = RunState.failed
+            # The class name plus the message: enough to recognise a repeat
+            # failure without a stack trace nobody will read.
+            run.error = f"{type(exc).__name__}: {exc}"[:2000]
+        run.finished_at = datetime.now(UTC)
+        db.commit()
+    finally:
+        db.close()

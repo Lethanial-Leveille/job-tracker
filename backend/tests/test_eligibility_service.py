@@ -14,9 +14,11 @@ Pure functions, no network, no database.
 import pytest
 
 from schemas.resume import Contact, Education, Resume
-from services.eligibility import assess, graduation_years
+from services.eligibility import assess, graduation_dates
 
-MINE = [2028, 2029]
+# Lee's two real graduation dates, months included: the month is what the
+# too-early rule turns on.
+MINE = [(2028, 5), (2029, 5)]
 
 
 # --- Reading your own dates --------------------------------------------------
@@ -40,11 +42,11 @@ def test_both_graduation_dates_are_read() -> None:
         ],
     )
 
-    assert graduation_years(resume) == [2028, 2029]
+    assert graduation_dates(resume) == [(2028, 5), (2029, 5)]
 
 
 def test_a_resume_with_no_education_yields_nothing() -> None:
-    assert graduation_years(Resume(contact=Contact(name="Lee"))) == []
+    assert graduation_dates(Resume(contact=Contact(name="Lee"))) == []
 
 
 # --- The verdict -------------------------------------------------------------
@@ -109,7 +111,7 @@ def test_a_range_is_treated_as_a_span_not_two_points() -> None:
     describes.
     """
     result = assess(
-        "You will be graduating between December 2027 and June 2029.", [], [2028]
+        "You will be graduating between December 2027 and June 2029.", [], [(2028, 5)]
     )
 
     assert result.verdict == "eligible"
@@ -147,7 +149,7 @@ def test_the_raw_posting_outranks_the_parsed_requirements() -> None:
     result = assess(
         "Enrolled in an undergraduate degree with a graduation date of December 2027 through 2028.",
         ["Graduating December 2027"],
-        [2028],
+        [(2028, 5)],
     )
 
     assert result.verdict == "eligible"
@@ -163,7 +165,7 @@ def test_years_named_in_two_places_are_pooled_into_one_window() -> None:
     result = assess(
         "Class of 2027 preferred. Candidates graduating as late as 2029 are welcome.",
         [],
-        [2028],
+        [(2028, 5)],
     )
 
     assert result.verdict == "eligible"
@@ -176,7 +178,7 @@ def test_the_quoted_sentence_is_the_one_carrying_the_window() -> None:
     result = assess(
         "Graduating in 2027. Specifically, graduation between 2027 and 2029.",
         [],
-        [2028],
+        [(2028, 5)],
     )
 
     assert "2027 and 2029" in result.evidence
@@ -185,7 +187,7 @@ def test_the_quoted_sentence_is_the_one_carrying_the_window() -> None:
 def test_requirements_still_count_when_the_body_is_silent() -> None:
     # The fallback is a fallback, not dead code: a posting read from a job
     # board's API can arrive as structured fields with little prose.
-    result = assess("", ["Must be graduating in the Class of 2026"], [2028, 2029])
+    result = assess("", ["Must be graduating in the Class of 2026"], [(2028, 5), (2029, 5)])
 
     assert result.verdict == "too_early"
 
@@ -236,3 +238,43 @@ def test_the_phrases_that_count_as_graduation_context(text: str) -> None:
     # posting reads one way in the browser and another on the server. Each
     # phrase must be enough on its own to make the year beside it count.
     assert assess(text, [], MINE).verdict == "eligible"
+
+
+# --- Months ------------------------------------------------------------------
+# The too-early rule is the ONLY comparison that reads months, because it is the
+# only verdict that removes a job from view entirely. Everything else stays on
+# years, where the extra precision would buy nothing and could only add false
+# negatives.
+
+
+def test_january_2028_is_too_early_for_a_may_2028_graduate() -> None:
+    """The gap a year-only check let through.
+
+    January 2028 and December 2028 are a full academic year apart and fall on
+    opposite sides of anyone finishing in May. Compared as bare years they are
+    the same thing, and a posting that closed a term before you finish reaches
+    the inbox looking like an option.
+    """
+    assert assess("Must graduate by January 2028.", [], MINE).verdict == "too_early"
+
+
+def test_december_2028_is_still_within_reach() -> None:
+    assert assess("Graduating December 2028.", [], MINE).verdict == "eligible_early"
+
+
+def test_a_bare_year_is_read_generously_as_december() -> None:
+    """A posting saying only "2028" might well mean the end of it.
+
+    Reading it as January would rule out a job that is actually open to you, and
+    a false "too early" is the expensive error — it removes the row entirely,
+    so you never get the chance to disagree.
+    """
+    assert assess("Class of 2028.", [], MINE).verdict == "eligible_early"
+
+
+def test_your_own_month_is_read_from_the_resume() -> None:
+    # Someone finishing in December 2028 clears a January 2028 posting by no
+    # sensible reading, but someone who finished the previous December would.
+    december = [(2027, 12)]
+
+    assert assess("Must graduate by January 2028.", [], december).verdict != "too_early"

@@ -30,6 +30,43 @@ from schemas.resume import Resume
 _GRAD_CONTEXT = re.compile(r"(graduat|commencement|degree completion|class of)", re.I)
 _YEAR = re.compile(r"\b(20(?:2[5-9]|3[0-2]))\b")
 
+_MONTHS = {
+    "january": 1, "jan": 1, "february": 2, "feb": 2, "march": 3, "mar": 3,
+    "april": 4, "apr": 4, "may": 5, "june": 6, "jun": 6, "july": 7, "jul": 7,
+    "august": 8, "aug": 8, "september": 9, "sep": 9, "sept": 9,
+    "october": 10, "oct": 10, "november": 11, "nov": 11, "december": 12, "dec": 12,
+}
+
+# A year, optionally preceded by a month name. The month is what separates a
+# posting wanting January 2028 graduates from one wanting December 2028 — a full
+# academic year apart, and on opposite sides of anyone finishing in May.
+_DATED_YEAR = re.compile(
+    r"(?:\b(" + "|".join(_MONTHS) + r")\b[,\s]+)?\b(20(?:2[5-9]|3[0-2]))\b", re.I
+)
+
+
+def _dates_in(text: str) -> list[tuple[int, int | None]]:
+    """Every (year, month) a string names. Month is None when it is not stated."""
+    found: list[tuple[int, int | None]] = []
+    for month, year in _DATED_YEAR.findall(text):
+        found.append((int(year), _MONTHS[month.lower()] if month else None))
+    return found
+
+
+def _latest(dates: list[tuple[int, int | None]]) -> tuple[int, int]:
+    """The end of a window. A bare year is read as DECEMBER.
+
+    Generous on purpose: a posting that says only "2028" might well mean the end
+    of it, and reading it as January would rule out a job that is actually open
+    to you. False "too early" is the expensive error.
+    """
+    return max((year, month if month is not None else 12) for year, month in dates)
+
+
+def _earliest(dates: list[tuple[int, int | None]]) -> tuple[int, int]:
+    """The start of a window. A bare year is read as JANUARY, same reasoning."""
+    return min((year, month if month is not None else 1) for year, month in dates)
+
 # Phrases that name a class standing rather than a year. These are REPORTED but
 # never turned into a verdict, and the restraint is deliberate: whether "rising
 # senior" includes you depends on your credit hours at a date a year out, which
@@ -77,19 +114,22 @@ class Eligibility(BaseModel):
     standing: str | None = None
 
 
-def graduation_years(resume: Resume) -> list[int]:
-    """Every year this person could honestly claim to graduate.
+def graduation_dates(resume: Resume) -> list[tuple[int, int | None]]:
+    """Every date this person could honestly claim to graduate, month included.
 
     Reads both `dates` and `dates_alternate` on each school, because a student
     with two true graduation dates has two, and eligibility against either one
-    is eligibility. Sorted for a stable, readable answer.
+    is eligibility.
+
+    The month matters. "Expected May 2028" against a posting wanting January
+    2028 graduates is not a match, and a year-only comparison calls it one.
     """
-    years: set[int] = set()
+    found: list[tuple[int, int | None]] = []
     for school in resume.education:
         for value in (school.dates, school.dates_alternate):
             if value:
-                years.update(int(match) for match in _YEAR.findall(value))
-    return sorted(years)
+                found.extend(_dates_in(value))
+    return sorted(set(found))
 
 
 def _excerpt(sentence: str, limit: int = 140) -> str:
@@ -101,7 +141,7 @@ def _excerpt(sentence: str, limit: int = 140) -> str:
 def assess(
     posting_text: str,
     requirements: list[str],
-    your_years: list[int],
+    your_dates: list[tuple[int, int | None]],
 ) -> Eligibility:
     """Judge a posting's graduation requirement against your own dates.
 
@@ -139,25 +179,26 @@ def assess(
         if standing:
             break
 
-    found: set[int] = set()
+    dated: list[tuple[int, int | None]] = []
     evidence: str | None = None
     best = 0
     for raw in sources:
         if not _GRAD_CONTEXT.search(raw):
             continue
-        years = {int(match) for match in _YEAR.findall(raw)}
-        if not years:
+        here = _dates_in(raw)
+        if not here:
             continue
-        found |= years
-        # Quote the sentence that named the most years — it is the one carrying
+        dated.extend(here)
+        # Quote the sentence that named the most dates — it is the one carrying
         # the full window, and a truncated quote next to a verdict about ranges
         # is exactly the evidence you cannot check.
-        if len(years) > best:
-            best, evidence = len(years), _excerpt(raw)
+        if len(here) > best:
+            best, evidence = len(here), _excerpt(raw)
 
-    if found:
-        span = sorted(found)
-        if not your_years:
+    if dated:
+        span = sorted({year for year, _ in dated})
+        your_years = sorted({year for year, _ in your_dates})
+        if not your_dates:
             return Eligibility(
                 verdict="unclear",
                 wanted_years=span,
@@ -171,9 +212,21 @@ def assess(
         default_year = max(your_years)
         in_span = lambda year: span[0] <= year <= span[-1]  # noqa: E731
 
+        # The one comparison that uses months. A posting wanting January 2028
+        # graduates and one wanting December 2028 are a full academic year
+        # apart and fall on opposite sides of anyone finishing in May — a
+        # year-only check calls them the same thing and lets the first through.
+        #
+        # Only "too early" is judged this finely, because it is the only verdict
+        # that removes a job from view entirely. The rest stay on years, where
+        # the extra precision would buy nothing and could only add false
+        # negatives.
+        window_closes = _latest(dated)
+        you_start = _earliest(your_dates)
+
         if in_span(default_year):
             verdict = "eligible"
-        elif span[-1] < min(your_years):
+        elif window_closes < you_start:
             # The whole window closes before you can finish. A new-grad posting,
             # or a cycle that has already gone. Nothing to decide and nothing to
             # do, so services/discovery.py keeps these out of the inbox entirely
@@ -188,7 +241,7 @@ def assess(
             # when you are a 2029 is not a rejection — it is a prompt to claim
             # the earlier of your two true graduation dates, which is a real
             # decision with real consequences for the rest of the resume.
-            # Reporting it as "mismatch" would throw away a job you can have;
+            # Reporting it as "too early" would throw away a job you can have;
             # reporting it as plain "eligible" would hide that a choice is
             # being made on your behalf.
             verdict = "eligible_early"
@@ -207,4 +260,8 @@ def assess(
         )
 
     # Silent about graduation timing, which is the usual case and not a problem.
-    return Eligibility(verdict="unclear", your_years=your_years, standing=standing)
+    return Eligibility(
+        verdict="unclear",
+        your_years=sorted({year for year, _ in your_dates}),
+        standing=standing,
+    )
