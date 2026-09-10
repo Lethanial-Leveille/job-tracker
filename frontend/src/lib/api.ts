@@ -8,8 +8,10 @@ import type {
   Application,
   ApplicationCreateInput,
   FitReport,
+  DiscoveredJob,
   ParsedFromUrl,
   ParsedJob,
+  PullResult,
   Resume,
   ResumeVersion,
   StatusEvent,
@@ -137,6 +139,37 @@ export async function parseJobUrl(url: string): Promise<ParsedFromUrl> {
     );
   }
   return res.json() as Promise<ParsedFromUrl>;
+}
+
+// --- Discovery feed ---------------------------------------------------------
+
+// The undecided inbox, newest posting first.
+export function listDiscovered(): Promise<DiscoveredJob[]> {
+  return getJson<DiscoveredJob[]>("/discovered");
+}
+
+// Run the feed pull now rather than waiting for the nightly job. Deliberately
+// slow and synchronous: it downloads the feed, classifies what is new, and
+// reads each newly staged posting. A background job would return instantly and
+// leave you watching an inbox that might fill in or might have failed, with no
+// way to tell which — the counts that come back are the answer.
+export async function refreshDiscovered(): Promise<PullResult> {
+  const res = await request("/discovered/refresh", { method: "POST" });
+  return res.json() as Promise<PullResult>;
+}
+
+// File a discovery into the pipeline. Answers with the created application,
+// which is the row you now care about.
+export async function acceptDiscovered(id: string): Promise<Application> {
+  const res = await request(`/discovered/${id}/accept`, { method: "POST" });
+  return res.json() as Promise<Application>;
+}
+
+// Turn one down. The row is kept server-side so tomorrow's pull cannot offer it
+// again, but it leaves the inbox.
+export async function dismissDiscovered(id: string): Promise<DiscoveredJob> {
+  const res = await request(`/discovered/${id}/dismiss`, { method: "POST" });
+  return res.json() as Promise<DiscoveredJob>;
 }
 
 // PATCH an existing application. The backend's update schema treats every field

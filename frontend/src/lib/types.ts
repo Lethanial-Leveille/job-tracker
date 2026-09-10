@@ -162,6 +162,61 @@ export interface ParsedFromUrl {
   source: string;
 }
 
+// --- Discovery feed ---------------------------------------------------------
+
+// What reading a discovered posting found about graduation timing. Mirror of
+// the backend Eligibility model (backend/services/eligibility.py).
+//
+// "unclear" is the common and correct answer: most postings say nothing about
+// when you must graduate, and silence is not a rejection. It is distinct from
+// the whole object being null, which means the posting was never read — a site
+// that needs a browser, or a link that had already gone dead.
+export interface Eligibility {
+  verdict: "eligible" | "mismatch" | "unclear";
+  wanted_years: number[];
+  your_years: number[];
+  // The sentence that produced the verdict. Always shown: a verdict you cannot
+  // check is one you either obey blindly or ignore, and both are worse than none.
+  evidence: string | null;
+  // A class-standing phrase ("open to rising seniors"), reported without a
+  // verdict because whether it includes you depends on credit hours at a date a
+  // year out. Surfaced so you can judge it; never guessed at.
+  standing: string | null;
+}
+
+// A job the feed found, waiting for you to accept or dismiss. Mirror of the
+// backend DiscoveredJobRead schema.
+export interface DiscoveredJob {
+  id: string;
+  source: string;
+  organization: string;
+  role_or_program: string;
+  posting_url: string;
+  location: string | null;
+  posted_at: string | null; // ISO date, per the employer, not when we found it
+  state: "pending" | "accepted" | "dismissed" | "filtered";
+  role_family: RoleFamily | null;
+  // Applications this might already be. Non-empty means "show a warning", never
+  // "hide the row" — reapplying to a role in a new cycle is a real thing to do.
+  possible_application_ids: string[] | null;
+  eligibility: Eligibility | null;
+  enriched_at: string | null;
+  application_id: string | null;
+  created_at: string;
+}
+
+// What one run of the feed pull did. `dropped` is keyed by reason, which is the
+// only thing that distinguishes a quiet night from a filter that has silently
+// stopped recognizing the feed's labels.
+export interface PullResult {
+  fetched: number;
+  kept: number;
+  staged: number;
+  duplicates: number;
+  enriched: number;
+  dropped: Record<string, number>;
+}
+
 // The body we send to POST /applications. Mirror of the backend ApplicationCreate
 // schema: the four identifying fields are required; status and priority are
 // optional (the backend fills discovered/medium if omitted); deadline and notes

@@ -10,6 +10,7 @@ import {
 } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import { ApplicationsPage } from "./components/applications/ApplicationsPage";
+import { DiscoveredPage } from "./components/applications/DiscoveredPage";
 import { ApplicationDetailPage } from "./components/applications/ApplicationDetailPage";
 import { AddOpportunity } from "./components/applications/AddOpportunity";
 import { LoginPage } from "./components/auth/LoginPage";
@@ -78,19 +79,36 @@ function AuthedApp({ onLogout }: { onLogout: () => void }) {
   // truth and this translates between them.
   const current: View = location.pathname.startsWith("/resume")
     ? "resume"
-    : "applications";
+    : location.pathname.startsWith("/discovered")
+      ? "discovered"
+      : "applications";
 
   return (
     <AppShell
       current={current}
       onNavigate={(view) =>
-        navigate(view === "resume" ? "/resume" : "/applications")
+        navigate(
+          view === "resume"
+            ? "/resume"
+            : view === "discovered"
+              ? "/discovered"
+              : "/applications",
+        )
       }
       applicationCount={state.applications.length}
       onLogout={onLogout}
     >
       <Routes>
         <Route path="/applications" element={<ApplicationsPage {...state} />} />
+        <Route
+          path="/discovered"
+          element={
+            <DiscoveredPage
+              applications={state.applications}
+              onChanged={state.refetch}
+            />
+          }
+        />
         {/* Static segments outrank dynamic ones in react-router's matching, so
             /applications/new is never swallowed by /applications/:id. */}
         <Route path="/applications/new" element={<AddApplicationRoute {...state} />} />

@@ -29,6 +29,14 @@ const icons = {
       <rect x="2.5" y="11" width="13" height="4" rx="1" />
     </Icon>
   ),
+  // A radar sweep: the feed looking for postings rather than you doing it.
+  discovered: (
+    <Icon>
+      <circle cx="9" cy="9" r="6.5" />
+      <circle cx="9" cy="9" r="2.5" />
+      <path d="M9 9 13.6 4.4" />
+    </Icon>
+  ),
   documents: (
     <Icon>
       <path d="M4 2.5h6l4 4v9a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5Z" />
@@ -39,7 +47,7 @@ const icons = {
 
 // --- Nav model --------------------------------------------------------------
 
-export type View = "applications" | "resume";
+export type View = "applications" | "discovered" | "resume";
 
 // Only real destinations live here. Deadlines, Organizations and Analytics used
 // to sit in this list as disabled "Soon" placeholders, which meant three of five
@@ -54,6 +62,7 @@ interface NavItem {
 
 const WORKSPACE: NavItem[] = [
   { key: "applications", label: "Applications", view: "applications" },
+  { key: "discovered", label: "Discovered", view: "discovered" },
   { key: "documents", label: "Resume", view: "resume" },
 ];
 
