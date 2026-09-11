@@ -14,6 +14,12 @@ import {
 } from "../../lib/api";
 import { useDiscovered } from "../../lib/useDiscovered";
 import { groupDiscoveries } from "./groupDiscoveries";
+import {
+  applyFilters,
+  NO_FILTERS,
+  PAGE_SIZE,
+  type DiscoveryFilters,
+} from "./discoveryFilters";
 import { shortDate } from "../../lib/format";
 
 // The discovery inbox: jobs a nightly feed pull found, waiting to be accepted or
@@ -445,9 +451,53 @@ function RunBanner({ run }: { run: DiscoveryRun }) {
   );
 }
 
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-interactive border px-3 py-1.5 text-[12px] transition-colors ${
+        active
+          ? "border-accent-line bg-surface-hover text-ink"
+          : "border-line text-ink-muted hover:border-line-strong hover:text-ink-soft"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function DiscoveredPage({ applications, onChanged }: Props) {
   const { jobs, loading, error, pulling, run, refetch, pull } = useDiscovered();
   const [busy, setBusy] = useState<string | null>(null);
+  const [filters, setFilters] = useState<DiscoveryFilters>(NO_FILTERS);
+  const [page, setPage] = useState(0);
+
+  // Narrow, then fold, then page — in that order. Folding after filtering means
+  // a group's leader is the best row that SURVIVED the filter, rather than one
+  // that was filtered out taking its whole group with it.
+  const visible = applyFilters(jobs, filters, run?.id ?? null);
+  const groups = groupDiscoveries(visible);
+  const pages = Math.max(1, Math.ceil(groups.length / PAGE_SIZE));
+  // Clamped rather than reset: changing a filter should not throw you back to
+  // the top when the page you were on still exists.
+  const current = Math.min(page, pages - 1);
+  const shown = groups.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
+
+  function setFilter(change: Partial<DiscoveryFilters>) {
+    setFilters({ ...filters, ...change });
+    // A narrower list means page four may no longer exist, and landing on an
+    // empty page reads as "the filter found nothing".
+    setPage(0);
+  }
 
   async function accept(
     job: DiscoveredJob,
@@ -521,13 +571,64 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
         </p>
       )}
 
+      {/* The funnel. Sorting makes the TOP of the list worth reading; it does
+          nothing about the two hundred and eighty rows below it, and a list
+          that long reads as a chore in any order. These make it shorter.
+
+          Nothing here is remembered between visits: a filter that silently
+          persisted is how you conclude the feed stopped finding anything. */}
+      {!loading && jobs.length > 0 && (
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          <FilterChip
+            active={filters.newOnly}
+            onClick={() => setFilter({ newOnly: !filters.newOnly })}
+          >
+            New only
+          </FilterChip>
+          <FilterChip
+            active={filters.watchlistOnly}
+            onClick={() => setFilter({ watchlistOnly: !filters.watchlistOnly })}
+          >
+            Watchlist only
+          </FilterChip>
+          {[60, 80].map((level) => (
+            <FilterChip
+              key={level}
+              active={filters.minFit === level}
+              onClick={() => setFilter({ minFit: filters.minFit === level ? 0 : level })}
+            >
+              Matches {level}%+
+            </FilterChip>
+          ))}
+          <span className="ml-auto text-[12px] text-ink-muted">
+            {groups.length === jobs.length
+              ? `${groups.length} to review`
+              : `${groups.length} of ${jobs.length}`}
+          </span>
+        </div>
+      )}
+
       {loading ? (
         <ul className="mt-6 flex flex-col gap-3">
           {[0, 1, 2].map((i) => (
             <li key={i} className="h-[92px] animate-pulse rounded-frame border border-line bg-surface motion-reduce:animate-none" />
           ))}
         </ul>
-      ) : jobs.length === 0 ? (
+      ) : groups.length === 0 ? (
+        // Distinct from an empty inbox: you filtered these away, and the fix is
+        // a click rather than another pull.
+        jobs.length > 0 ? (
+          <div className="mt-8 rounded-frame border border-line bg-surface px-6 py-10 text-center">
+            <p className="text-[15px] text-ink">Nothing matches those filters</p>
+            <button
+              type="button"
+              onClick={() => setFilter(NO_FILTERS)}
+              className="mx-auto mt-3 block rounded-interactive border border-line px-3 py-1.5 text-[12.5px] text-ink-soft hover:border-line-strong"
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
         // Named, not generic: an empty inbox because nothing was found and an
         // empty inbox because you cleared it are different situations.
         <div className="mt-10 rounded-frame border border-line bg-surface px-6 py-12 text-center">
@@ -537,9 +638,10 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
             everything it did. Pull now to check again.
           </p>
         </div>
+        )
       ) : (
         <ul className="mt-6 flex flex-col gap-3">
-          {groupDiscoveries(jobs).map((group) => (
+          {shown.map((group) => (
             <Row
               key={group.lead.id}
               job={group.lead}
@@ -561,6 +663,34 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
             />
           ))}
         </ul>
+      )}
+
+      {/* Paging so a session is a sitting rather than a scroll. Fifteen
+          decisions is roughly where attention goes, and a page you can finish
+          is the difference between triaging and giving up. */}
+      {pages > 1 && (
+        <div className="mt-6 flex items-center justify-between gap-4 border-t border-line pt-5">
+          <button
+            type="button"
+            onClick={() => setPage(current - 1)}
+            disabled={current === 0}
+            className="rounded-interactive border border-line px-3 py-1.5 text-[12.5px] text-ink-muted transition-colors hover:border-line-strong hover:text-ink-soft disabled:opacity-40"
+          >
+            Previous
+          </button>
+          <span className="text-[12px] text-ink-muted">
+            {current * PAGE_SIZE + 1}–{Math.min((current + 1) * PAGE_SIZE, groups.length)} of{" "}
+            {groups.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage(current + 1)}
+            disabled={current >= pages - 1}
+            className="rounded-interactive border border-line px-3 py-1.5 text-[12.5px] text-ink-muted transition-colors hover:border-line-strong hover:text-ink-soft disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
       )}
     </div>
   );
