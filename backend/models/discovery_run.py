@@ -29,7 +29,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
 
@@ -84,6 +84,11 @@ class DiscoveryRun(Base):
     # Text rather than a code: the useful version of this is a sentence you can
     # read six weeks later, not an enum you have to look up.
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # No cascade: deleting a run must not delete the jobs it found.
+    discovered_jobs: Mapped[list["DiscoveredJob"]] = relationship(  # noqa: F821
+        "DiscoveredJob",
+    )
 
     def __repr__(self) -> str:
         return (

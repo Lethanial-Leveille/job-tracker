@@ -1,0 +1,160 @@
+{
+  "career_stage": "student",
+  "grad_date_variant": "primary",
+  "contact": {
+    "name": "Lethanial L. Leveille",
+    "location": null,
+    "phone": null,
+    "email": "leveillelethanial@gmail.com",
+    "linkedin": "linkedin.com/in/lethanial-lee-leveille",
+    "github": "github.com/Lethanial-Leveille",
+    "website": null,
+    "work_authorization": null
+  },
+  "summary": null,
+  "education": [
+    {
+      "institution": "University of Florida",
+      "degree": "Bachelor of Science in Computer Engineering",
+      "location": "Gainesville, FL",
+      "dates": "Expected May 2028",
+      "dates_alternate": "Expected May 2029",
+      "gpa": "3.77",
+      "honors": [],
+      "coursework": [
+        "Data Structures and Algorithms",
+        "Computer Organization",
+        "Discrete Structures",
+        "Computational Linear Algebra"
+      ]
+    }
+  ],
+  "skills": [
+    {
+      "category": "Languages",
+      "items": [
+        "Python",
+        "C++",
+        "JavaScript",
+        "TypeScript",
+        "SQL",
+        "Swift"
+      ]
+    },
+    {
+      "category": "Frameworks & Libraries",
+      "items": [
+        "FastAPI",
+        "NestJS",
+        "React",
+        "Next.js",
+        "SQLAlchemy",
+        "scikit-learn"
+      ]
+    },
+    {
+      "category": "Cloud & DevOps",
+      "items": [
+        "AWS (Lambda, DynamoDB)",
+        "PostgreSQL",
+        "Docker",
+        "GitHub Actions",
+        "MQTT",
+        "MongoDB"
+      ]
+    },
+    {
+      "category": "Hardware & Embedded",
+      "items": [
+        "Raspberry Pi 5",
+        "MPU6050 IMU",
+        "I2C Protocol",
+        "openWakeWord"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "organization": "Fuzzy AI",
+      "role": "Software Engineering Intern",
+      "location": "Singapore",
+      "dates": "June 2026 – July 2026",
+      "descriptor": "B2B sales outreach automation platform",
+      "bullets": [
+        "Cut a **4% duplicate rate** in contact imports, 40 bad rows per 1,000, by making the import safe to rerun so each record is claimed exactly once at the database level, verified with tests that ran imports in parallel and interrupted them partway.",
+        "Built the backing import API in NestJS with a preview endpoint that stages candidates without saving them and a single-use atomic claim, so two clicks of Import cannot create the same contacts twice, and merged 4 separate import paths into 1 review screen.",
+        "Found a background refresh logging **30 fake usage events per user per minute**, quietly inflating the adoption number the feature was judged on, and limited logging to real foreground activity so the reported figure reflected genuine use."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Job Application Tracker (Prowl)",
+      "tools": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "React",
+        "TypeScript"
+      ],
+      "links": [
+        "github.com/Lethanial-Leveille/job-tracker"
+      ],
+      "dates": "July 2026 – Present",
+      "bullets": [
+        "Automated releases with **GitHub Actions** so every push to main rebuilds, migrates, and restarts the app on a DigitalOcean droplet behind Caddy and a Cloudflare Tunnel, connecting as a least-privilege deploy user limited to 1 scoped sudo command.",
+        "Built a Gmail ingestion pipeline spanning a Raspberry Pi and the droplet where n8n handles OAuth and polling while the tracker owns classification, matching, and staging, authenticated by a service-token path with a constant-time comparison that rejects every call when no token is set."
+      ]
+    },
+    {
+      "name": "Wearable Motion Classifier (MotionSense)",
+      "tools": [
+        "Python",
+        "AWS",
+        "scikit-learn",
+        "React",
+        "Docker"
+      ],
+      "links": [
+        "github.com/Lethanial-Leveille/motionsense"
+      ],
+      "dates": "March 2026 – April 2026",
+      "bullets": [
+        "Raised activity classification accuracy **from ~85% to 99.5%** by replacing hand-tuned thresholds with a scikit-learn Random Forest (100 trees, 80/20 split) trained on 1,074 labeled samples across 3 activity types from raw accelerometer and gyroscope data.",
+        "Streamed classified readings from the wearable through a fully serverless event-driven pipeline (MQTT to AWS IoT Core to Lambda to DynamoDB to API Gateway), surfacing them in a Dockerized React and Recharts dashboard for live monitoring.",
+        "Built the wearable capture path on a Raspberry Pi 5 and MPU6050 6-axis IMU sampling accelerometer and gyroscope at 20 Hz over I2C, reducing each 1-second sliding window to the 6 statistical features the model is trained on."
+      ]
+    },
+    {
+      "name": "Voice AI Assistant (M.I.L.E.S.)",
+      "tools": [
+        "Python",
+        "FastAPI",
+        "SQLite",
+        "Whisper.cpp",
+        "Cloudflare"
+      ],
+      "links": [
+        "github.com/Lethanial-Leveille/miles"
+      ],
+      "dates": "April 2026 – Present",
+      "bullets": [
+        "Built hybrid memory retrieval over a 233-memory corpus, fusing keyword search with semantic vector search through **reciprocal rank fusion at 31 ms per query**, so two differently-scaled rankings vote without either being rescaled onto the other.",
+        "Shipped a JWT-authenticated FastAPI backend (REST and WebSocket) and a zero-dependency SwiftUI iOS client with Face ID and Keychain-stored tokens, deployed as 3 systemd services reachable globally through a Cloudflare Tunnel with no open ports.",
+        "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first working version, by streaming ElevenLabs TTS straight to ALSA, with Whisper.cpp transcription and openWakeWord detection at 90.4% recall."
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "organization": "Prep Academy",
+      "role": "Test Prep Tutor",
+      "location": "Remote",
+      "dates": "August 2026 – Present",
+      "descriptor": null,
+      "bullets": [
+        "Tutoring 3 students in ACT English, Reading, and Math and SAT Math and Reading across 60 to 90 minute sessions, plus teaching Standard English Conventions to a group, building each student a plan targeted at the specific question types they miss."
+      ]
+    }
+  ]
+}

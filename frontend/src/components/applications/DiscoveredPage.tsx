@@ -1,12 +1,17 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type {
   Application,
   DiscoveredJob,
   DiscoveryRun,
   Eligibility,
 } from "../../lib/types";
-import { acceptDiscovered, dismissDiscovered } from "../../lib/api";
+import {
+  acceptDiscovered,
+  dismissDiscovered,
+  parseJobDescription,
+  parseJobUrl,
+} from "../../lib/api";
 import { useDiscovered } from "../../lib/useDiscovered";
 import { shortDate } from "../../lib/format";
 
@@ -90,20 +95,132 @@ function Chip({ children, tone = "quiet" }: { children: React.ReactNode; tone?: 
   );
 }
 
+// The headline number, phrased as what it is rather than as a percentage.
+// "Matches 4 of 5 requirements" is checkable; "80%" is a score you either
+// believe or ignore.
+function fitLabel(job: DiscoveredJob): string | null {
+  if (job.fit_score === null) return null;
+  const report = job.fit_report as
+    | { met_count?: number; partial_count?: number; total?: number; unstated_count?: number }
+    | null;
+  if (!report?.total) return `Strong match`;
+  const judged = report.total - (report.unstated_count ?? 0);
+  const met = report.met_count ?? 0;
+  const partial = report.partial_count ?? 0;
+  const extra = partial > 0 ? `, ${partial} partly` : "";
+  return `Meets ${met} of ${judged}${extra}`;
+}
+
+// Asked for at the moment of accepting, and only when the overnight pass could
+// not read the posting. Roughly four in ten ordinary careers sites need a
+// browser, and filing one of those as-is gives you a title, a link, and nothing
+// to tailor against — a gap you would not notice until you sat down to write
+// the resume weeks later.
+//
+// Two ways in, same as the add screen: the link usually works, and pasting
+// always does.
+function SupplyPosting({
+  onTrack,
+  onSkip,
+  busy,
+}: {
+  onTrack: (posting: { jd_text: string; jd_parsed: Record<string, unknown> | null }) => void;
+  onSkip: () => void;
+  busy: boolean;
+}) {
+  const [link, setLink] = useState("");
+  const [text, setText] = useState("");
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function read() {
+    setWorking(true);
+    setError(null);
+    try {
+      if (text.trim() !== "") {
+        // Pasted text wins when both are filled: it is already in hand, costs
+        // no fetch, and cannot fail.
+        const parsed = await parseJobDescription(text);
+        onTrack({ jd_text: text, jd_parsed: parsed as unknown as Record<string, unknown> });
+        return;
+      }
+      const result = await parseJobUrl(link);
+      onTrack({ jd_text: result.jd_text, jd_parsed: result.parsed as unknown as Record<string, unknown> });
+    } catch (err: unknown) {
+      // The backend writes fetch failures as a sentence meant to be read here.
+      setError(err instanceof Error ? err.message : "Could not read that");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded-interactive border border-line bg-base px-4 py-3.5">
+      <p className="text-[12.5px] text-ink-soft">
+        This posting could not be read overnight. Give it a link or paste the
+        description and it will be filled in.
+      </p>
+
+      <input
+        className="mt-2.5 w-full rounded-interactive border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:shadow-glow focus:outline-none"
+        value={link}
+        onChange={(e) => setLink(e.target.value)}
+        placeholder="Paste the posting link"
+      />
+      <textarea
+        className="mt-2 w-full resize-y rounded-interactive border border-line bg-surface px-3 py-2 text-sm leading-relaxed text-ink placeholder:text-ink-muted focus:border-accent focus:shadow-glow focus:outline-none"
+        rows={4}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="…or paste the description here"
+      />
+
+      {error && <p className="mt-2 text-[11.5px] text-ink">{error}</p>}
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={read}
+          disabled={working || busy || (link.trim() === "" && text.trim() === "")}
+          className="rounded-interactive border border-accent-line bg-surface-hover px-3 py-1.5 text-[12.5px] font-medium text-ink transition-colors hover:shadow-glow disabled:opacity-50"
+        >
+          {working ? "Reading…" : "Read and track"}
+        </button>
+        {/* The escape hatch. Some postings genuinely cannot be read and you
+            still want the row; making that impossible would be worse. */}
+        <button
+          type="button"
+          onClick={onSkip}
+          disabled={working || busy}
+          className="rounded-interactive border border-line px-3 py-1.5 text-[12.5px] text-ink-muted transition-colors hover:border-line-strong hover:text-ink-soft disabled:opacity-50"
+        >
+          Track without it
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Row({
   job,
   applications,
+  isNew,
   onAccept,
   onDismiss,
   busy,
 }: {
   job: DiscoveredJob;
   applications: Application[];
-  onAccept: () => void;
+  isNew: boolean;
+  onAccept: (posting?: { jd_text: string; jd_parsed: Record<string, unknown> | null }) => void;
   onDismiss: () => void;
   busy: boolean;
 }) {
   const note = eligibilityNote(job.eligibility, job.enriched_at);
+  // A row with no posting text is one the overnight pass could not read.
+  // Tracking it as-is files a title and a link with nothing to tailor against.
+  const unread = job.enriched_at === null || job.eligibility === null;
+  const [asking, setAsking] = useState(false);
   const maybe = (job.possible_application_ids ?? [])
     .map((id) => applications.find((a) => a.id === id))
     .filter((a): a is Application => a !== undefined);
@@ -113,6 +230,14 @@ function Row({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            {/* The one thing on a row allowed to use the accent, because it is
+                the only thing that is genuinely new information rather than a
+                property of the job. */}
+            {isNew && (
+              <span className="rounded-interactive border border-accent-line px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-accent">
+                New
+              </span>
+            )}
             <span className="text-[13px] font-medium text-ink-soft">{job.organization}</span>
             {job.posted_at && (
               <span className="text-[11px] text-ink-muted">Posted {shortDate(job.posted_at)}</span>
@@ -128,6 +253,8 @@ function Row({
           </a>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            {/* Fit first: it is the reason this row is where it is in the list. */}
+            {fitLabel(job) && <Chip tone={job.fit_score! >= 60 ? "ok" : "quiet"}>{fitLabel(job)}</Chip>}
             {job.role_family && <Chip>{job.role_family}</Chip>}
             {/* Only for direct board records. The aggregator is the default, so
                 labelling every feed row would be noise; a row read straight off
@@ -175,14 +302,22 @@ function Row({
           </button>
           <button
             type="button"
-            onClick={onAccept}
-            disabled={busy}
+            onClick={() => (unread ? setAsking(true) : onAccept())}
+            disabled={busy || asking}
             className="rounded-interactive border border-line-strong bg-surface-hover px-3 py-1.5 text-[12.5px] font-medium text-ink transition-colors hover:border-accent-line disabled:opacity-50"
           >
             Track it
           </button>
         </div>
       </div>
+
+      {asking && (
+        <SupplyPosting
+          busy={busy}
+          onTrack={(posting) => onAccept(posting)}
+          onSkip={() => onAccept()}
+        />
+      )}
     </li>
   );
 }
@@ -250,17 +385,22 @@ function RunBanner({ run }: { run: DiscoveryRun }) {
 export function DiscoveredPage({ applications, onChanged }: Props) {
   const { jobs, loading, error, pulling, run, refetch, pull } = useDiscovered();
   const [busy, setBusy] = useState<string | null>(null);
-  const navigate = useNavigate();
 
-  async function accept(job: DiscoveredJob) {
+  async function accept(
+    job: DiscoveredJob,
+    posting?: { jd_text: string; jd_parsed: Record<string, unknown> | null },
+  ) {
     setBusy(job.id);
     try {
-      const created = await acceptDiscovered(job.id);
+      await acceptDiscovered(job.id, posting);
       await refetch();
-      // Refresh the pipeline upstairs too, or the new row is missing from the
-      // list you land on.
+      // Refresh the pipeline upstairs so the new row is there when you go look.
       onChanged();
-      navigate(`/applications/${created.id}`);
+      // Deliberately no navigation. Triaging an inbox is a rhythm — read,
+      // decide, next — and jumping to the application you just filed breaks it
+      // every single time, then leaves you pressing back to return to a list
+      // that has moved on. The row disappearing from the list is confirmation
+      // enough.
     } finally {
       setBusy(null);
     }
@@ -341,8 +481,12 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
               key={job.id}
               job={job}
               applications={applications}
+              // New means "found by the most recent pull". Compared against the
+              // run rather than a timestamp so it survives you leaving the page
+              // and coming back, and so it resets the moment you pull again.
+              isNew={run !== null && job.run_id === run.id}
               busy={busy === job.id}
-              onAccept={() => accept(job)}
+              onAccept={(posting) => accept(job, posting)}
               onDismiss={() => dismiss(job)}
             />
           ))}

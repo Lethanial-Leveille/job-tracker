@@ -260,8 +260,19 @@ export function latestRun(): Promise<DiscoveryRun | null> {
 
 // File a discovery into the pipeline. Answers with the created application,
 // which is the row you now care about.
-export async function acceptDiscovered(id: string): Promise<Application> {
-  const res = await request(`/discovered/${id}/accept`, { method: "POST" });
+// File a discovery into the pipeline. The optional posting is for rows the
+// overnight pass could not read: without it they arrive as a title and a link
+// with nothing to tailor against, which you would not discover until you sat
+// down to write the resume.
+export async function acceptDiscovered(
+  id: string,
+  posting?: { jd_text: string; jd_parsed: Record<string, unknown> | null },
+): Promise<Application> {
+  const res = await request(`/discovered/${id}/accept`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(posting ?? {}),
+  });
   return res.json() as Promise<Application>;
 }
 

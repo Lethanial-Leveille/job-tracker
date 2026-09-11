@@ -31,7 +31,9 @@ from schemas.discovery import FeedListing, PullResult, StageCandidate
 from schemas.resume import Resume
 from services.application import create_application
 from services.resume import get_master
+from schemas.fit import FitReport
 from services.eligibility import assess, graduation_dates
+from services.matching import assess_requirements
 from services.boards import read_board
 from services.feed import FEED_SOURCE, pull
 from services.fetch_posting import PostingFetchError, fetch_posting
@@ -210,6 +212,7 @@ def stage_candidates(
     settings: Settings,
     result: PullResult,
     wanted_families: frozenset[str] = DEFAULT_WANTED_FAMILIES,
+    run_id: str | None = None,
 ) -> PullResult:
     """Dedupe, classify, and write. The one path both sources go through.
 
@@ -285,6 +288,10 @@ def stage_candidates(
             DiscoveredJob(
                 state=state,
                 user_id=user_id,
+                # Which pull found it. What lets the inbox mark a posting as new
+                # since the last run instead of losing it among two hundred you
+                # already scrolled past.
+                run_id=run_id,
                 source=candidate.source,
                 target_company_id=candidate.target_company_id,
                 external_id=candidate.external_id,
@@ -312,6 +319,7 @@ def stage_listings(
     settings: Settings,
     result: PullResult,
     wanted_families: frozenset[str] = DEFAULT_WANTED_FAMILIES,
+    run_id: str | None = None,
 ) -> PullResult:
     """Stage what survived the feed's free filters."""
     return stage_candidates(
@@ -337,6 +345,7 @@ def stage_listings(
         settings,
         result,
         wanted_families,
+        run_id,
     )
 
 
@@ -354,7 +363,11 @@ def active_companies(db: Session, user_id: str) -> list[TargetCompany]:
 
 
 def poll_companies(
-    db: Session, user_id: str, settings: Settings, result: PullResult
+    db: Session,
+    user_id: str,
+    settings: Settings,
+    result: PullResult,
+    run_id: str | None = None,
 ) -> dict[str, int]:
     """Read every active company's board and stage what is new.
 
@@ -399,6 +412,7 @@ def poll_companies(
                     ],
                     settings,
                     result,
+                    run_id=run_id,
                 )
             company.last_error = None if postings else "Board returned no postings."
         except Exception as exc:  # noqa: BLE001 - see docstring
@@ -415,6 +429,7 @@ def run_pull(
     user_id: str,
     settings: Settings,
     enrich_limit: int = 50,
+    run_id: str | None = None,
     **filters: object,
 ) -> PullResult:
     """Fetch the feed, stage what survives, then read what was staged.
@@ -435,14 +450,14 @@ def run_pull(
     # board and in the aggregator, whichever source runs first is the one that
     # gets staged — and the direct board record is the fresher of the two, with
     # a link that goes to the posting rather than through a list.
-    result.by_company = poll_companies(db, user_id, settings, result)
+    result.by_company = poll_companies(db, user_id, settings, result, run_id)
 
     listings, feed_result = pull(**filters)
     result.fetched = feed_result.fetched
     result.kept = feed_result.kept
     for reason, count in feed_result.dropped.items():
         result.dropped[reason] = result.dropped.get(reason, 0) + count
-    result = stage_listings(db, user_id, listings, settings, result)
+    result = stage_listings(db, user_id, listings, settings, result, run_id=run_id)
 
     result.enriched = enrich_pending(db, user_id, settings, limit=enrich_limit)
     result.ruled_out = filtered_by_graduation(db, user_id)
@@ -470,13 +485,25 @@ def resolve(
 
 
 def list_pending(db: Session, user_id: str) -> list[DiscoveredJob]:
-    """This user's undecided discoveries, newest posting first.
+    """This user's undecided discoveries, best match first.
 
-    Ordered by when the EMPLOYER posted, not by when we found it. A pull hands
-    you a batch all at once, so the discovery date says nothing useful, while
-    the posted date is the thing that decides what deserves attention first.
-    Rows with no posted date sort last rather than first — an unknown date is
-    not evidence of freshness.
+    Sorted by FIT, not by date, and that is the decision that makes a
+    three-hundred-row inbox usable. A list ordered by when something was posted
+    asks you to judge every single entry; a list ordered by how well your resume
+    answers the posting puts the ones you would actually win at the top, so
+    stopping halfway costs you the weakest jobs rather than a random half.
+
+    Postings from a company on your watchlist get a boost, because you already
+    made the judgement a score is trying to approximate — you went and added
+    them.
+
+    Unscored rows (the posting could not be read, or stated no requirements) sit
+    below scored ones rather than at either extreme. Unknown is not zero and it
+    is not a match, and pretending otherwise would either bury or promote every
+    posting on a site that needs a browser.
+
+    Date breaks ties, newest first, with no date sorting last — an unknown date
+    is not evidence of freshness.
     """
     rows = db.execute(
         select(DiscoveredJob)
@@ -484,7 +511,14 @@ def list_pending(db: Session, user_id: str) -> list[DiscoveredJob]:
             DiscoveredJob.user_id == user_id,
             DiscoveredJob.state == DiscoveryState.pending,
         )
-        .order_by(DiscoveredJob.posted_at.desc().nullslast(), DiscoveredJob.created_at.desc())
+        .order_by(
+            # Watchlist companies first: target_company_id is set only for a
+            # board you chose to follow.
+            DiscoveredJob.target_company_id.is_(None),
+            DiscoveredJob.fit_score.desc().nullslast(),
+            DiscoveredJob.posted_at.desc().nullslast(),
+            DiscoveredJob.created_at.desc(),
+        )
     ).scalars()
     return list(rows)
 
@@ -503,7 +537,13 @@ def get_discovered(db: Session, job_id: str, user_id: str) -> DiscoveredJob | No
     ).scalar_one_or_none()
 
 
-def accept(db: Session, job: DiscoveredJob, user_id: str) -> Application:
+def accept(
+    db: Session,
+    job: DiscoveredJob,
+    user_id: str,
+    jd_text: str | None = None,
+    jd_parsed: dict | None = None,
+) -> Application:
     """Turn a discovery into a real application.
 
     Everything comes from the row itself, so this spends no network call and
@@ -528,8 +568,12 @@ def accept(db: Session, job: DiscoveredJob, user_id: str) -> Application:
             # text is what resume tailoring reads, so a row that arrived without
             # it would look complete and quietly refuse to tailor.
             role_family=job.role_family,
-            jd_text=job.jd_text,
-            jd_parsed=job.jd_parsed,
+            # Supplied values win over the row's. They only ever arrive when the
+            # row had none — the posting could not be read overnight and you
+            # pasted it at the moment of accepting — and they are more recent
+            # besides.
+            jd_text=jd_text or job.jd_text,
+            jd_parsed=jd_parsed or job.jd_parsed,
         ),
         user_id,
     )
@@ -549,6 +593,18 @@ def dismiss(db: Session, job: DiscoveredJob) -> DiscoveredJob:
 # network round trip per posting.
 
 
+def _your_master(db: Session, user_id: str) -> Resume | None:
+    """The stored master resume, or None if there is not one yet.
+
+    None is not a failure: a user who has not filled in the resume builder gets
+    no fit scores, and the inbox falls back to sorting by date.
+    """
+    master = get_master(db, user_id)
+    if master is None or not master.resume_json:
+        return None
+    return Resume.model_validate(master.resume_json)
+
+
 def _your_graduation_dates(db: Session, user_id: str) -> list[tuple[int, int | None]]:
     """Graduation dates from the master resume, or empty if there is none.
 
@@ -566,11 +622,42 @@ def _your_graduation_dates(db: Session, user_id: str) -> list[tuple[int, int | N
     return graduation_dates(Resume.model_validate(master.resume_json))
 
 
+def fit_score(report: FitReport) -> int:
+    """Turn a fit report into one number, 0-100, for sorting an inbox.
+
+    A partial counts half. That is the whole judgement here, and it is the
+    honest one: "adjacent experience" is real evidence and not the same as
+    having done the thing, so counting it fully would flatter you and counting
+    it zero would bury jobs you could win.
+
+    Requirements the resume cannot answer are EXCLUDED from the denominator
+    rather than counted against you, matching how the report already presents
+    them: "3 of 4 met, 1 needs your input" is honest, where folding the unstated
+    one in reads as a failure you did not earn.
+
+    Preferred qualifications are left out entirely. Nearly every applicant
+    clears the hard bar and the preferred list is where candidates separate, so
+    it is worth READING — but it is a wish list, and letting it drag a headline
+    number down would sort a job you are fully qualified for below one you are
+    not.
+
+    A posting that states no requirements scores 100 rather than 0. It has set
+    no bar, so there is nothing you fail; zero would bury every posting whose
+    description the parser could not break into a list.
+    """
+    judged = report.total - report.unstated_count
+    if judged <= 0:
+        return 100
+    earned = report.met_count + 0.5 * report.partial_count
+    return round(100 * earned / judged)
+
+
 def enrich(
     db: Session,
     job: DiscoveredJob,
     settings: Settings,
     your_dates: list[tuple[int, int | None]],
+    master: Resume | None = None,
 ) -> None:
     """Read one posting and record what it says. Never raises.
 
@@ -607,6 +694,22 @@ def enrich(
     job.eligibility = verdict.model_dump()
     job.enriched_at = datetime.now(UTC)
 
+    # Score it against the master resume, so the inbox can be sorted by what you
+    # would actually win rather than by what happened to be posted most recently.
+    # Skipped when there is no master to compare against, and when the posting
+    # stated no requirements — both leave fit_score null, which sorts as unknown
+    # rather than as bad.
+    if master is not None and parsed is not None and requirements:
+        report = assess_requirements(
+            master,
+            parsed.key_requirements,
+            settings,
+            preferred=parsed.preferred_qualifications,
+        )
+        if report is not None:
+            job.fit_report = report.model_dump(mode="json")
+            job.fit_score = fit_score(report)
+
     # A posting whose graduation window closes before you can finish is not a
     # judgement call. It is a new-grad role or a cycle already gone, and there
     # is nothing to decide, so it leaves the inbox rather than sitting there as
@@ -642,8 +745,12 @@ def enrich_pending(db: Session, user_id: str, settings: Settings, limit: int = 5
         return 0
 
     your_dates = _your_graduation_dates(db, user_id)
+    # Loaded once for the whole pass rather than per posting: it is the same
+    # resume every time, and reading it fifty times is fifty queries for one
+    # answer.
+    master = _your_master(db, user_id)
     for job in rows:
-        enrich(db, job, settings, your_dates)
+        enrich(db, job, settings, your_dates, master)
     db.commit()
     return sum(1 for job in rows if job.enriched_at is not None)
 
@@ -772,7 +879,7 @@ def execute_run(run_id: str, user_id: str, settings: Settings, **filters: object
         if run is None:
             return
         try:
-            result = run_pull(db, user_id, settings, **filters)
+            result = run_pull(db, user_id, settings, run_id=run_id, **filters)
             run.fetched = result.fetched
             run.staged = result.staged
             run.duplicates = result.duplicates

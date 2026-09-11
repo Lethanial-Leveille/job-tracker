@@ -264,6 +264,14 @@ export interface DiscoveredJob {
   // "hide the row" — reapplying to a role in a new cycle is a real thing to do.
   possible_application_ids: string[] | null;
   eligibility: Eligibility | null;
+  // 0-100: how well your resume answers this posting's requirements, scored by
+  // the same machinery as the fit report on an application. Null means unknown
+  // (unreadable posting, or no requirements stated) rather than a bad match.
+  fit_score: number | null;
+  fit_report: Record<string, unknown> | null;
+  // Which pull found it. A row from the most recent run is new since you last
+  // looked.
+  run_id: string | null;
   enriched_at: string | null;
   application_id: string | null;
   created_at: string;

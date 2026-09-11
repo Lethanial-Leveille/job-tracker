@@ -18,7 +18,11 @@ from database import get_db
 from dependencies import get_current_user
 from models.user import User
 from schemas.application import ApplicationRead
-from schemas.discovery import DiscoveredJobRead, DiscoveryRunRead
+from schemas.discovery import (
+    AcceptDiscovered,
+    DiscoveredJobRead,
+    DiscoveryRunRead,
+)
 from services.discovery import (
     RunAlreadyGoing,
     accept,
@@ -100,16 +104,29 @@ def read_latest_run(
 @router.post("/{job_id}/accept", response_model=ApplicationRead)
 def accept_discovered(
     job_id: str,
+    data: AcceptDiscovered | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ApplicationRead:
     """File a discovery into the pipeline as a real application.
 
+    The body is optional and usually absent: a posting read overnight already
+    carries its text. It exists for the rows that could not be read — a site
+    needing a browser, a link already dead — where filing the row as-is means a
+    title, a link, and nothing to tailor against. You would not find that out
+    until you sat down to write the resume.
+
     Answers with the created application rather than the discovery, because that
-    is the row you now care about and the one the UI navigates to.
+    is the row you now care about.
     """
     job = _owned(db, job_id, user)
-    return accept(db, job, user.id)
+    return accept(
+        db,
+        job,
+        user.id,
+        jd_text=data.jd_text if data else None,
+        jd_parsed=data.jd_parsed if data else None,
+    )
 
 
 @router.post("/{job_id}/dismiss", response_model=DiscoveredJobRead)

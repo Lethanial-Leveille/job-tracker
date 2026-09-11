@@ -202,3 +202,38 @@ def test_the_webhook_fails_loudly_for_an_unknown_account(
     resp = client.post("/webhooks/discovery/pull", json={"email": "nobody@example.com"})
 
     assert resp.status_code == 404
+
+
+def test_accepting_can_carry_a_posting_that_was_never_read(
+    db: Session, user: User, client: TestClient
+) -> None:
+    """For the rows the overnight pass could not read.
+
+    Roughly four in ten ordinary careers sites need a browser. Filing one of
+    those as-is gives a title, a link, and nothing to tailor against — a gap you
+    would not notice until you sat down to write the resume weeks later, which
+    is why accepting is the moment to ask.
+    """
+    job = _discovery(db, user)
+
+    body = client.post(
+        f"/discovered/{job.id}/accept",
+        json={"jd_text": "the posting you pasted", "jd_parsed": {"key_requirements": ["Python"]}},
+    ).json()
+
+    assert body["jd_text"] == "the posting you pasted"
+    assert body["jd_parsed"]["key_requirements"] == ["Python"]
+
+
+def test_accepting_without_a_posting_still_works(
+    db: Session, user: User, client: TestClient
+) -> None:
+    # The normal case: a posting read overnight already carries its text, and an
+    # empty body must not be treated as an instruction to blank it.
+    job = _discovery(db, user)
+    job.jd_text = "read overnight"
+    db.commit()
+
+    body = client.post(f"/discovered/{job.id}/accept", json={}).json()
+
+    assert body["jd_text"] == "read overnight"

@@ -103,6 +103,13 @@ class DiscoveredJobRead(BaseModel):
     # not be — distinct from a verdict of "unclear", which means it WAS read and
     # said nothing about graduation timing.
     eligibility: dict | None = None
+    # How well your resume answers this posting's requirements, 0-100. Null when
+    # the posting could not be read or stated no requirements — unknown rather
+    # than zero, and sorted as such.
+    fit_score: int | None = None
+    fit_report: dict | None = None
+    # The pull that found it, so the inbox can mark what is new since last time.
+    run_id: str | None = None
     enriched_at: datetime | None = None
     application_id: str | None = None
     created_at: datetime
@@ -174,3 +181,20 @@ class DiscoveryRunRead(BaseModel):
     error: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class AcceptDiscovered(BaseModel):
+    """Optionally supply the posting when accepting a discovery.
+
+    For the rows the enrichment pass could not read — roughly four in ten
+    ordinary careers sites need a browser — where the alternative is filing a
+    row with a title and a link and nothing to tailor against. Rather than
+    discovering that weeks later when you go to write a resume for it, accepting
+    is the moment to ask.
+
+    Both optional, and an empty body is the normal case: a posting that was read
+    overnight already has everything.
+    """
+
+    jd_text: str | None = None
+    jd_parsed: dict | None = None

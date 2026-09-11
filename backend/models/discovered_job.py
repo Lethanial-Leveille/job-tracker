@@ -28,6 +28,7 @@ from sqlalchemy import (
     DateTime,
     Enum as SqlEnum,
     ForeignKey,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -194,6 +195,34 @@ class DiscoveredJob(Base):
     # answers "is this verdict stale" — the check compares against graduation
     # dates from the master resume, and those change.
     enriched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # How well your resume answers this posting's stated requirements, 0-100.
+    # Computed during enrichment by the same services/matching.py the fit report
+    # on an application uses, so the number means exactly what it means there.
+    #
+    # This is what turns three hundred rows into something you can work through.
+    # A list sorted by date asks you to judge every entry; a list sorted by fit
+    # puts the ones you would actually win at the top, which is the difference
+    # between reading the inbox and giving up on it.
+    #
+    # Null when the posting could not be read, or stated no requirements to
+    # judge — genuinely unknown rather than zero, and sorted as such.
+    fit_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The full report behind that number: every requirement with a verdict and
+    # cited evidence. Kept so a surprising score can be checked instead of
+    # trusted, and copied onto the application when you accept.
+    fit_report: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # The run that first staged this. What makes "new since the last pull"
+    # answerable without guessing from timestamps, and stops a fresh posting
+    # being lost among two hundred you already scrolled past.
+    #
+    # No cascade: deleting run history should not delete the jobs it found.
+    run_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("discovery_runs.id", ondelete="SET NULL", name="fk_discovered_jobs_run"),
+        nullable=True,
+    )
 
     state: Mapped[DiscoveryState] = mapped_column(
         SqlEnum(DiscoveryState),

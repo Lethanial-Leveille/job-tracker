@@ -68,6 +68,38 @@ _INTERNSHIP = re.compile(
 )
 
 
+# Terms a title can name that rule it out. A board publishes no term field at
+# all — that is the aggregator's advantage — so the only signal is whether the
+# title says which cycle it is for.
+#
+# Deliberately a rejection list rather than a requirement: most internship
+# titles name no season whatsoever ("Software Engineer Intern"), and requiring
+# one would discard nearly everything. This only removes titles that say, in
+# writing, that they are for a cycle you are not applying to.
+_WRONG_CYCLE = re.compile(
+    r"\b(spring|fall|autumn|winter)\s*20\d{2}\b"
+    r"|\bsummer\s*20(?!27)\d{2}\b"
+    r"|\b20(?!27)\d{2}\s*(spring|fall|autumn|winter|summer)\b",
+    re.I,
+)
+
+
+def names_another_cycle(title: str) -> bool:
+    """True when a title states a season and year that is not Summer 2027.
+
+    "Software Engineer Intern, Agent (Winter 2027)" is a real posting that
+    reached the inbox from a company board, where nothing had filtered it. A
+    title naming Summer 2027 alongside another season is kept: "Summer and Fall
+    2027" is a Summer 2027 role that also runs into the autumn.
+    """
+    # "Summer" and "2027" anywhere in the title is enough, rather than adjacent.
+    # "Co-op Summer & Fall 2027" is a Summer 2027 role that also runs into the
+    # autumn, and requiring the two words to touch rejected it.
+    if re.search(r"\bsummer\b", title, re.I) and re.search(r"\b2027\b", title):
+        return False
+    return bool(_WRONG_CYCLE.search(title))
+
+
 def is_internship(title: str) -> bool:
     """True when a job title says it is an internship.
 
@@ -160,7 +192,8 @@ def greenhouse(client: httpx.Client, board: str) -> list[BoardPosting]:
     # through it — capping first is how you read 100 senior roles and conclude
     # the company has no internships.
     for job in response.json().get("jobs") or []:
-        if not is_internship(job.get("title") or ""):
+        title = job.get("title") or ""
+        if not is_internship(title) or names_another_cycle(title):
             continue
         if len(postings) >= _PAGE:
             break
@@ -194,7 +227,8 @@ def lever(client: httpx.Client, board: str) -> list[BoardPosting]:
         return []
     postings = []
     for job in response.json() or []:
-        if not is_internship(job.get("text") or ""):
+        title = job.get("text") or ""
+        if not is_internship(title) or names_another_cycle(title):
             continue
         if len(postings) >= _PAGE:
             break
@@ -233,7 +267,8 @@ def ashby(client: httpx.Client, board: str) -> list[BoardPosting]:
         return []
     postings = []
     for job in response.json().get("jobs") or []:
-        if not is_internship(job.get("title") or ""):
+        title = job.get("title") or ""
+        if not is_internship(title) or names_another_cycle(title):
             continue
         if len(postings) >= _PAGE:
             break
@@ -305,7 +340,7 @@ def workday(client: httpx.Client, host: str, tenant: str, site: str) -> list[Boa
         for job in page:
             path = job.get("externalPath") or ""
             title = job.get("title") or ""
-            if not path or not is_internship(title):
+            if not path or not is_internship(title) or names_another_cycle(title):
                 continue
             # bulletFields carries the requisition id, and is occasionally empty.
             bullets = job.get("bulletFields") or []
@@ -367,7 +402,7 @@ def oracle(client: httpx.Client, host: str, site: str) -> list[BoardPosting]:
     for job in items[0].get("requisitionList") or []:
         job_id = str(job.get("Id") or "")
         title = _html_to_text(job.get("Title") or "")
-        if not job_id or not is_internship(title):
+        if not job_id or not is_internship(title) or names_another_cycle(title):
             continue
         if len(postings) >= _PAGE:
             break

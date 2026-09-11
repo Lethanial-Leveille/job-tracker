@@ -835,3 +835,132 @@ def test_a_board_posting_still_goes_through_the_graduation_rules(
 
     assert _staged(db) == []
     assert _all_rows(db)[0].state is DiscoveryState.filtered
+
+
+# --- Ranking -----------------------------------------------------------------
+# The inbox runs to hundreds of rows. Sorted by date it asks you to judge every
+# one; sorted by fit, stopping halfway costs you the weakest jobs rather than a
+# random half. That is the difference between using it and giving up on it.
+
+
+def _report(*verdicts: str):
+    from schemas.fit import FitReport, RequirementMatch
+
+    return FitReport.from_matches(
+        [RequirementMatch(requirement=str(i), verdict=v) for i, v in enumerate(verdicts)]
+    )
+
+
+def test_a_partial_match_counts_half() -> None:
+    """The whole judgement in the score, and the honest one.
+
+    Adjacent experience is real evidence and is not the same as having done the
+    thing. Counting it fully flatters you; counting it zero buries jobs you
+    could win.
+    """
+    from services.discovery import fit_score
+
+    assert fit_score(_report("met", "met")) == 100
+    assert fit_score(_report("met", "partial")) == 75
+    assert fit_score(_report("missing", "missing")) == 0
+
+
+def test_a_requirement_your_resume_cannot_answer_is_not_held_against_you() -> None:
+    # Matching how the report already presents it: "3 of 4 met, 1 needs your
+    # input" is honest, where folding the unstated one in reads as a failure you
+    # did not earn.
+    from services.discovery import fit_score
+
+    assert fit_score(_report("met", "unstated")) == 100
+
+
+def test_a_posting_that_states_no_requirements_is_not_scored_zero() -> None:
+    """It set no bar, so there is nothing you failed.
+
+    Zero would bury every posting whose description the parser could not break
+    into a list, which is a property of the posting rather than of you.
+    """
+    from services.discovery import fit_score
+
+    assert fit_score(_report()) == 100
+
+
+def test_the_inbox_leads_with_the_best_match(db: Session, user: User) -> None:
+    _stage(
+        db,
+        user,
+        [
+            _listing(id="weak", url="https://x/1", title="Software Engineer Intern"),
+            _listing(id="strong", url="https://x/2", title="Software Engineer Intern"),
+        ],
+        {0: "Software Engineer Intern", 1: "Software Engineer Intern"},
+    )
+    rows = {row.external_id: row for row in _staged(db)}
+    rows["weak"].fit_score = 20
+    rows["strong"].fit_score = 90
+    db.commit()
+
+    from services.discovery import list_pending
+
+    assert [j.external_id for j in list_pending(db, user.id)] == ["strong", "weak"]
+
+
+def test_an_unscored_posting_sits_below_scored_ones_not_at_either_end(
+    db: Session, user: User
+) -> None:
+    """Unknown is neither zero nor a match.
+
+    A site that needs a browser cannot be read, and treating that as a bad
+    score would bury it while treating it as a good one would promote it. Both
+    are claims the data does not support.
+    """
+    _stage(
+        db,
+        user,
+        [
+            _listing(id="scored", url="https://x/1", title="Software Engineer Intern"),
+            _listing(id="unread", url="https://x/2", title="Software Engineer Intern"),
+        ],
+        {0: "Software Engineer Intern", 1: "Software Engineer Intern"},
+    )
+    rows = {row.external_id: row for row in _staged(db)}
+    rows["scored"].fit_score = 10
+    db.commit()
+
+    from services.discovery import list_pending
+
+    assert [j.external_id for j in list_pending(db, user.id)] == ["scored", "unread"]
+
+
+def test_a_watchlist_company_outranks_a_better_scoring_stranger(
+    db: Session, user: User
+) -> None:
+    """You already made the judgement the score approximates.
+
+    Adding a company to the watchlist is a stronger signal about whether you
+    want the job than any resume comparison, so it wins.
+    """
+    _company(db, user)
+    _poll(db, user, [_posting(url="https://x/board")])
+    _stage(db, user, [_listing(id="feed", url="https://x/feed")], {0: "Software Engineer Intern"})
+
+    for row in _staged(db):
+        row.fit_score = 95 if row.source == "simplify" else 30
+    db.commit()
+
+    from services.discovery import list_pending
+
+    assert list_pending(db, user.id)[0].source == "greenhouse"
+
+
+def test_every_staged_row_records_which_pull_found_it(db: Session, user: User) -> None:
+    # What lets the inbox mark a posting as new since the last run, instead of
+    # losing a fresh one among two hundred you already scrolled past.
+    from services.discovery import stage_listings, start_run
+
+    run = start_run(db, user.id)
+    with patch("services.discovery.classify_role_families") as classifier:
+        classifier.return_value = {0: "Software Engineer Intern"}
+        stage_listings(db, user.id, [_listing()], _settings(), PullResult(), run_id=run.id)
+
+    assert _staged(db)[0].run_id == run.id
