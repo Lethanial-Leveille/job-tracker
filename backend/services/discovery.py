@@ -142,6 +142,49 @@ def _already_staged_keys(db: Session, user_id: str) -> set[tuple[str, str]]:
     return {(source, external_id) for source, external_id in rows}
 
 
+# Column widths, mirrored from models/discovered_job.py. Postgres enforces these
+# and SQLite does not, which is a genuinely dangerous combination: every test
+# and every local run passes, and prod raises.
+_LIMITS = {"organization": 255, "role_or_program": 255, "location": 255, "external_id": 128}
+
+# How many locations to name before summarising. A posting open in thirty one
+# cities is real — Google's was — and naming all of them produced a 404
+# character string that blew the column, aborted the whole transaction, and
+# staged NOTHING from that pull. Three plus a count reads better anyway, and the
+# full list is kept verbatim in `raw`.
+_LOCATIONS_SHOWN = 3
+
+
+def summarize_locations(locations: list[str]) -> str | None:
+    """Name a few places and count the rest.
+
+    Truncating the joined string would cut a city in half; this keeps every name
+    it shows intact and is honest about what it left out.
+    """
+    if not locations:
+        return None
+    if len(locations) <= _LOCATIONS_SHOWN:
+        return ", ".join(locations)
+    shown = ", ".join(locations[:_LOCATIONS_SHOWN])
+    return f"{shown} +{len(locations) - _LOCATIONS_SHOWN} more"
+
+
+def _fit(candidate: StageCandidate) -> StageCandidate:
+    """Trim any field that would not fit its column.
+
+    A backstop rather than the fix — summarize_locations is the fix for the case
+    that actually happened. This exists because the failure mode is so bad: the
+    whole batch is written in one transaction, so a single oversized value on
+    one row discards every row in the pull, and the only symptom is an inbox
+    that stays empty.
+    """
+    for field, limit in _LIMITS.items():
+        value = getattr(candidate, field)
+        if isinstance(value, str) and len(value) > limit:
+            setattr(candidate, field, value[:limit])
+    return candidate
+
+
 def _staged_urls(db: Session, user_id: str) -> set[str]:
     """Normalized links of every discovery this user already has, any source.
 
@@ -200,7 +243,7 @@ def stage_candidates(
             # Guard against one batch carrying the same link twice, which a
             # board and its own paging can produce.
             seen_urls.add(key)
-        fresh.append((candidate, possible))
+        fresh.append((_fit(candidate), possible))
 
     if not fresh:
         return result
@@ -281,10 +324,11 @@ def stage_listings(
                 organization=listing.company_name,
                 role_or_program=listing.title,
                 posting_url=listing.url,
-                # The feed gives a list; the column holds one line. Joined rather
-                # than truncated to the first, because "Seattle, WA or Austin, TX"
-                # is a fact worth having when you decide whether to apply.
-                location=", ".join(listing.locations) or None,
+                # A few names plus a count. Joining all of them is what broke
+                # prod: a Google posting open in thirty one cities produced a
+                # 404 character string, overflowed the column, aborted the
+                # transaction and staged nothing from the entire pull.
+                location=summarize_locations(listing.locations),
                 posted_at=listing.posted_on(),
                 raw=listing.model_dump(),
             )

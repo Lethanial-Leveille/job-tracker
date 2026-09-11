@@ -483,7 +483,7 @@ def test_accepting_carries_the_posting_onto_the_application(
 # --- Fields carried across ---------------------------------------------------
 
 
-def test_every_location_is_kept_not_just_the_first(db: Session, user: User) -> None:
+def test_several_locations_are_kept_not_just_the_first(db: Session, user: User) -> None:
     # Where a job is happens to be one of the things that decides whether you
     # apply, so dropping the second city loses a real fact.
     _stage(
@@ -494,6 +494,47 @@ def test_every_location_is_kept_not_just_the_first(db: Session, user: User) -> N
     )
 
     assert _staged(db)[0].location == "Seattle, WA, Austin, TX"
+
+
+def test_a_posting_open_in_thirty_cities_does_not_blow_the_column(
+    db: Session, user: User
+) -> None:
+    """The bug that made prod stage nothing at all.
+
+    A Google posting open in thirty one cities joined into a 404 character
+    string. Postgres enforces the 255 character column and SQLite does not, so
+    every test and every local run passed while prod raised — and because the
+    whole batch is written in one transaction, that single row discarded every
+    other job in the pull. The only symptom was an empty inbox.
+    """
+    cities = [f"City {i}, ST" for i in range(31)]
+
+    _stage(db, user, [_listing(locations=cities)], {0: "Software Engineer Intern"})
+
+    location = _staged(db)[0].location
+    assert len(location) < 255
+    # Honest about what it left out, rather than cutting a city in half.
+    assert location.endswith("+28 more")
+    # And the full list survives untouched where tuning can still reach it.
+    assert len(_staged(db)[0].raw["locations"]) == 31
+
+
+def test_an_oversized_field_is_trimmed_rather_than_discarding_the_batch(
+    db: Session, user: User
+) -> None:
+    """The backstop, because the failure mode is so expensive.
+
+    One oversized value on one row aborts the transaction and throws away every
+    row in the pull. Trimming keeps the rest.
+    """
+    _stage(
+        db,
+        user,
+        [_listing(title="Software Engineer Intern " + "x" * 400)],
+        {0: "Software Engineer Intern"},
+    )
+
+    assert len(_staged(db)[0].role_or_program) == 255
 
 
 def test_the_feed_entry_is_kept_whole(db: Session, user: User) -> None:
