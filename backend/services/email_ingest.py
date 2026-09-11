@@ -360,12 +360,22 @@ def ingest_message(
         return IngestOutcome(message.message_id, "no_action")
 
     suggested_status, _ = transition
-    survivors = narrow(
-        _candidates(db, user_id, classification.organization),
-        classification.kind,
-        classification.role_hint,
-    )
+    candidates = _candidates(db, user_id, classification.organization)
+    survivors = narrow(candidates, classification.kind, classification.role_hint)
     reason = _reason(classification, from_name, from_email, received_at)
+
+    if candidates and not survivors:
+        # You are tracking this employer, but every row is already at or past
+        # what the email implies — you marked it applied yourself before the
+        # confirmation arrived, which is the normal order of events.
+        #
+        # This used to fall through to "unmatched" below, and that was wrong in
+        # a way that mattered: unmatched renders as "add a new application", so
+        # confirming something you had already recorded invited you to record it
+        # twice. There is nothing to propose here, and nothing to propose is
+        # `no_action`, not "we have never heard of these people".
+        db.commit()
+        return IngestOutcome(message.message_id, "no_action")
 
     if len(survivors) == 1:
         target = survivors[0]

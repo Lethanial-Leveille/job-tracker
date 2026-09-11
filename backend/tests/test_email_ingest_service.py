@@ -229,6 +229,65 @@ def test_no_match_is_recorded_as_unmatched(
 
 
 @patch("services.email_ingest.classify_email")
+def test_a_confirmation_for_a_row_you_already_marked_applied_proposes_nothing(
+    mock_classify: MagicMock, db: Session, user: User
+) -> None:
+    """The normal order of events, which used to invite a duplicate row.
+
+    You mark something applied the moment you submit it; the confirmation email
+    lands minutes later. That row is past what the email can act on, so nothing
+    survives the transition filter — and this used to fall through to
+    "unmatched", which renders as "add a new application". Confirming something
+    you had already recorded invited you to record it twice.
+
+    There is genuinely nothing to propose here, and nothing to propose is
+    no_action, not "we have never heard of these people".
+    """
+    _app(db, user, "Neighbor", "Software Engineer Intern", ApplicationStatus.applied)
+    mock_classify.return_value = _classified(organization="Neighbor")
+
+    outcome = ingest_message(db, user.id, _message(), _settings())
+
+    assert outcome.result == "no_action"
+    assert db.query(StatusSuggestion).count() == 0
+    # Still recorded, so the rolling window does not pay to classify it again.
+    assert db.query(IngestedEmail).count() == 1
+
+
+@patch("services.email_ingest.classify_email")
+def test_an_email_from_an_employer_you_do_not_track_is_still_unmatched(
+    mock_classify: MagicMock, db: Session, user: User
+) -> None:
+    # The distinction the fix turns on: no rows at this company at all is a
+    # genuinely new employer, and offering to add it is the right call.
+    _app(db, user, "Neighbor", "Software Engineer Intern", ApplicationStatus.applied)
+    mock_classify.return_value = _classified(organization="Nvidia")
+
+    outcome = ingest_message(db, user.id, _message(), _settings())
+
+    assert outcome.result == "unmatched"
+
+
+@patch("services.email_ingest.classify_email")
+def test_one_applied_row_does_not_hide_another_still_waiting(
+    mock_classify: MagicMock, db: Session, user: User
+) -> None:
+    """Two roles at one company, one already submitted and one not.
+
+    The still-waiting row must survive, or marking one job applied would
+    silence the confirmation for the other.
+    """
+    _app(db, user, "Neighbor", "Software Engineer Intern", ApplicationStatus.applied)
+    waiting = _app(db, user, "Neighbor", "Data Engineer Intern", ApplicationStatus.ready)
+    mock_classify.return_value = _classified(organization="Neighbor")
+
+    outcome = ingest_message(db, user.id, _message(), _settings())
+
+    assert outcome.result == "suggested"
+    assert db.query(StatusSuggestion).one().application_id == waiting.id
+
+
+@patch("services.email_ingest.classify_email")
 def test_a_duplicate_costs_no_model_call(
     mock_classify: MagicMock, db: Session, user: User
 ) -> None:
