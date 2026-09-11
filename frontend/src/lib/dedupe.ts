@@ -203,7 +203,7 @@ function roleTokens(role: string): Set<string> {
 // "Software Engineer Intern, Machine Learning Platform" are plausibly the same
 // posting written out at different lengths, and measuring against the union
 // would score that pair low precisely because one side is more detailed.
-function roleSimilarity(a: string, b: string): number {
+export function roleSimilarity(a: string, b: string): number {
   const left = roleTokens(a);
   const right = roleTokens(b);
   if (left.size === 0 || right.size === 0) return 0;

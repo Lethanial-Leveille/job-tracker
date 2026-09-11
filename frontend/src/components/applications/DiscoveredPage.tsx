@@ -13,6 +13,7 @@ import {
   parseJobUrl,
 } from "../../lib/api";
 import { useDiscovered } from "../../lib/useDiscovered";
+import { groupDiscoveries } from "./groupDiscoveries";
 import { shortDate } from "../../lib/format";
 
 // The discovery inbox: jobs a nightly feed pull found, waiting to be accepted or
@@ -201,19 +202,27 @@ function SupplyPosting({
   );
 }
 
+type Posting = { jd_text: string; jd_parsed: Record<string, unknown> | null };
+
 function Row({
   job,
+  others = [],
   applications,
   isNew,
   onAccept,
   onDismiss,
+  onAcceptOther,
+  onDismissOther,
   busy,
 }: {
   job: DiscoveredJob;
+  others?: DiscoveredJob[];
   applications: Application[];
   isNew: boolean;
-  onAccept: (posting?: { jd_text: string; jd_parsed: Record<string, unknown> | null }) => void;
+  onAccept: (posting?: Posting) => void;
   onDismiss: () => void;
+  onAcceptOther?: (job: DiscoveredJob, posting?: Posting) => void;
+  onDismissOther?: (job: DiscoveredJob) => void;
   busy: boolean;
 }) {
   const note = eligibilityNote(job.eligibility, job.enriched_at);
@@ -221,6 +230,7 @@ function Row({
   // Tracking it as-is files a title and a link with nothing to tailor against.
   const unread = job.enriched_at === null || job.eligibility === null;
   const [asking, setAsking] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const maybe = (job.possible_application_ids ?? [])
     .map((id) => applications.find((a) => a.id === id))
     .filter((a): a is Application => a !== undefined);
@@ -317,6 +327,58 @@ function Row({
           onTrack={(posting) => onAccept(posting)}
           onSkip={() => onAccept()}
         />
+      )}
+
+      {/* The folded set: one line, expandable. Everything stays reachable. */}
+      {others.length > 0 && (
+        <div className="mt-3 border-t border-line pt-3">
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="text-[11.5px] text-ink-muted transition-colors hover:text-ink-soft"
+          >
+            {expanded ? "Hide" : "Show"} {others.length} similar posting
+            {others.length === 1 ? "" : "s"} at {job.organization}
+          </button>
+          {expanded && (
+            <ul className="mt-2.5 flex flex-col gap-1.5">
+              {others.map((other) => (
+                <li
+                  key={other.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-interactive border border-line bg-base px-3 py-2"
+                >
+                  <a
+                    href={other.posting_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="min-w-0 flex-1 truncate text-[12.5px] text-ink-soft hover:text-accent"
+                  >
+                    {other.role_or_program}
+                    {other.location && (
+                      <span className="text-ink-muted"> · {other.location}</span>
+                    )}
+                  </a>
+                  <div className="flex shrink-0 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onDismissOther?.(other)}
+                      className="rounded-interactive border border-line px-2 py-1 text-[11.5px] text-ink-muted hover:text-ink-soft"
+                    >
+                      Dismiss
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onAcceptOther?.(other)}
+                      className="rounded-interactive border border-line-strong px-2 py-1 text-[11.5px] text-ink hover:border-accent-line"
+                    >
+                      Track it
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </li>
   );
@@ -476,18 +538,25 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
         </div>
       ) : (
         <ul className="mt-6 flex flex-col gap-3">
-          {jobs.map((job) => (
+          {groupDiscoveries(jobs).map((group) => (
             <Row
-              key={job.id}
-              job={job}
+              key={group.lead.id}
+              job={group.lead}
+              // Near-identical postings from the same employer, folded in. Kept
+              // reachable rather than dropped: two that look alike are
+              // sometimes different roles, and a quietly deleted one is a job
+              // you wanted with no way to notice.
+              others={group.others}
               applications={applications}
               // New means "found by the most recent pull". Compared against the
               // run rather than a timestamp so it survives you leaving the page
               // and coming back, and so it resets the moment you pull again.
-              isNew={run !== null && job.run_id === run.id}
-              busy={busy === job.id}
-              onAccept={(posting) => accept(job, posting)}
-              onDismiss={() => dismiss(job)}
+              isNew={run !== null && group.lead.run_id === run.id}
+              busy={busy === group.lead.id}
+              onAccept={(posting) => accept(group.lead, posting)}
+              onDismiss={() => dismiss(group.lead)}
+              onAcceptOther={(job, posting) => accept(job, posting)}
+              onDismissOther={(job) => dismiss(job)}
             />
           ))}
         </ul>

@@ -32,7 +32,11 @@ from schemas.resume import Resume
 from services.application import create_application
 from services.resume import get_master
 from schemas.fit import FitReport
-from services.eligibility import assess, graduation_dates
+from services.eligibility import (
+    assess,
+    graduation_dates,
+    requires_a_graduate_degree,
+)
 from services.matching import assess_requirements
 from services.boards import read_board
 from services.feed import FEED_SOURCE, pull
@@ -720,6 +724,19 @@ def enrich(
     # it went if you ever go looking.
     if verdict.verdict == "too_early":
         job.state = DiscoveryState.filtered
+
+    # A posting whose text actually demands a graduate degree. The feed's own
+    # degree data says Bachelor's for plenty of these — it is wrong, and only
+    # reading the posting catches it. Filed away rather than shown, for the same
+    # reason as a closed graduation window: there is nothing to decide about a
+    # job you cannot hold.
+    #
+    # The evidence is kept on the row so a wrong call is arguable rather than an
+    # invisible disappearance.
+    graduate_only = requires_a_graduate_degree(requirements, fetched.text)
+    if graduate_only:
+        job.state = DiscoveryState.filtered
+        job.eligibility = {**job.eligibility, "graduate_only": graduate_only}
 
 
 def enrich_pending(db: Session, user_id: str, settings: Settings, limit: int = 50) -> int:

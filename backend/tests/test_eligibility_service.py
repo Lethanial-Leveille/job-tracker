@@ -278,3 +278,48 @@ def test_your_own_month_is_read_from_the_resume() -> None:
     december = [(2027, 12)]
 
     assert assess("Must graduate by January 2028.", [], december).verdict != "too_early"
+
+
+# --- Degree level ------------------------------------------------------------
+# The feed's own degree data lists Bachelor's for postings whose text says
+# "currently pursuing an MS or PhD". Only reading the posting catches that, and
+# an internship you cannot hold is worse than no result.
+
+
+def test_a_posting_demanding_a_graduate_degree_is_caught() -> None:
+    from services.eligibility import requires_a_graduate_degree
+
+    assert requires_a_graduate_degree(
+        ["Currently pursuing a Master's or PhD in Computer Science"], ""
+    )
+
+
+def test_a_list_of_accepted_degrees_is_not_a_graduate_requirement() -> None:
+    """The most common phrasing in a real posting, and the one that matters.
+
+    "Bachelor's, Master's or PhD in Computer Science" says what they accept.
+    Reading it as a graduate requirement would discard most of the inbox.
+    """
+    from services.eligibility import requires_a_graduate_degree
+
+    assert requires_a_graduate_degree(
+        ["Bachelor's, Master's or PhD in Computer Science"], ""
+    ) is None
+
+
+def test_a_degree_mentioned_in_passing_is_not_a_requirement() -> None:
+    # A posting's body talks about degrees constantly. "Our team holds advanced
+    # degrees" is a fact about them, not a rule for you, which is why the
+    # requirements list is checked first.
+    from services.eligibility import requires_a_graduate_degree
+
+    assert requires_a_graduate_degree([], "Our team holds advanced degrees including PhDs.") is None
+
+
+def test_the_sentence_is_returned_so_a_wrong_call_can_be_argued_with() -> None:
+    # These rows vanish from the inbox, so the reason has to survive with them.
+    from services.eligibility import requires_a_graduate_degree
+
+    evidence = requires_a_graduate_degree(["Must be a PhD candidate"], "")
+
+    assert evidence is not None and "PhD candidate" in evidence

@@ -265,3 +265,47 @@ def assess(
         your_years=sorted({year for year, _ in your_dates}),
         standing=standing,
     )
+
+
+# --- Degree level -------------------------------------------------------------
+
+# A requirement that rules out an undergraduate. The feed's own degree data is
+# frequently wrong about this — it lists Bachelor's for postings whose text says
+# "currently pursuing an MS or PhD" — and only reading the posting catches it.
+_GRADUATE_ONLY = re.compile(
+    r"(currently\s+(?:enrolled|pursuing)[^.]{0,60}\b(?:master|m\.?s\.?|phd|ph\.?d\.?|doctora)"
+    r"|\b(?:master'?s?|phd|ph\.?d\.?|doctoral)\s+(?:degree\s+)?(?:student|candidate)"
+    r"|pursuing\s+(?:a\s+)?(?:master|phd|ph\.?d\.?|doctora))",
+    re.I,
+)
+
+# Wording that puts an undergraduate back in scope. Checked FIRST, because the
+# single most common phrasing in a real posting is "Bachelor's, Master's or PhD"
+# — a list of acceptable degrees, not a graduate-only requirement, and reading
+# it as the latter would discard most of the inbox.
+_UNDERGRAD_OK = re.compile(
+    r"\b(bachelor'?s?|undergraduate|b\.?s\.?|b\.?a\.?)\b", re.I
+)
+
+
+def requires_a_graduate_degree(requirements: list[str], posting_text: str) -> str | None:
+    """The sentence demanding a graduate degree, or None.
+
+    Returns the evidence rather than a boolean so a wrong call is visible and
+    arguable instead of silently removing a job.
+
+    Requirements are checked before the body here, the opposite of the
+    graduation-year rule, and for a good reason: a degree requirement is a rule,
+    and the requirements list is where rules live. The body mentions degrees in
+    passing constantly ("our team holds advanced degrees"), which is not a
+    requirement of you.
+
+    Any mention of a bachelor's in the same sentence clears it. "Bachelor's,
+    Master's or PhD in Computer Science" is a list of what they accept.
+    """
+    for source in [*requirements, *(_SENTENCE_SPLIT.split(posting_text or ""))]:
+        if _UNDERGRAD_OK.search(source):
+            continue
+        if _GRADUATE_ONLY.search(source):
+            return _excerpt(source)
+    return None

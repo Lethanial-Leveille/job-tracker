@@ -31,6 +31,8 @@ from datetime import UTC, datetime
 import httpx
 from pydantic import ValidationError
 
+from services.boards import names_another_cycle
+
 from schemas.discovery import FeedListing, PullResult
 
 # The published file. A module constant rather than a setting because it is not
@@ -176,6 +178,12 @@ def filter_listings(
             drop(f"category:{listing.category or 'none'}")
         elif not terms.intersection(listing.terms):
             drop("term")
+        elif names_another_cycle(listing.title):
+            # The feed's own term data can disagree with the posting's title. A
+            # Disney listing titled "Intern - Spring 2027" was tagged Summer
+            # 2027 and reached the inbox. Where they conflict the title wins:
+            # it is what the employer wrote.
+            drop("term:title says otherwise")
         elif degree not in listing.degrees:
             drop("degree")
         else:
