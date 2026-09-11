@@ -294,6 +294,7 @@ export interface DiscoveryRun {
   duplicates: number;
   enriched: number;
   ruled_out: number;
+  rescored: number;
   sources: Record<string, unknown> | null;
   error: string | null;
 }
@@ -310,6 +311,9 @@ export interface PullResult {
   // Cumulative count of discoveries ruled out on graduation timing. Surfaced so
   // an inbox emptied by a broken check is distinguishable from a quiet night.
   ruled_out: number;
+  // Rows re-judged against rules added after they were staged, so a new filter
+  // applies to the inbox you already have rather than only to future pulls.
+  rescored: number;
   dropped: Record<string, number>;
 }
 

@@ -140,6 +140,9 @@ class PullResult(BaseModel):
     # number that says whether the eligibility check is doing real work or
     # quietly eating the inbox.
     ruled_out: int = 0
+    # Rows re-judged against rules added after they were staged. Costs no
+    # network — the posting text was already stored — so it runs every pull.
+    rescored: int = 0
     # What each directly-polled company contributed, by name. A company sitting
     # at zero week after week is either paused-worthy or misconfigured, and
     # there is no other way to notice.
@@ -177,6 +180,7 @@ class DiscoveryRunRead(BaseModel):
     duplicates: int = 0
     enriched: int = 0
     ruled_out: int = 0
+    rescored: int = 0
     sources: dict | None = None
     error: str | None = None
 

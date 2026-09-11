@@ -464,6 +464,9 @@ def run_pull(
     result = stage_listings(db, user_id, listings, settings, result, run_id=run_id)
 
     result.enriched = enrich_pending(db, user_id, settings, limit=enrich_limit)
+    # Catch up anything read under older rules. Free of network cost, so it runs
+    # every time rather than needing to be remembered.
+    result.rescored = rescore_pending(db, user_id, settings)
     result.ruled_out = filtered_by_graduation(db, user_id)
     return result
 
@@ -772,6 +775,72 @@ def enrich_pending(db: Session, user_id: str, settings: Settings, limit: int = 5
     return sum(1 for job in rows if job.enriched_at is not None)
 
 
+def rescore_pending(db: Session, user_id: str, settings: Settings, limit: int = 100) -> int:
+    """Re-judge rows that were read before the current rules existed.
+
+    The enrichment pass deliberately skips anything already read, which is right
+    for cost and wrong the moment the rules change. Without this, three hundred
+    rows staged yesterday would keep their old verdicts forever: no fit score,
+    and never checked against the graduate-degree rule that was added after they
+    landed. The feature would be live and visibly not applied.
+
+    Costs no network. The posting text is already stored, so this re-runs the
+    judgement over it — the expensive part, fetching, is the part that is
+    already done.
+
+    Rows whose fetch failed have no text to judge and are left alone; they get
+    another fetch from the ordinary enrichment pass instead.
+    """
+    rows = db.execute(
+        select(DiscoveredJob)
+        .where(
+            DiscoveredJob.user_id == user_id,
+            DiscoveredJob.state == DiscoveryState.pending,
+            DiscoveredJob.jd_text.is_not(None),
+            DiscoveredJob.fit_score.is_(None),
+        )
+        .limit(limit)
+    ).scalars().all()
+    if not rows:
+        return 0
+
+    your_dates = _your_graduation_dates(db, user_id)
+    master = _your_master(db, user_id)
+    rescored = 0
+
+    for job in rows:
+        parsed = job.jd_parsed or {}
+        requirements = [
+            *(parsed.get("key_requirements") or []),
+            *(parsed.get("preferred_qualifications") or []),
+        ]
+        text = job.jd_text or ""
+
+        job.eligibility = assess(text, requirements, your_dates).model_dump()
+        if job.eligibility["verdict"] == "too_early":
+            job.state = DiscoveryState.filtered
+
+        graduate_only = requires_a_graduate_degree(requirements, text)
+        if graduate_only:
+            job.state = DiscoveryState.filtered
+            job.eligibility = {**job.eligibility, "graduate_only": graduate_only}
+
+        if master is not None and requirements:
+            report = assess_requirements(
+                master,
+                parsed.get("key_requirements") or [],
+                settings,
+                preferred=parsed.get("preferred_qualifications") or [],
+            )
+            if report is not None:
+                job.fit_report = report.model_dump(mode="json")
+                job.fit_score = fit_score(report)
+                rescored += 1
+
+    db.commit()
+    return rescored
+
+
 def filtered_by_graduation(db: Session, user_id: str) -> int:
     """How many discoveries reading ruled out on graduation timing.
 
@@ -902,6 +971,7 @@ def execute_run(run_id: str, user_id: str, settings: Settings, **filters: object
             run.duplicates = result.duplicates
             run.enriched = result.enriched
             run.ruled_out = result.ruled_out
+            run.rescored = result.rescored
             run.sources = {FEED_SOURCE: result.model_dump()}
             run.state = RunState.succeeded
         except Exception as exc:  # noqa: BLE001 - see docstring

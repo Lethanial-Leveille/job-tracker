@@ -964,3 +964,98 @@ def test_every_staged_row_records_which_pull_found_it(db: Session, user: User) -
         stage_listings(db, user.id, [_listing()], _settings(), PullResult(), run_id=run.id)
 
     assert _staged(db)[0].run_id == run.id
+
+
+# --- Catching up with changed rules ------------------------------------------
+# Enrichment skips anything already read, which is right for cost and wrong the
+# moment a rule changes. Without a catch-up pass, rows staged yesterday keep
+# yesterday's verdicts forever and a new filter is live but visibly not applied.
+
+
+def _read_row(db: Session, user: User, text: str, requirements: list[str]):
+    _stage(db, user, [_listing()], {0: "Software Engineer Intern"})
+    row = _staged(db)[0]
+    row.jd_text = text
+    row.jd_parsed = {"key_requirements": requirements, "preferred_qualifications": []}
+    row.enriched_at = datetime.now(UTC)
+    row.eligibility = {"verdict": "unclear"}
+    db.commit()
+    return row
+
+
+def test_a_row_read_under_the_old_rules_gets_a_score(db: Session, user: User) -> None:
+    from services.discovery import rescore_pending
+
+    _read_row(db, user, "Build things with us.", ["Python"])
+
+    with patch("services.discovery._your_master") as master, patch(
+        "services.discovery.assess_requirements", return_value=_report("met")
+    ), patch("services.discovery._your_graduation_dates", return_value=[(2029, 5)]):
+        master.return_value = object()
+        assert rescore_pending(db, user.id, _settings()) == 1
+
+    assert _staged(db)[0].fit_score == 100
+
+
+def test_catching_up_costs_no_network(db: Session, user: User) -> None:
+    """The posting text is already stored.
+
+    The expensive half — fetching a page over the internet — is the half that is
+    already done, which is why this can run on every pull rather than being a
+    migration someone has to remember.
+    """
+    from services.discovery import rescore_pending
+
+    _read_row(db, user, "Build things.", ["Python"])
+
+    with patch("services.discovery.fetch_posting") as fetch, patch(
+        "services.discovery._your_master", return_value=None
+    ), patch("services.discovery._your_graduation_dates", return_value=[(2029, 5)]):
+        rescore_pending(db, user.id, _settings())
+
+    fetch.assert_not_called()
+
+
+def test_catching_up_applies_the_graduate_rule_retroactively(
+    db: Session, user: User
+) -> None:
+    # The case that prompted this: a posting the feed tagged Bachelor's whose
+    # text demands a PhD, staged before that check existed.
+    from services.discovery import rescore_pending
+
+    _read_row(db, user, "", ["Must be a PhD candidate"])
+
+    with patch("services.discovery._your_master", return_value=None), patch(
+        "services.discovery._your_graduation_dates", return_value=[(2029, 5)]
+    ):
+        rescore_pending(db, user.id, _settings())
+
+    assert _staged(db) == []
+    assert _all_rows(db)[0].state is DiscoveryState.filtered
+
+
+def test_a_row_whose_fetch_failed_is_left_for_the_fetcher(
+    db: Session, user: User
+) -> None:
+    # No text means nothing to re-judge. Those need another fetch, which the
+    # ordinary enrichment pass gives them.
+    from services.discovery import rescore_pending
+
+    _stage(db, user, [_listing()], {0: "Software Engineer Intern"})
+
+    assert rescore_pending(db, user.id, _settings()) == 0
+
+
+def test_an_already_scored_row_is_not_scored_again(db: Session, user: User) -> None:
+    from services.discovery import rescore_pending
+
+    row = _read_row(db, user, "Build things.", ["Python"])
+    row.fit_score = 80
+    db.commit()
+
+    with patch("services.discovery.assess_requirements") as scorer, patch(
+        "services.discovery._your_graduation_dates", return_value=[(2029, 5)]
+    ):
+        rescore_pending(db, user.id, _settings())
+
+    scorer.assert_not_called()

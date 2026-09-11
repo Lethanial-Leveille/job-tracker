@@ -73,6 +73,10 @@ class DiscoveryRun(Base):
     duplicates: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     enriched: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     ruled_out: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Rows re-judged against rules added after they were staged. Recorded so a
+    # rule change is visible as a number rather than as an inbox that quietly
+    # changed shape overnight.
+    rescored: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Per-source counts, e.g. {"simplify": {"staged": 12, "fetched": 16502}}.
     # A JSON blob rather than columns because the set of sources is expected to

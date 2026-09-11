@@ -439,6 +439,7 @@ function RunBanner({ run }: { run: DiscoveryRun }) {
     <p className="mt-4 text-[12.5px] text-ink-muted">
       Last pull {relative(run.started_at)}: {run.staged} new, {run.enriched} read,{" "}
       {run.duplicates} already seen
+      {run.rescored > 0 && `, ${run.rescored} re-judged`}
       {run.ruled_out > 0 && `, ${run.ruled_out} ruled out on graduation year`}.
     </p>
   );
