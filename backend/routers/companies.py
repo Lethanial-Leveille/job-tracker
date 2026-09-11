@@ -14,10 +14,13 @@ from dependencies import get_current_user
 from models.user import User
 from schemas.company import (
     ATS_REQUIREMENTS,
+    IdentifyRequest,
+    IdentifyResult,
     TargetCompanyCreate,
     TargetCompanyRead,
     TargetCompanyUpdate,
 )
+from services.boards import identify, read_board
 from services.company import (
     create_company,
     delete_company,
@@ -49,6 +52,57 @@ def read_requirements() -> dict[str, list[str]]:
     both at once.
     """
     return ATS_REQUIREMENTS
+
+
+@router.post("/identify", response_model=IdentifyResult)
+def identify_board(data: IdentifyRequest) -> IdentifyResult:
+    """Turn a careers link into a watchlist entry, and check that it works.
+
+    Adding a company otherwise means knowing that Stripe's Greenhouse token is
+    "stripe" and that Adobe's Workday site is "external_experienced" — real
+    things you would have to go and find, per company, where getting one wrong
+    produces an entry that returns nothing every night without saying why.
+
+    This also READS the board, which is a slow thing to do in a request and
+    worth it exactly once. An entry that parses correctly and finds nothing
+    looks identical to a company with no openings, and you would not notice for
+    weeks. Here it is a number on screen before you commit.
+
+    404 when the link is not one of the five systems. That is a normal answer,
+    not a failure: plenty of employers run their own careers site, and those
+    cannot be polled directly at all.
+    """
+    found = identify(data.url)
+    if found is None or not found.get("ats"):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                "That is not a Greenhouse, Lever, Ashby, Workday or Oracle board. "
+                "Companies on their own careers site can only come from the feed."
+            ),
+        )
+
+    ats = str(found["ats"])
+    missing = [field for field in ATS_REQUIREMENTS[ats] if not found.get(field)]
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"That looks like {ats}, but the link is missing the "
+                f"{', '.join(missing)}. Try the board's front page rather than "
+                "a single posting."
+            ),
+        )
+
+    postings = read_board(ats, found.get("host"), found.get("board"), found.get("site"))
+    return IdentifyResult(
+        ats=ats,  # type: ignore[arg-type]
+        board=found.get("board"),
+        host=found.get("host"),
+        site=found.get("site"),
+        internships=len(postings),
+        sample=[posting.title for posting in postings[:3]],
+    )
 
 
 @router.post("", response_model=TargetCompanyRead, status_code=status.HTTP_201_CREATED)

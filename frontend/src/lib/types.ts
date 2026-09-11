@@ -188,6 +188,19 @@ export interface TargetCompany {
   created_at: string;
 }
 
+// What a pasted careers link turns out to be. `internships` is the number the
+// board is advertising right now, checked at the moment you add it — an entry
+// that parses correctly and finds nothing looks exactly like a company with no
+// openings, and you would not notice for weeks.
+export interface IdentifyResult {
+  ats: Ats;
+  board: string | null;
+  host: string | null;
+  site: string | null;
+  internships: number;
+  sample: string[];
+}
+
 export interface TargetCompanyInput {
   name: string;
   ats: Ats;

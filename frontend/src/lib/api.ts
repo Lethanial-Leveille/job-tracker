@@ -10,6 +10,7 @@ import type {
   FitReport,
   DiscoveredJob,
   DiscoveryRun,
+  IdentifyResult,
   TargetCompany,
   TargetCompanyInput,
   ParsedFromUrl,
@@ -144,6 +145,31 @@ export async function parseJobUrl(url: string): Promise<ParsedFromUrl> {
 }
 
 // --- Target companies -------------------------------------------------------
+
+// Turn a careers link into watchlist fields, and read the board to say how many
+// internships are on it. Slow on purpose — it makes a real request to the
+// employer — and worth it once, at the only moment a mistake is cheap to fix.
+//
+// 404 and 422 are allowed through because both are useful answers rather than
+// errors: "that is not one of the five systems" and "that is a single posting,
+// give me the board" are things you can act on, where request()'s generic throw
+// would say only that something failed.
+export async function identifyBoard(url: string): Promise<IdentifyResult> {
+  const res = await request(
+    "/companies/identify",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    },
+    [404, 422],
+  );
+  if (!res.ok) {
+    const body = (await res.json()) as { detail?: string };
+    throw new Error(body.detail ?? "Could not read that link");
+  }
+  return res.json() as Promise<IdentifyResult>;
+}
 
 export function listCompanies(): Promise<TargetCompany[]> {
   return getJson<TargetCompany[]>("/companies");

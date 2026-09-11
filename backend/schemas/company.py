@@ -106,3 +106,30 @@ ATS_REQUIREMENTS: dict[str, list[str]] = {
     ats: list(fields) for ats, fields in _REQUIRED.items()
 }
 assert set(ATS_REQUIREMENTS) == set(ATS_NAMES)
+
+
+class IdentifyRequest(BaseModel):
+    url: str = Field(min_length=1)
+
+
+class IdentifyResult(BaseModel):
+    """What a careers link turns out to be, and whether it is worth adding.
+
+    `internships` is the part that earns this its network call. A watchlist
+    entry that parses correctly and returns nothing is indistinguishable from a
+    company with no openings, and you would not find out for weeks. Reading the
+    board once, at the moment you are adding it, turns that into a number you
+    can see before you commit.
+
+    Zero is not necessarily wrong — plenty of companies have no internships open
+    in a given month — which is why this reports rather than refuses.
+    """
+
+    ats: Ats
+    board: str | None = None
+    host: str | None = None
+    site: str | None = None
+    # How many internships that board is advertising right now.
+    internships: int = 0
+    # A couple of titles, so "7 internships" is checkable rather than trusted.
+    sample: list[str] = []

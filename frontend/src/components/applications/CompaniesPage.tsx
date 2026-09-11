@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import type { Ats, TargetCompany, TargetCompanyInput } from "../../lib/types";
+import type {
+  Ats,
+  IdentifyResult,
+  TargetCompany,
+  TargetCompanyInput,
+} from "../../lib/types";
 import {
   atsRequirements,
   createCompany,
   deleteCompany,
+  identifyBoard,
   listCompanies,
   updateCompany,
 } from "../../lib/api";
@@ -63,6 +69,11 @@ export function CompaniesPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [link, setLink] = useState("");
+  const [checking, setChecking] = useState(false);
+  // What the pasted link turned out to be, kept so the form can show what it
+  // found rather than silently rearranging itself.
+  const [found, setFound] = useState<IdentifyResult | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -82,6 +93,30 @@ export function CompaniesPage() {
 
   const fields = required[draft.ats] ?? [];
 
+  async function check() {
+    setChecking(true);
+    setError(null);
+    setFound(null);
+    try {
+      const result = await identifyBoard(link);
+      setFound(result);
+      // Fill the form from what was found. The name is left alone: a board does
+      // not reliably say who it belongs to, and the name you type is the one
+      // you will recognise in a list six weeks from now.
+      setDraft({
+        ...draft,
+        ats: result.ats,
+        board: result.board ?? "",
+        host: result.host ?? "",
+        site: result.site ?? "",
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not read that link");
+    } finally {
+      setChecking(false);
+    }
+  }
+
   async function add() {
     setSaving(true);
     setError(null);
@@ -95,6 +130,8 @@ export function CompaniesPage() {
       }
       await createCompany(input);
       setDraft(BLANK);
+      setLink("");
+      setFound(null);
       await load();
     } catch (err: unknown) {
       // The backend names the exact field, so it is shown verbatim.
@@ -135,6 +172,63 @@ export function CompaniesPage() {
 
       {/* Add form */}
       <div className="mt-7 rounded-frame border border-line bg-surface px-5 py-5">
+        {/* The fast path. Knowing that Stripe's Greenhouse token is "stripe" and
+            Adobe's Workday site is "external_experienced" is a real errand, per
+            company, and getting one wrong makes an entry that returns nothing
+            every night without saying why. Pasting the link you were already
+            looking at removes the errand. */}
+        <label className={LABEL}>
+          Paste a careers link
+          <div className="flex gap-2">
+            <input
+              className={`${FIELD} flex-1`}
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && link.trim() !== "") check();
+              }}
+              placeholder="https://boards.greenhouse.io/rivian"
+            />
+            <button
+              type="button"
+              onClick={check}
+              disabled={checking || link.trim() === ""}
+              className="shrink-0 rounded-interactive border border-line-strong bg-surface-hover px-3 py-2 text-[12.5px] text-ink transition-colors hover:border-accent-line disabled:opacity-50"
+            >
+              {checking ? "Reading…" : "Check"}
+            </button>
+          </div>
+          <span className="text-[10px] font-normal normal-case tracking-normal text-ink-muted">
+            Greenhouse, Lever, Ashby, Workday or Oracle. Fills in the rest below.
+          </span>
+        </label>
+
+        {/* What the board actually has, before you commit to watching it. Zero
+            is not necessarily wrong, which is why this reports rather than
+            blocks. */}
+        {found && (
+          <div className="mt-3 rounded-interactive border border-line bg-base px-3.5 py-2.5">
+            <p className="text-[12.5px] text-ink">
+              {found.ats} board,{" "}
+              {found.internships === 0
+                ? "no internships posted right now"
+                : `${found.internships} internship${found.internships === 1 ? "" : "s"} posted right now`}
+              .
+            </p>
+            {found.sample.length > 0 && (
+              <p className="mt-1 text-[11.5px] leading-relaxed text-ink-muted">
+                {found.sample.join(" · ")}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="my-5 flex items-center gap-4 text-[10.5px] uppercase tracking-[0.16em] text-ink-muted">
+          <span className="h-px flex-1 bg-line" />
+          Or fill it in
+          <span className="h-px flex-1 bg-line" />
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <label className={LABEL}>
             Company

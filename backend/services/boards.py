@@ -23,6 +23,7 @@ every request is sequential, spaced, and honestly labelled. See _polite.
 import re
 import time
 from datetime import date, datetime
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 from pydantic import BaseModel
@@ -404,3 +405,71 @@ def read_board(ats: str, host: str | None, board: str | None, site: str | None) 
         return []
     with httpx.Client(headers=_HEADERS, timeout=_TIMEOUT, follow_redirects=True) as client:
         return reader(client, host, board, site)
+
+
+# --- Identifying a board from a link -----------------------------------------
+
+
+def identify(url: str) -> dict[str, str | None] | None:
+    """Work out which system a careers link belongs to, and its identifiers.
+
+    So that adding a company is pasting the link you were already looking at,
+    rather than knowing that Stripe's Greenhouse token is "stripe" and Adobe's
+    Workday site is "external_experienced". Those are real things you would
+    otherwise have to go and find, per company, and getting one wrong produces a
+    watchlist entry that returns nothing every night without saying why.
+
+    Returns the three identifier fields plus the ats, or None when the link is
+    not one of the five. None is a normal answer: plenty of employers run their
+    own careers site, and those simply cannot be polled directly.
+
+    Deliberately does NOT verify the board exists. That is a network call and a
+    separate question — services/company.py can check it when saving, and a link
+    that parses but 404s is a clearer error than a link that would not parse.
+    """
+    parsed = urlsplit(url.strip() if "://" in url else f"https://{url.strip()}")
+    host = (parsed.hostname or "").lower()
+    parts = [segment for segment in parsed.path.split("/") if segment]
+    if not host:
+        return None
+
+    # Oracle first: it is matched on PATH, and its hostname is the employer's
+    # own, so a host-based check would never reach it.
+    if "hcmUI" in parts and "CandidateExperience" in parts:
+        site = None
+        if "sites" in parts:
+            index = parts.index("sites")
+            if index + 1 < len(parts):
+                site = parts[index + 1]
+        return {"ats": "oracle", "host": host, "board": None, "site": site}
+
+    if host.endswith("myworkdayjobs.com"):
+        segments = list(parts)
+        # The locale is optional in these URLs, so it is checked for rather than
+        # dropped unconditionally.
+        if segments and re.fullmatch(r"[a-z]{2}-[A-Za-z]{2}", segments[0]):
+            segments = segments[1:]
+        return {
+            "ats": "workday",
+            "host": host,
+            # The tenant is the first label of the hostname, not anything in the
+            # path — "adobe" from "adobe.wd5.myworkdayjobs.com".
+            "board": host.split(".")[0],
+            "site": segments[0] if segments else None,
+        }
+
+    if host.endswith("greenhouse.io"):
+        # boards.greenhouse.io/<board>, and the embed form which carries the
+        # board as a query parameter instead.
+        board = parts[0] if parts and parts[0] not in ("embed",) else None
+        if board is None:
+            board = (parse_qs(parsed.query).get("for") or [None])[0]
+        return {"ats": "greenhouse", "host": None, "board": board, "site": None}
+
+    if host.endswith("lever.co"):
+        return {"ats": "lever", "host": None, "board": parts[0] if parts else None, "site": None}
+
+    if host.endswith("ashbyhq.com"):
+        return {"ats": "ashby", "host": None, "board": parts[0] if parts else None, "site": None}
+
+    return None

@@ -322,3 +322,86 @@ def test_requests_to_one_vendor_are_spaced(
     read_board("greenhouse", None, "beta", None)
 
     assert mock_sleep.called
+
+
+# --- Identifying a board from a link -----------------------------------------
+# So that adding a company is pasting a link rather than knowing that Stripe's
+# Greenhouse token is "stripe". Getting one of those wrong produces a watchlist
+# entry that returns nothing every night without saying why.
+
+
+def test_a_greenhouse_board_link_is_recognised() -> None:
+    from services.boards import identify
+
+    assert identify("https://boards.greenhouse.io/stripe") == {
+        "ats": "greenhouse",
+        "host": None,
+        "board": "stripe",
+        "site": None,
+    }
+
+
+def test_a_greenhouse_embed_link_carries_the_board_in_the_query() -> None:
+    # The embed form is roughly one in ten Greenhouse links and puts the board
+    # in a parameter rather than the path.
+    from services.boards import identify
+
+    found = identify("https://job-boards.greenhouse.io/embed/job_app?for=coinbase&token=1")
+
+    assert found == {"ats": "greenhouse", "host": None, "board": "coinbase", "site": None}
+
+
+def test_a_workday_link_yields_all_three_identifiers() -> None:
+    """The tenant comes from the HOSTNAME, not the path.
+
+    "adobe" from "adobe.wd5.myworkdayjobs.com". Reading it out of the path
+    instead gives the site id twice and a board that never answers.
+    """
+    from services.boards import identify
+
+    assert identify("https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced") == {
+        "ats": "workday",
+        "host": "adobe.wd5.myworkdayjobs.com",
+        "board": "adobe",
+        "site": "external_experienced",
+    }
+
+
+def test_a_workday_link_without_a_locale_still_parses() -> None:
+    from services.boards import identify
+
+    found = identify("https://acme.wd1.myworkdayjobs.com/careers")
+
+    assert found is not None and found["site"] == "careers"
+
+
+def test_an_oracle_link_is_matched_on_its_path() -> None:
+    """Oracle is hosted per employer, so its hostname says nothing.
+
+    Dell serves from enterpriseplatform.dell.com. A host-based check would never
+    reach it, which is why this one is matched on the path.
+    """
+    from services.boards import identify
+
+    found = identify(
+        "https://enterpriseplatform.dell.com/hcmUI/CandidateExperience/en/sites/CX_1001/job/298217"
+    )
+
+    assert found == {
+        "ats": "oracle",
+        "host": "enterpriseplatform.dell.com",
+        "board": None,
+        "site": "CX_1001",
+    }
+
+
+def test_a_company_on_its_own_careers_site_is_not_one_of_the_five() -> None:
+    """A normal answer, not a failure.
+
+    Plenty of employers run their own careers site and simply cannot be polled
+    directly — those only ever come from the aggregator feed.
+    """
+    from services.boards import identify
+
+    assert identify("https://careers.google.com/jobs") is None
+    assert identify("   ") is None
