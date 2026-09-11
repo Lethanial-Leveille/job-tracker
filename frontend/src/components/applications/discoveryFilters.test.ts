@@ -77,6 +77,38 @@ describe("applyFilters", () => {
     expect(out.map((j) => j.id)).toEqual(["board"]);
   });
 
+  it("finds a company by name", () => {
+    const jobs = [job({ id: "a", organization: "Rivian" }), job({ id: "b", organization: "Stripe" })];
+
+    const out = applyFilters(jobs, { ...NO_FILTERS, query: "rivi" }, null);
+
+    expect(out.map((j) => j.id)).toEqual(["a"]);
+  });
+
+  it("searches the title as well as the employer", () => {
+    // "Is Rivian in here" and "any embedded roles" are the same gesture.
+    const jobs = [
+      job({ id: "a", role_or_program: "Embedded Systems Intern" }),
+      job({ id: "b", role_or_program: "Backend Intern" }),
+    ];
+
+    const out = applyFilters(jobs, { ...NO_FILTERS, query: "embedded" }, null);
+
+    expect(out.map((j) => j.id)).toEqual(["a"]);
+  });
+
+  it("ignores case and surrounding space", () => {
+    const jobs = [job({ organization: "Rivian" })];
+
+    expect(applyFilters(jobs, { ...NO_FILTERS, query: "  RIVIAN " }, null)).toHaveLength(1);
+  });
+
+  it("an empty search is not a filter", () => {
+    const jobs = [job({ id: "a" }), job({ id: "b" })];
+
+    expect(applyFilters(jobs, { ...NO_FILTERS, query: "   " }, null)).toHaveLength(2);
+  });
+
   it("combines filters rather than picking one", () => {
     const jobs = [
       job({ id: "both", run_id: "r1", fit_score: 90 }),

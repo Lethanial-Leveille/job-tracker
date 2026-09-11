@@ -91,7 +91,10 @@ def parse_url(
     if result is None:
         raise HTTPException(
             status_code=502,
-            detail="Read the posting, but could not pull the details out of it.",
+            detail=(
+                "Read the posting, but could not pull the details out of it. "
+                "This is usually a one-off — try again."
+            ),
         )
     return ParsedFromUrl(
         parsed=result,

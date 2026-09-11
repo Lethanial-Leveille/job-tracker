@@ -69,15 +69,22 @@ def parse_job_description(text: str, settings: Settings) -> ParsedJob | None:
     on demand: the same posting failed three times in one run and passed nine
     times in the next.
 
-    So this does not try to diagnose it. One retry, because a fresh sample of a
-    short object almost always comes back well-formed, and then None. What
-    matters is that a malformed reply becomes the same clean "could not parse"
-    the caller already handles, rather than an exception escaping a service that
-    documents itself as returning None on failure — which reaches the user as a
-    500 with no explanation.
+    So this does not try to diagnose it. It retries, because a fresh sample of a
+    short object almost always comes back well-formed, and then returns None.
+    What matters is that a malformed reply becomes the same clean "could not
+    parse" the caller already handles, rather than an exception escaping a
+    service that documents itself as returning None on failure — which reaches
+    the user as a 500 with no explanation.
+
+    Three attempts, not two. At roughly one bad reply in ten, two attempts still
+    fail about one time in a hundred — which is rare enough to feel like a bug
+    and common enough to actually happen, and it did: a Lever posting that parses
+    perfectly well came back as a 502 while someone was sitting there clicking.
+    A third attempt takes that to one in a thousand for two extra cheap calls on
+    the rare path.
     """
     client = Anthropic(api_key=settings.anthropic_api_key)
-    for attempt in range(2):
+    for attempt in range(3):
         try:
             response = client.messages.parse(
                 model=settings.anthropic_model,

@@ -166,8 +166,11 @@ def test_gives_up_after_a_second_bad_reply(mock_anthropic: MagicMock) -> None:
     """
     mock_client = MagicMock()
     bad = ValidationError.from_exception_data("ParsedJob", [])
-    mock_client.messages.parse.side_effect = [bad, bad]
+    mock_client.messages.parse.side_effect = [bad, bad, bad]
     mock_anthropic.return_value = mock_client
 
     assert parse_job_description("some posting text", _fake_settings()) is None
-    assert mock_client.messages.parse.call_count == 2
+    # Three attempts: at roughly one bad reply in ten, two still fails about one
+    # time in a hundred, which is rare enough to look like a bug and common
+    # enough to actually happen to someone clicking.
+    assert mock_client.messages.parse.call_count == 3

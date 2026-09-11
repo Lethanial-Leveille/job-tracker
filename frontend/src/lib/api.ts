@@ -133,9 +133,13 @@ export async function parseJobUrl(url: string): Promise<ParsedFromUrl> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
     },
-    [400],
+    // 502 is allowed through as well as 400. It means the page was read and the
+    // model would not produce a result, which is usually transient — and shown
+    // as request()'s generic "Request failed: 502" it reads as a broken feature
+    // rather than as "try that again", which is what it actually means.
+    [400, 502],
   );
-  if (res.status === 400) {
+  if (!res.ok) {
     const body = (await res.json()) as { detail?: string };
     throw new Error(
       body.detail ?? "Could not read that link. Paste the posting text instead.",

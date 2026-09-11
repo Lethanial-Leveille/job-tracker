@@ -579,6 +579,18 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
           persisted is how you conclude the feed stopped finding anything. */}
       {!loading && jobs.length > 0 && (
         <div className="mt-6 flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <svg className="pointer-events-none absolute left-2.5 top-1/2 size-[13px] -translate-y-1/2 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <input
+              value={filters.query}
+              onChange={(e) => setFilter({ query: e.target.value })}
+              placeholder="Search company or role"
+              className="w-[210px] rounded-interactive border border-line bg-surface py-1.5 pl-8 pr-3 text-[12px] text-ink placeholder:text-ink-muted focus:border-accent focus:shadow-glow focus:outline-none"
+            />
+          </div>
           <FilterChip
             active={filters.newOnly}
             onClick={() => setFilter({ newOnly: !filters.newOnly })}

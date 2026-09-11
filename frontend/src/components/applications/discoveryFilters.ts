@@ -13,6 +13,10 @@ import type { DiscoveredJob } from "../../lib/types";
 // across visits is how you conclude the feed stopped finding anything.
 
 export interface DiscoveryFilters {
+  // Free text over the employer and the title. The one control that answers a
+  // question the others cannot: "is Rivian in here anywhere", which on a list
+  // of two hundred and forty is otherwise a scroll and a squint.
+  query: string;
   // Only what the most recent pull found. The single most useful one on a
   // second visit: you have already read everything else.
   newOnly: boolean;
@@ -27,6 +31,7 @@ export interface DiscoveryFilters {
 }
 
 export const NO_FILTERS: DiscoveryFilters = {
+  query: "",
   newOnly: false,
   minFit: 0,
   watchlistOnly: false,
@@ -37,7 +42,19 @@ export function applyFilters(
   filters: DiscoveryFilters,
   latestRunId: string | null,
 ): DiscoveredJob[] {
+  // Matched on a lowercased substring rather than anything cleverer. A fuzzy
+  // match here would be worse, not better: you already know the company name
+  // you are looking for, and a search that returns near-misses for an exact
+  // query reads as broken.
+  const query = filters.query.trim().toLowerCase();
+
   return jobs.filter((job) => {
+    if (query !== "") {
+      // Employer AND title, because both are things you would search for — "is
+      // Rivian in here" and "any embedded roles" are the same gesture.
+      const haystack = `${job.organization} ${job.role_or_program}`.toLowerCase();
+      if (!haystack.includes(query)) return false;
+    }
     if (filters.newOnly && (latestRunId === null || job.run_id !== latestRunId)) {
       return false;
     }
