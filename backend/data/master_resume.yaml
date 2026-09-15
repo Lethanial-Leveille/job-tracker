@@ -112,7 +112,8 @@ education:
 
 skills:
   - category: Languages
-    items: [Python, C++, JavaScript, TypeScript, Swift, HTML/CSS, SQL]
+    # C added Sep 2026 (FormFactor firmware); Lee confirmed he can speak to it.
+    items: [Python, C/C++, JavaScript, TypeScript, Swift, HTML/CSS, SQL]
   - category: Frameworks & Libraries
     # NestJS and Mongoose confirmed Sep 2026 from the Fuzzy api package.json
     # (@nestjs/core 10.4, @nestjs/mongoose 10.1); Next.js 15 and React 19 from
@@ -125,7 +126,10 @@ skills:
     # because the template rejoins items with commas.
     items: ["AWS (IoT Core, Lambda, DynamoDB, API Gateway)", PostgreSQL, MongoDB, Docker, Docker Compose, GitHub Actions, Cloudflare Tunnel, n8n, Postman, Git/GitHub, MQTT]
   - category: Hardware & Embedded
-    items: [Raspberry Pi 5, MPU6050 IMU, I2C Protocol, openWakeWord]
+    # STM32 and ST-Link added Sep 2026 (FormFactor). Without them here, a
+    # tailored embedded resume that lists STM32 as a skill has it stripped as
+    # invented, because the guard only trusts this row and project tools verbatim.
+    items: [Raspberry Pi 5, STM32 (ARM Cortex M4), MPU6050 IMU, I2C Protocol, ST-Link, openWakeWord]
 
 experience:
   - organization: Fuzzy AI
@@ -232,6 +236,24 @@ projects:
       - "Raised activity classification accuracy **from ~85% to 99.5%** by replacing hand-tuned thresholds with a scikit-learn Random Forest (100 trees, 80/20 split) trained on 1,074 labeled samples across 3 activity types from raw accelerometer and gyroscope data."
       - "Built the wearable capture path on a Raspberry Pi 5 and MPU6050 6-axis IMU sampling accelerometer and gyroscope at 20 Hz over I2C, reducing each 1-second sliding window to the 6 statistical features the model is trained on."
       - "Streamed classified readings from the wearable through a fully serverless pipeline (MQTT to AWS IoT Core to Lambda to DynamoDB to API Gateway), surfacing them in a Dockerized React and Recharts dashboard."
+  - name: Forearm Motion Wearable (FormFactor)
+    tools: [C, STM32 Nucleo F401RE, STM32CubeIDE, ST-Link]
+    links: [github.com/Lethanial-Leveille/FormFactor]
+    dates: September 2026 – Present
+    # IN PROGRESS, Phase 0 as of Sep 13 2026 (repo measurements.md): CubeMX
+    # project, HAL blink on PA5, breakpoint hit and single stepped, program
+    # persists in flash. The first bullet is the PLAN and says "designed to" so
+    # it never reads as built. Replace it with results as phases ship: bare
+    # metal peripheral drivers, timer interrupt IMU sampling, rep detection,
+    # hold timing, OLED, power, BLE. Do not write any of those until they exist.
+    bullets:
+      - "Building a battery powered forearm wearable on an STM32 microcontroller in C, designed to recognize exercises, count reps, and time holds like planks from 100 Hz motion data, shown live on an OLED screen."
+      - "Brought up an STM32 Nucleo board (84 MHz ARM Cortex M4): confirmed its clock settings, stepped through code line by line on the chip with the ST-Link debugger, and measured the build at 1.5% of 512 KB flash."
+      # --- bench: the same two claims, denser and shorter ---
+      - "Building a battery powered STM32 forearm wearable in C, designed to classify exercises, count reps, and time isometric holds from 100 Hz IMU data, with live rep counts on an OLED display."
+      - "Brought up an 84 MHz Cortex M4 Nucleo board with on chip ST-Link debugging, verifying the PLL clock configuration and single stepping code under the debugger, and baselined the build at 1.5% of 512 KB flash."
+      - "Building a battery powered STM32 wearable in C, designed to count exercise reps and time holds from 100 Hz IMU data."
+      - "Brought up an 84 MHz Cortex M4 with on chip ST-Link debugging, baselining the build at 1.5% of 512 KB flash."
   - name: Life OS
     tools: [n8n, Docker Compose, Cloudflare Tunnel, GitHub GraphQL API, Notion API, Claude API, Gmail API, JavaScript, Raspberry Pi 5]
     links: []
@@ -251,5 +273,10 @@ activities:
     role: Test Prep Tutor
     location: Remote
     dates: August 2026 – Present
+    # FIRST bullet is what prints, on every resume: tailoring never sees
+    # activities (it copies them from here) and the template prints an activity
+    # as ONE row using only bullets[0]. So it stays a short lowercase phrase that
+    # fits beside "Prep Academy, Test Prep Tutor:". The full detail stays banked.
     bullets:
+      - "tutoring ACT and SAT English, Reading, and Math"
       - "Tutoring **3 students** in ACT English, Reading, and Math and SAT Math and Reading across 60 to 90 minute sessions, plus teaching Standard English Conventions to a group, building each student a plan targeted at the specific question types they miss."

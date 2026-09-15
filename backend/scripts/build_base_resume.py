@@ -14,7 +14,10 @@ handing you a resume that quietly runs long.
 Run it from backend/ with the venv active:
 
     python scripts/build_base_resume.py               # -> data/base_resume.pdf
+    python scripts/build_base_resume.py data/base_resume_embedded.yaml
     python scripts/build_base_resume.py --allow-long  # write anyway, for a look
+
+The optional path picks a variant; the PDF lands next to it with the same name.
 """
 
 import os
@@ -36,12 +39,15 @@ OUTPUT = DATA_DIR / "base_resume.pdf"
 
 def main() -> None:
     allow_long = "--allow-long" in sys.argv[1:]
+    paths = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
+    source = Path(paths[0]).resolve() if paths else SOURCE
+    output = source.with_suffix(".pdf")
 
-    if not SOURCE.exists():
-        sys.exit(f"Base resume not found at {SOURCE}")
+    if not source.exists():
+        sys.exit(f"Base resume not found at {source}")
 
     # Validate through the app's own loader, so a malformed file fails here.
-    resume = load_master(SOURCE)
+    resume = load_master(source)
 
     # Render in two steps rather than calling render_resume_pdf: the Document is
     # needed to count pages, and write_pdf() on it reuses that same layout.
@@ -52,13 +58,13 @@ def main() -> None:
 
     if page_count > 1 and not allow_long:
         sys.exit(
-            f"{SOURCE.name} renders to {page_count} pages, not 1. Cut a bullet "
+            f"{source.name} renders to {page_count} pages, not 1. Cut a bullet "
             f"(or a project) and re-run. Use --allow-long to write it anyway."
         )
 
-    OUTPUT.write_bytes(document.write_pdf())
+    output.write_bytes(document.write_pdf())
     note = "" if page_count == 1 else f"  WARNING: {page_count} pages"
-    print(f"Wrote {OUTPUT} ({OUTPUT.stat().st_size:,} bytes){note}")
+    print(f"Wrote {output} ({output.stat().st_size:,} bytes){note}")
 
 
 if __name__ == "__main__":

@@ -105,10 +105,12 @@
 {% endmacro %}
 
 {#
-  Leadership and Activities: the same markup as experience_section, because an
-  activity has the same shape (organization, role, location, dates, bullets).
-  Kept as its OWN macro rather than parameterising the experience one, so the
-  two headings and their section order stay readable at the call site below.
+  Leadership and Activities: ONE row per entry, "Organization, Role: what you
+  do" on the left and dates on the right. Deliberately not the two line
+  experience grid plus a bullet: that cost three lines for the lowest value
+  section on the page (Lee, Sep 2026: activities should take about one line).
+  Location is dropped and only the first bullet prints; tailoring already caps
+  an activity at one bullet. Keep that bullet short, or the row wraps to two.
 #}
 {% macro activities_section() %}
 {% if r.activities %}
@@ -116,9 +118,7 @@
   <div class="section">Leadership and Activities</div>
   {% for a in r.activities %}
   <div class="entry">
-    <div class="row"><span class="bold">{{ a.organization }}</span>{% if a.location %}<span class="right italic">{{ a.location }}</span>{% endif %}</div>
-    <div class="row"><span class="italic">{{ a.role }}</span>{% if a.dates %}<span class="right italic">{{ a.dates }}</span>{% endif %}</div>
-    {% if a.bullets %}<ul>{% for b in a.bullets %}<li>{{ b | bold }}</li>{% endfor %}</ul>{% endif %}
+    <div class="row"><span><span class="bold">{{ a.organization }}</span>, <span class="italic">{{ a.role }}</span>{% if a.bullets %}: {{ a.bullets[0] | bold }}{% endif %}</span>{% if a.dates %}<span class="right italic">{{ a.dates }}</span>{% endif %}</div>
   </div>
   {% endfor %}
 </section>

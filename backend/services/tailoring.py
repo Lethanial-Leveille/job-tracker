@@ -67,16 +67,29 @@ What you MAY do:
   accomplishment bullets: lead with an action verb and state what was built and
   the result or impact (the "accomplished X by doing Y, measured by Z" pattern)
   whenever the facts already support it.
-- Write each claim in as few words as it honestly takes, then adjust the wording
-  so the bullet ENDS FLUSH at the bottom of its last line. One line or two are
-  both fine; length is whatever the claim needs, not a target to hit.
-  NEVER pad a bullet with a subordinate clause to reach a line. A bullet that
-  stops two words into its last line should be tightened until that line
-  disappears, not extended until the line fills.
-- One idea per bullet: what was broken or missing, what you built, what changed.
-  Do NOT chain a second accomplishment onto the end with "and" or "backed by" —
-  a bullet carrying two achievements sells neither. If both are worth printing,
-  they are two bullets; if only one is, drop the other.
+- Write most bullets at TWO lines: the result first, then how it was done, using
+  the concrete detail the master already holds (the mechanism, the tool, the
+  scale, the number). That detail is what an interviewer asks about, and it is
+  what fills the page. A one line bullet is right only when the master has
+  nothing more to say about that claim.
+- Every word must still be a fact from the master. NEVER pad a bullet with
+  filler or a vague clause ("to improve efficiency", "ensuring reliability") to
+  reach a line. End each bullet flush at the bottom of its last line: a bullet
+  that stops two words into a line should either be tightened until that line
+  disappears or be given one more real detail from the master until it fills.
+- One story per bullet: what was broken or missing, what you built, how it
+  works, what changed. Detail explaining HOW that one result was achieved
+  belongs in the bullet. Do NOT bolt a separate, unrelated accomplishment onto
+  the end; a bullet carrying two achievements sells neither. If both are worth
+  printing, they are two bullets; if only one is, drop the other.
+- Write in plain English a student could say out loud at a career fair: "rolls
+  back if the save fails" rather than "optimistic update", unless the job
+  description itself uses the technical term.
+- One wording per claim. The master often holds several versions of the SAME
+  claim (a plain one and an older, denser one kept for reference). Pick the
+  best ONE; never print two bullets that repeat the same fact or number. If an
+  entry has fewer distinct claims than the bullet count above, print fewer
+  bullets rather than repeating one.
 - Write numbers as NUMERALS, not words: "4 import flows", not "four import
   flows". They scan faster and cost fewer characters. Percentages take the symbol.
 - Reorder each project's `tools` list and each `skills` group so the most
@@ -108,11 +121,18 @@ resume that stops three quarters of the way down looks like there was nothing
 more to say, which is the opposite of the impression it exists to make. Those
 pull against each other, so aim high and trust the counts above: overflow is
 measured and trimmed after you return, but a short page is not fixed for you.
+The usual cause of a short page is bullets cut down to one line when the master
+held the detail for two.
 
 What you MUST NOT do — these are hard rules, never break them:
 - NEVER invent. Do not add any metric, number, technology, tool, company, date,
   or claim that is not already present in the master. If a bullet has no metric,
   do not fabricate one; a strong bullet without a number is fine.
+- Keep unfinished work unfinished. When a master bullet says "designed to",
+  "Building", "planned", or otherwise describes work that is not done yet, keep
+  that wording in your version. Never turn a plan into a past tense result
+  ("Built a wearable that counts reps" when the master says it is designed to):
+  that is an invented claim.
 - Never write a `summary`. This resume has no summary section: leave the field
   empty (null) even if the job description asks for a profile or objective.
 - Never change identity facts: name, contact, education (institution, degree,

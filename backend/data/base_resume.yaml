@@ -1,25 +1,32 @@
-# The BASE resume: one general-purpose, one-page resume to hand out when there
-# is no specific job to tailor against.
+# The BASE resume, SOFTWARE variant: one general-purpose, one-page resume to
+# hand out when there is no specific job to tailor against. Its twin for
+# firmware and embedded roles is base_resume_embedded.yaml.
 #
 # This is a SELECTION from master_resume.yaml, not a second source of truth.
-# Every bullet here is the same claim as its master counterpart, trimmed for
-# length — nothing is added. When the master gains a fact worth leading with,
+# Every bullet here is the same claim as its master counterpart, reworded for
+# the page — nothing is added. When the master gains a fact worth leading with,
 # copy it down here by hand; nothing syncs automatically.
 #
-# Bullets carry ONE **bold** span each, rendered by the `bold` filter in
-# services/resume_render.py. Bold the RESULT or the hard technical noun, never
-# the problem: read every bolded fragment on the page in sequence and it should
-# sound like a highlight reel. (Tailored resumes let Claude re-place the span per
-# job; this file is the untailored one, so the spans are chosen by hand.)
+# Sep 2026 layout: most bullets run TWO lines to fill the page, in plain
+# English you can say out loud at a career fair (outcome first, then how). A few
+# stay at one line because all thirteen at two lines spills onto page 2.
+# Measured with count_pages(), not guessed.
+#
+# Bullets carry at most ONE **bold** span, rendered by the `bold` filter in
+# services/resume_render.py. Bold the RESULT, never the problem, and skip bold
+# where the number is only a spec.
+#
+# Framing: Prowl leads for software roles; MILES reads as the backend plus iOS
+# client story, MotionSense as the ML and cloud pipeline story.
 #
 # Render it with:
 #   python scripts/build_base_resume.py
 
 career_stage: student
-# "primary" prints Expected May 2028. Flip to "alternate" for programs that only
-# accept underclassmen; both dates are true (94 credit hours against a 128-credit
-# degree). See Education.dates_alternate in backend/schemas/resume.py.
-grad_date_variant: primary
+# "alternate" prints Expected May 2029 (Lee's call for the Sep 2026 career
+# fair). Flip to "primary" for May 2028; both dates are true. See
+# Education.dates_alternate in backend/schemas/resume.py.
+grad_date_variant: alternate
 
 contact:
   # Header is one row: email | linkedin | github. Phone removed Sep 2026 —
@@ -38,19 +45,13 @@ education:
     dates: Expected May 2028
     dates_alternate: Expected May 2029
     gpa: "3.77"
-    # Only courses taken or in progress. Ordered most relevant first, because
-    # the one-line trim in services/tailoring.py cuts from the end.
-    # Three, not four: a fourth wraps the coursework onto a second line and
-    # costs the page. Computational Linear Algebra is the one dropped here (it
-    # stays in master_resume.yaml, so tailoring can surface it for a role where
-    # it matters). Measured with count_pages(), not guessed.
+    # Only courses taken or in progress. Three, not four: a fourth wraps the
+    # coursework onto a second line and costs the page.
     coursework:
       - Data Structures and Algorithms
       - Computer Organization
       - Discrete Mathematics
     # President's Honor Roll (Spring 2026) is real and lives in master_resume.yaml.
-    # Dropped here to hold the two-line education grid; first thing back if a
-    # line frees up.
     honors: []
 
 experience:
@@ -59,41 +60,40 @@ experience:
     location: Singapore
     dates: June 2026 – July 2026
     bullets:
-      - "Replaced 4 prospect import flows with 1 review screen so users pick who gets imported before anyone is added or charged."
-      - "Found a background refresh silently logging **30 fake usage events** per minute, inflating the number the feature was judged on."
-      - "Made every signup traceable to its marketing channel, including the Google path that carries **51% of signups** and recorded none."
-      - "Stopped the same prospect being imported twice, cutting a **4% duplicate rate** by letting only one import claim each record."
+      - "Merged 4 separate contact import paths into 1 review screen so users see exactly who will be added before anything is saved or billed, backed by a preview endpoint that builds the list without saving it."
+      - "Found a background refresh logging 30 fake usage events per user per minute, which inflated the adoption number the feature was judged on, and made it log only while the user actually had the page open."
+      - "Made the Google login path behind **51% of signups** traceable to its marketing channel, adding signup source tracking across 3 repositories so the team could see where each new account came from."
+      - "Cut a **4% duplicate rate** in contact imports, 40 bad rows per 1,000, by making the import safe to rerun so each record is claimed exactly once, proven with tests that ran imports at the same time."
 projects:
   # Function first, codename in parentheses: "M.I.L.E.S." alone tells a recruiter
-  # nothing, and its expansion (Modular Intelligent Learning and Execution
-  # System) is a backronym that tells them no more while costing half a line.
-  - name: Voice AI Assistant (M.I.L.E.S.)
-    tools: [Python, FastAPI, Claude API, Whisper.cpp, SwiftUI]
-    links: [github.com/Lethanial-Leveille/miles]
-    dates: April 2026 – Present
-    bullets:
-      - "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms** by streaming speech straight to the audio device."
-      - "Traced a broken speaker verification path to 4 separate defects, reaching **zero false rejections across 94 attempts**."
-      - "Shipped a JWT-authenticated FastAPI backend and SwiftUI iOS client reachable through a Cloudflare Tunnel with no open ports."
+  # nothing.
   - name: Job Application Tracker (Prowl)
     tools: [FastAPI, SQLAlchemy 2.0, PostgreSQL, React, TypeScript]
     links: [github.com/Lethanial-Leveille/job-tracker]
     dates: July 2026 – Present
     bullets:
-      - "Built a job tracker that tailors my resume to a posting, rendering a one page PDF through a template the model cannot edit."
+      - "Built the job tracker I apply with: it reads a posting with the Claude API and tailors my resume to it, rendering a one page PDF through a locked template so the AI can change the wording but never the layout."
       - "Cut a routine status update from **5 interactions to 2** with an inline editable cell that rolls back on failure."
-      - "Automated releases with GitHub Actions so every push to main rebuilds, migrates, and restarts the app on a DigitalOcean droplet."
+      - "Automated releases with GitHub Actions so every push to main rebuilds, migrates, and restarts the app on a DigitalOcean server, deploying as a restricted user allowed only 1 admin command."
+  - name: Voice AI Assistant (M.I.L.E.S.)
+    tools: [Python, FastAPI, Claude API, Whisper.cpp, SwiftUI]
+    links: [github.com/Lethanial-Leveille/miles]
+    dates: April 2026 – Present
+    bullets:
+      - "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first working version, by streaming its speech straight to the speaker as it arrives."
+      - "Shipped a FastAPI backend with JWT logins and a SwiftUI iOS app with Face ID, so the assistant is reachable from anywhere through a Cloudflare Tunnel with no open ports on my network."
+      - "Traced months of failed voice recognition to 4 stacked bugs, including a mic trigger that never fired and a gain setting leaving 7 of 16 audio bits unused, reaching **zero false rejections across 94 attempts**."
   - name: Wearable Motion Classifier (MotionSense)
     tools: [Python, scikit-learn, AWS, Raspberry Pi, Docker]
     links: [github.com/Lethanial-Leveille/motionsense]
     dates: March 2026 – April 2026
     bullets:
-      - "Raised activity classification accuracy **from ~85% to 99.5%** with a Random Forest trained on 1,074 labeled samples."
-      - "Built the capture path on a Raspberry Pi 5 and MPU6050 IMU, sampling at **20 Hz** over I2C into 6 features per window."
-      - "Streamed classified readings to a React dashboard through a serverless pipeline of MQTT, IoT Core, Lambda and DynamoDB."
+      - "Raised activity classification accuracy **from ~85% to 99.5%** by replacing hand tuned thresholds with a Random Forest model trained on 1,074 labeled samples across 3 activity types."
+      - "Streamed classified readings from the wearable through a serverless AWS pipeline (MQTT, IoT Core, Lambda, DynamoDB, API Gateway) into a live React dashboard running in Docker."
+      - "Built the capture path on a Raspberry Pi 5 and MPU6050 IMU, sampling at 20 Hz over I2C into 6 features per window."
 skills:
   - category: Languages
-    items: [Python, C++, TypeScript, JavaScript, Swift, SQL]
+    items: [Python, C/C++, TypeScript, JavaScript, Swift, SQL]
   - category: Frameworks & Libraries
     items: [React, Next.js, FastAPI, NestJS, SQLAlchemy, SwiftUI]
   - category: Cloud & DevOps
@@ -101,9 +101,9 @@ skills:
   - category: Hardware & Embedded
     items: [Raspberry Pi 5, MPU6050 IMU, I2C, Whisper.cpp, ONNX]
 
-# Leadership and Activities: prints LAST, under its own heading. One bullet per
-# entry, enforced in services/tailoring.py, because a club entry does not earn
-# the room a job does.
+# Leadership and Activities: prints LAST as ONE row per entry
+# ("Organization, Role: phrase", see templates/resume.html), so the bullet is a
+# short lowercase phrase. A long one wraps the row onto a second line.
 #
 # ACM (Member, Design Team, building the chapter Check In Application) belongs
 # here the day Lee is accepted to the design team. It is deliberately NOT in the
@@ -115,4 +115,4 @@ activities:
     location: Remote
     dates: August 2026 – Present
     bullets:
-      - "Tutoring ACT and SAT English, Reading, and Math on plans built around the question types each student misses."
+      - "tutoring ACT and SAT English, Reading, and Math"

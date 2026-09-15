@@ -1,0 +1,96 @@
+# The EMBEDDED base resume: the handout for firmware and embedded roles. Its
+# twin, base_resume.yaml, is the software variant, and this file follows it:
+# same Fuzzy bullets word for word, same bold rules, same one row activity.
+#
+# A SELECTION from master_resume.yaml, nothing added, nothing syncs. MILES and
+# MotionSense appear on both variants with a different story: here they are
+# framed around the hardware (Pi 5 audio, on device speech, motion sensor over
+# I2C) instead of the backend and cloud.
+#
+# Sep 2026 layout: every bullet runs TWO lines to fill the page, in plain
+# English you can say out loud at a career fair (outcome first, then how).
+#
+# FormFactor is at Phase 0 (Sep 2026: CubeMX project, HAL blink, breakpoint
+# verified, sizes measured). It prints TWO bullets, not three, and the first
+# says "designed to" on purpose: exercise recognition, rep counting, hold
+# timing, and the OLED are the plan, not built. Rewrite both as phases ship.
+#
+# Render it with:
+#   python scripts/build_base_resume.py data/base_resume_embedded.yaml
+
+career_stage: student
+# "alternate" prints Expected May 2029, matching base_resume.yaml.
+grad_date_variant: alternate
+
+contact:
+  name: Lethanial L. Leveille
+  phone: null
+  email: leveillelethanial@gmail.com
+  linkedin: linkedin.com/in/lethanial-lee-leveille
+  github: github.com/Lethanial-Leveille
+
+education:
+  - institution: University of Florida
+    degree: Bachelor of Science in Computer Engineering
+    location: Gainesville, FL
+    dates: Expected May 2028
+    dates_alternate: Expected May 2029
+    gpa: "3.77"
+    # Computer Organization first: it is the embedded course of the three.
+    coursework:
+      - Computer Organization
+      - Data Structures and Algorithms
+      - Discrete Mathematics
+    honors: []
+
+experience:
+  - organization: Fuzzy AI
+    role: Software Engineering Intern
+    location: Singapore
+    dates: June 2026 – July 2026
+    bullets:
+      - "Merged 4 separate contact import paths into 1 review screen so users see exactly who will be added before anything is saved or billed, backed by a preview endpoint that builds the list without saving it."
+      - "Found a background refresh logging 30 fake usage events per user per minute, which inflated the adoption number the feature was judged on, and made it log only while the user actually had the page open."
+      - "Made the Google login path behind **51% of signups** traceable to its marketing channel, adding signup source tracking across 3 repositories so the team could see where each new account came from."
+      - "Cut a **4% duplicate rate** in contact imports, 40 bad rows per 1,000, by making the import safe to rerun so each record is claimed exactly once, proven with tests that ran imports at the same time."
+projects:
+  - name: Forearm Motion Wearable (FormFactor)
+    tools: [C, STM32 Nucleo F401RE, STM32CubeIDE, ST-Link]
+    links: [github.com/Lethanial-Leveille/FormFactor]
+    dates: September 2026 – Present
+    bullets:
+      - "Building a battery powered forearm wearable on an STM32 microcontroller in C, designed to recognize exercises, count reps, and time holds like planks from 100 Hz motion data, shown live on an OLED screen."
+      - "Brought up an STM32 Nucleo board (84 MHz ARM Cortex M4): confirmed its clock settings, stepped through code line by line on the chip with the ST-Link debugger, and measured the build at 1.5% of 512 KB flash."
+  - name: Voice AI Assistant (M.I.L.E.S.)
+    tools: [Raspberry Pi 5, Python, Whisper.cpp, ONNX, webrtcvad]
+    links: [github.com/Lethanial-Leveille/miles]
+    dates: April 2026 – Present
+    bullets:
+      - "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first working version, by streaming its speech straight into the Linux audio driver (ALSA) as it arrives."
+      - "Traced months of failed voice recognition to 4 stacked bugs, including a mic trigger that never fired and a gain setting leaving 7 of 16 audio bits unused, reaching **zero false rejections across 94 attempts**."
+      - "Ran wake word detection (90.4% recall) and speech to text on the Pi itself, then cut response time by capping how much audio Whisper processes after measuring it stuck at ~2 s no matter the clip length."
+  - name: Wearable Motion Classifier (MotionSense)
+    tools: [Raspberry Pi 5, MPU6050, I2C, Python, scikit-learn]
+    links: [github.com/Lethanial-Leveille/motionsense]
+    dates: March 2026 – April 2026
+    bullets:
+      - "Built the wearable's sensor path on a Raspberry Pi 5 with an MPU6050 motion sensor read at 20 Hz over I2C, turning each 1 second window of readings into the 6 summary stats the model learns from."
+      - "Raised activity classification accuracy **from ~85% to 99.5%** by replacing hand tuned thresholds with a Random Forest model trained on 1,074 labeled samples across 3 activity types."
+      - "Streamed classified readings from the wearable through a serverless AWS pipeline (MQTT, IoT Core, Lambda, DynamoDB, API Gateway) into a live React dashboard running in Docker."
+skills:
+  - category: Languages
+    items: [C/C++, Python, Swift, SQL]
+  - category: Hardware & Embedded
+    items: [STM32 (ARM Cortex M4), Raspberry Pi 5, MPU6050 IMU, I2C, MQTT, ST-Link, STM32CubeIDE]
+  - category: Frameworks & Libraries
+    items: [Whisper.cpp, ONNX, scikit-learn, FastAPI, SwiftUI]
+  - category: Cloud & DevOps
+    items: ["AWS (IoT Core, Lambda, DynamoDB)", Docker, GitHub Actions, Cloudflare Tunnel, Linux]
+
+activities:
+  - organization: Prep Academy
+    role: Test Prep Tutor
+    location: Remote
+    dates: August 2026 – Present
+    bullets:
+      - "tutoring ACT and SAT English, Reading, and Math"
