@@ -236,6 +236,15 @@ projects:
       - "Raised activity classification accuracy **from ~85% to 99.5%** by replacing hand-tuned thresholds with a scikit-learn Random Forest (100 trees, 80/20 split) trained on 1,074 labeled samples across 3 activity types from raw accelerometer and gyroscope data."
       - "Built the wearable capture path on a Raspberry Pi 5 and MPU6050 6-axis IMU sampling accelerometer and gyroscope at 20 Hz over I2C, reducing each 1-second sliding window to the 6 statistical features the model is trained on."
       - "Streamed classified readings from the wearable through a fully serverless pipeline (MQTT to AWS IoT Core to Lambda to DynamoDB to API Gateway), surfacing them in a Dockerized React and Recharts dashboard."
+      # These 4 were typed into the resume builder on prod and never reached
+      # this file (found Sep 15 2026). Copied verbatim, then checked against the
+      # motionsense repo: magnitude from 3 axes (train_model.py, README), two
+      # threshold classifiers (classifier.py, classifier_v2.py), 211 test rows
+      # with per class recall 0.99 to 1.00 (README), setInterval 4000 (App.jsx).
+      - "Made the wearable work no matter how the wrist strap was rotated, by reducing the sensor's 3 axes to a single number."
+      - "Replaced 2 hand-written rule classifiers that guessed wrong whenever one activity turned into another with a trained model."
+      - "Tested the model on **211 readings it had never seen**, getting every one of the 3 activities right at least 99% of the time."
+      - "Sent readings from the wrist straight to cloud storage with no server in between, refreshing the dashboard every **4 seconds**."
   - name: Forearm Motion Wearable (FormFactor)
     tools: [C, STM32 Nucleo F401RE, STM32CubeIDE, ST-Link]
     links: [github.com/Lethanial-Leveille/FormFactor]

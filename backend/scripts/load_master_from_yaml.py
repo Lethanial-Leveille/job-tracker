@@ -194,17 +194,6 @@ def main() -> None:
                 print(f"\n{len(lost)} bullet(s) exist only in the database and would be DESTROYED:")
                 for item in lost:
                     print(f"  - {item[:140]}")
-                if if_safe:
-                    # Deploy path: say what is blocking and leave the stored
-                    # resume alone. Exiting non-zero here would fail a
-                    # deployment because of a resume edit, which is a worse
-                    # outcome than the YAML not winning this time.
-                    print(
-                        "\n--if-safe: leaving the stored resume alone. Copy these "
-                        "bullets into the YAML, or run with --force, to let the "
-                        "file win."
-                    )
-                    return
                 sys.exit(
                     "\nRefusing to overwrite. Copy these into the YAML first, "
                     "or re-run with --force to discard them."
