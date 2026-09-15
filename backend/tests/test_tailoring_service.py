@@ -346,6 +346,37 @@ def test_an_invented_skills_category_is_removed_whole() -> None:
     assert [g.category for g in tailored.skills] == ["Languages", "Cloud & DevOps"]
 
 
+def test_a_renamed_skills_category_is_moved_back_into_its_master_row() -> None:
+    """The real failure: "Cloud & DevOps" came back as "Tools & DevOps" and the
+    whole row, Docker included, disappeared from a Waymo application."""
+    master = _invention_master()
+    tailored = master.model_copy(deep=True)
+    tailored.skills = [
+        SkillGroup(category="Languages", items=["Python"]),
+        SkillGroup(category="Tools & DevOps", items=["Docker", "Kubernetes"]),
+    ]
+
+    removed = strip_invented_skills(master, tailored)
+
+    assert [g.category for g in tailored.skills] == ["Languages", "Cloud & DevOps"]
+    assert tailored.skills[1].items == ["Docker"]
+    assert any("Kubernetes" in r for r in removed)
+
+
+def test_moved_items_merge_into_a_kept_row_without_duplicates() -> None:
+    master = _invention_master()
+    tailored = master.model_copy(deep=True)
+    tailored.skills = [
+        SkillGroup(category="Cloud & DevOps", items=["Docker"]),
+        SkillGroup(category="DevOps", items=["Docker", "AWS (Lambda, DynamoDB)"]),
+    ]
+
+    strip_invented_skills(master, tailored)
+
+    assert [g.category for g in tailored.skills] == ["Cloud & DevOps"]
+    assert tailored.skills[0].items == ["Docker", "AWS (Lambda, DynamoDB)"]
+
+
 def test_shortening_a_parenthetical_list_is_allowed() -> None:
     """The prompt itself tells the model to shorten
     "AWS (IoT Core, Lambda, DynamoDB, API Gateway)" to "AWS (Lambda, DynamoDB)",

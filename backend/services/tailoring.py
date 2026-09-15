@@ -28,7 +28,7 @@ from anthropic import Anthropic
 from pydantic import ValidationError
 
 from config import Settings
-from schemas.resume import Resume, TailoredResume
+from schemas.resume import Resume, SkillGroup, TailoredResume
 from services.resume_render import (
     count_lines_containing,
     count_pages,
@@ -98,6 +98,12 @@ What you MAY do:
   parenthetical list, keep at most two examples inside it, e.g. shorten
   "AWS (IoT Core, Lambda, DynamoDB, API Gateway)" to "AWS (Lambda, DynamoDB)".
   Never add a tool not present in the master.
+- Keep every `skills` category from the master, with its name spelled exactly
+  as the master spells it. Never rename, merge, or invent a category. Order the
+  categories so the most relevant to this job comes first. Drop a category only
+  when nothing in it relates to the job at all: a row with one relevant item
+  still earns its line, and general items such as a language, Linux, or Docker
+  relate to almost every software role.
 - Mark at most ONE fragment of each bullet as bold by wrapping it in double
   asterisks, like **this fragment**. Bold the single NUMBER that best shows scale
   or result, and keep the few words around it that make the number mean
@@ -634,6 +640,14 @@ def _is_traceable(item: str, master_items: list[str]) -> bool:
     return False
 
 
+def _home_category(item: str, master: Resume) -> str | None:
+    """The master skills category `item` belongs to, or None if it has none."""
+    for group in master.skills:
+        if _is_traceable(item, group.items):
+            return group.category
+    return None
+
+
 def strip_invented_entries(master: Resume, tailored: Resume) -> list[str]:
     """Remove whole entries with no counterpart in the master. Mutates `tailored`.
 
@@ -701,10 +715,27 @@ def strip_invented_skills(master: Resume, tailored: Resume) -> list[str]:
     master_items += [tool for project in master.projects for tool in project.tools]
     master_categories = {_normalize(g.category): g.category for g in master.skills}
 
+    # A category the master does not have is usually a RENAME, not an invention:
+    # "Cloud & DevOps" came back as "Tools & DevOps", and dropping that row whole
+    # took Linux and Docker off a real application. So each item is traced back
+    # to the master row it came from and moved there. Only items with no master
+    # row are dropped.
+    rehomed: dict[str, list[str]] = {}
     kept_groups = []
     for group in tailored.skills:
         if _normalize(group.category) not in master_categories:
-            removed.append(f"skills category '{group.category}' (not in master)")
+            moved = 0
+            for item in group.items:
+                home = _home_category(item, master)
+                if home is None:
+                    removed.append(f"skill '{item}' in {group.category}")
+                else:
+                    rehomed.setdefault(home, []).append(item)
+                    moved += 1
+            removed.append(
+                f"skills category '{group.category}' (not in master; "
+                f"{moved} item(s) moved back to their master rows)"
+            )
             continue
         # Keep the master's spelling of the category, so tailoring cannot quietly
         # rename a section either.
@@ -717,6 +748,19 @@ def strip_invented_skills(master: Resume, tailored: Resume) -> list[str]:
                 removed.append(f"skill '{item}' in {group.category}")
         group.items = surviving
         kept_groups.append(group)
+
+    # Put moved items into their master row: merged into it when the draft kept
+    # that row, recreated at the end (least relevant position) when it did not.
+    for category, items in rehomed.items():
+        target = next((g for g in kept_groups if g.category == category), None)
+        if target is None:
+            target = SkillGroup(category=category, items=[])
+            kept_groups.append(target)
+        present = {_normalize(i) for i in target.items}
+        for item in items:
+            if _normalize(item) not in present:
+                target.items.append(item)
+                present.add(_normalize(item))
     tailored.skills = kept_groups
 
     for project in tailored.projects:
