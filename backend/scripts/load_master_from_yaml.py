@@ -66,17 +66,34 @@ from services.resume_render import load_master  # noqa: E402
 MASTER_PATH = Path(__file__).resolve().parent.parent / "data" / "master_resume.yaml"
 
 
+# Every section of the master that holds bullets, as
+# (field on the resume, field that names an entry, prefix used in the index key).
+#
+# One table rather than a hand-written loop per section, because _bullet_index
+# and _merge_bullets have to agree on the key exactly. They did not: activities
+# was missing from the index, so --merge gave it no protection and a bullet
+# typed into the builder was destroyed by the next deploy (found 2026-09-19).
+#
+# The prefix is carried here instead of being derived from the naming field.
+# Experience and activities are BOTH keyed by `organization`, so that field no
+# longer identifies a section, and deriving it would silently collide the two.
+_BULLET_SECTIONS: tuple[tuple[str, str, str], ...] = (
+    ("experience", "organization", "experience"),
+    ("projects", "name", "project"),
+    ("activities", "organization", "activity"),
+)
+
+
 def _bullet_index(resume: dict) -> dict[str, list[str]]:
     """Map every entry to its bullets, keyed by "section: entry name".
 
-    Flattening both sections into one dict keeps the comparison below simple:
-    one loop over keys instead of a separate pass for experience and projects.
+    Flattening every section into one dict keeps the comparison below simple:
+    one loop over keys instead of a separate pass per section.
     """
     index: dict[str, list[str]] = {}
-    for entry in resume.get("experience", []):
-        index[f"experience: {entry.get('organization')}"] = entry.get("bullets", [])
-    for entry in resume.get("projects", []):
-        index[f"project: {entry.get('name')}"] = entry.get("bullets", [])
+    for field, label, prefix in _BULLET_SECTIONS:
+        for entry in resume.get(field, []):
+            index[f"{prefix}: {entry.get(label)}"] = entry.get("bullets", [])
     return index
 
 
@@ -97,10 +114,8 @@ def _merge_bullets(stored: dict, incoming: dict) -> int:
     """
     stored_bullets = _bullet_index(stored)
     rescued = 0
-    for entries, label in ((incoming.get("experience", []), "organization"),
-                           (incoming.get("projects", []), "name")):
-        for entry in entries:
-            prefix = "experience" if label == "organization" else "project"
+    for field, label, prefix in _BULLET_SECTIONS:
+        for entry in incoming.get(field, []):
             key = f"{prefix}: {entry.get(label)}"
             existing = entry.setdefault("bullets", [])
             for bullet in stored_bullets.get(key, []):

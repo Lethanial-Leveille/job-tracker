@@ -18,10 +18,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from load_master_from_yaml import _merge_bullets  # noqa: E402
 
 
-def _resume(bullets: list[str], project_bullets: list[str] | None = None) -> dict:
+def _resume(
+    bullets: list[str],
+    project_bullets: list[str] | None = None,
+    activity_bullets: list[str] | None = None,
+) -> dict:
     return {
         "experience": [{"organization": "Fuzzy AI", "bullets": list(bullets)}],
         "projects": [{"name": "Prowl", "bullets": list(project_bullets or [])}],
+        "activities": [{"organization": "ACM", "bullets": list(activity_bullets or [])}],
     }
 
 
@@ -102,3 +107,64 @@ def test_merge_cannot_delete_which_is_the_stated_cost() -> None:
     _merge_bullets(stored, incoming)
 
     assert incoming["experience"][0]["bullets"] == ["a bullet being deleted from the yaml"]
+
+
+def test_activities_are_rescued_too() -> None:
+    """The regression. Activities were missing from the bullet index entirely.
+
+    --merge runs unattended on every push, so an activity bullet typed into the
+    builder was destroyed by the next deploy while an experience bullet typed
+    the same way survived. Found 2026-09-19 when ACM was added.
+    """
+    stored = _resume([], activity_bullets=["typed into the builder"])
+    incoming = _resume([], activity_bullets=["written in the yaml"])
+
+    rescued = _merge_bullets(stored, incoming)
+
+    assert rescued == 1
+    assert incoming["activities"][0]["bullets"] == [
+        "written in the yaml",
+        "typed into the builder",
+    ]
+
+
+def test_an_org_that_is_both_an_employer_and_an_activity_does_not_cross_over() -> None:
+    """Experience and activities are BOTH keyed by `organization`.
+
+    So the index key has to carry the section too, or a company Lee worked for
+    that shares a name with a club would swap bullets between the two — which
+    would put a job bullet in the activities section and vice versa.
+    """
+    same = "Fuzzy AI"
+    stored = {
+        "experience": [{"organization": same, "bullets": ["a job bullet"]}],
+        "projects": [],
+        "activities": [{"organization": same, "bullets": ["a club bullet"]}],
+    }
+    incoming = {
+        "experience": [{"organization": same, "bullets": []}],
+        "projects": [],
+        "activities": [{"organization": same, "bullets": []}],
+    }
+
+    _merge_bullets(stored, incoming)
+
+    assert incoming["experience"][0]["bullets"] == ["a job bullet"]
+    assert incoming["activities"][0]["bullets"] == ["a club bullet"]
+
+
+def test_an_activity_the_yaml_does_not_have_is_left_alone() -> None:
+    """Same rule activities now inherit from experience: merge adds bullets to
+    entries the YAML carries, it does not resurrect whole entries.
+
+    A club dropped from the file is a deliberate removal.
+    """
+    stored = {
+        "experience": [],
+        "projects": [],
+        "activities": [{"organization": "Old Club", "bullets": ["x"]}],
+    }
+    incoming = {"experience": [], "projects": [], "activities": []}
+
+    assert _merge_bullets(stored, incoming) == 0
+    assert incoming["activities"] == []
