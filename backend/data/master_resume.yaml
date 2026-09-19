@@ -295,14 +295,17 @@ activities:
     role: Design Team
     location: Gainesville, FL
     dates: September 2026 – Present
-    # UNPRINTED until work starts. base_resume.yaml carries this entry with an
-    # empty bullets list, so the row reads "ACM, Design Team" and claims nothing.
-    # The day Lee does real design work on the check in application, copy the
-    # first phrase below into base_resume.yaml as bullets[0]. Do not copy it
-    # sooner: hard rule #2. Replace it with what was actually built after that.
-    bullets:
-      - "designing the chapter check in application"
-      - "Joined the UF ACM chapter design team, contributing UI design for the chapter's member check in application."
+    # bullets MUST stay empty until Lee does real design work. This is not a
+    # style choice: build_base_resume() copies activity.bullets[0] straight onto
+    # the page, so ANY phrase parked here prints through the app the moment it
+    # lands in the database. An empty list is what makes the row read
+    # "ACM, Design Team" and claim nothing, which is hard rule #2.
+    #
+    # The phrase to promote the day work begins, kept in a comment precisely so
+    # it cannot print by accident:
+    #   "designing the chapter check in application"
+    # Replace it with what was actually built once there is something to say.
+    bullets: []
   - organization: National Society of Black Engineers
     role: Member
     location: Gainesville, FL
