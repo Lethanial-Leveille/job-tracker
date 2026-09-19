@@ -105,10 +105,10 @@ skills:
 # ("Organization, Role: phrase", see templates/resume.html), so the bullet is a
 # short lowercase phrase. A long one wraps the row onto a second line.
 #
-# ACM (Member, Design Team, building the chapter Check In Application) belongs
-# here the day Lee is accepted to the design team. It is deliberately NOT in the
-# file yet: an unaccepted membership is not a true claim, and hard rule #2 makes
-# that the one thing the resume system may never do.
+# ACM went on Sept 19 2026, the day Lee was accepted to the design team. It
+# prints role only, no phrase: being on the team is true today, "designing the
+# chapter check in application" is not true until he starts the work. The scope
+# phrase is banked in master_resume.yaml. Move it here the day work begins.
 activities:
   - organization: Prep Academy
     role: Test Prep Tutor
@@ -116,3 +116,12 @@ activities:
     dates: August 2026 – Present
     bullets:
       - "tutoring ACT and SAT English, Reading, and Math"
+  - organization: ACM
+    role: Design Team
+    location: Gainesville, FL
+    dates: September 2026 – Present
+    bullets: []
+  # NSBE (Member) is banked in master_resume.yaml but NOT printed: adding its row
+  # pushes this file to 2 pages, over by exactly one line. Plain membership with
+  # no role was not worth cutting a quantified bullet for. Promote it here if Lee
+  # takes a position, and cut a bullet in the same edit to pay for the line.

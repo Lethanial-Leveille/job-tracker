@@ -275,8 +275,10 @@ projects:
       - "Exposed the stack over HTTPS at automation.lethanial.com via Cloudflare Tunnel (no port forwarding or static IP), sharing one tunnel with the MILES backend on the same Pi, and migrated Gmail auth from an SMTP app password to OAuth2 once the public domain was live."
       - "Externalized the Claude prompt to a Notion page so context edits require no workflow changes, and generated the email subject as a separate sub-70-character hook to lift open rate on a self-sent accountability email."
 
-# Leadership and Activities. ACM (Member, Design Team, chapter Check In
-# Application) goes here once Lee is accepted, not before: hard rule #2.
+# Leadership and Activities. ACM added Sept 19 2026 on acceptance to the design
+# team. It prints role only (bullets[0] is empty in base_resume.yaml): the
+# membership is true today, the check in application work has not started. The
+# scope phrase is banked below, unprinted. Promote it the day work begins.
 activities:
   - organization: Prep Academy
     role: Test Prep Tutor
@@ -289,3 +291,24 @@ activities:
     bullets:
       - "tutoring ACT and SAT English, Reading, and Math"
       - "Tutoring **3 students** in ACT English, Reading, and Math and SAT Math and Reading across 60 to 90 minute sessions, plus teaching Standard English Conventions to a group, building each student a plan targeted at the specific question types they miss."
+  - organization: ACM
+    role: Design Team
+    location: Gainesville, FL
+    dates: September 2026 – Present
+    # UNPRINTED until work starts. base_resume.yaml carries this entry with an
+    # empty bullets list, so the row reads "ACM, Design Team" and claims nothing.
+    # The day Lee does real design work on the check in application, copy the
+    # first phrase below into base_resume.yaml as bullets[0]. Do not copy it
+    # sooner: hard rule #2. Replace it with what was actually built after that.
+    bullets:
+      - "designing the chapter check in application"
+      - "Joined the UF ACM chapter design team, contributing UI design for the chapter's member check in application."
+  - organization: National Society of Black Engineers
+    role: Member
+    location: Gainesville, FL
+    dates: September 2026 – Present
+    # BANKED, NOT PRINTED. base_resume.yaml omits this entry entirely: its row
+    # pushes that file to 2 pages, over by exactly one line, and plain membership
+    # with no role was not worth cutting a quantified bullet for (Sep 19 2026).
+    # If Lee takes a position, add the entry there and cut a bullet to pay for it.
+    bullets: []
