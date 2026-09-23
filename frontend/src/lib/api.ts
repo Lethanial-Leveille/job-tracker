@@ -280,6 +280,22 @@ export async function acceptDiscovered(
   return res.json() as Promise<Application>;
 }
 
+// Turn down a batch in one call. Sends IDS rather than a description of your
+// filters: the server re-deriving what you were looking at is how a bulk action
+// clears rows you never saw, and there is no way to notice afterwards.
+//
+// Answers with how many it actually changed, which can be fewer than asked for
+// if some were already resolved.
+export async function dismissDiscoveredBatch(jobIds: string[]): Promise<number> {
+  const res = await request("/discovered/dismiss", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ job_ids: jobIds }),
+  });
+  const body = (await res.json()) as { dismissed: number };
+  return body.dismissed;
+}
+
 // Turn one down. The row is kept server-side so tomorrow's pull cannot offer it
 // again, but it leaves the inbox.
 export async function dismissDiscovered(id: string): Promise<DiscoveredJob> {

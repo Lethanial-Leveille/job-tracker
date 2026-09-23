@@ -71,9 +71,14 @@ interface Props {
   onNavigate: (view: View) => void;
   applicationCount: number;
   onLogout: () => void;
-  // Desktop only: collapse the sidebar. Omitted in the mobile overlay, which is
+  // Desktop only: collapse to an icon rail. Omitted in the mobile overlay, which
   // already dismissed by tapping outside it.
   onCollapse?: () => void;
+  // Narrow rail: icons only, no labels, no saved views. NOT hidden — losing the
+  // nav entirely to gain 248 pixels is a bad trade, and the reopen control then
+  // has to live somewhere arbitrary. The rail keeps every destination one click
+  // away and keeps the page's left edge where it was.
+  collapsed?: boolean;
 }
 
 export function Sidebar({
@@ -82,6 +87,7 @@ export function Sidebar({
   applicationCount,
   onLogout,
   onCollapse,
+  collapsed = false,
 }: Props) {
   // Read here rather than threaded down: a saved view lives in the URL, so the
   // nav can highlight the active one without the route above it holding state.
@@ -96,30 +102,34 @@ export function Sidebar({
         backgroundImage:
           "radial-gradient(120% 70% at 8% 0%, rgb(139 92 246 / 0.07), transparent 58%), radial-gradient(90% 50% at 95% 100%, rgb(139 92 246 / 0.035), transparent 70%)",
       }}
-      className="relative z-10 flex h-screen flex-col gap-8 border-r border-line-strong bg-surface/60 px-4 py-6 backdrop-blur-sm"
+      className={`relative z-10 flex h-screen flex-col gap-8 border-r border-line-strong bg-surface/60 py-6 backdrop-blur-sm ${
+        collapsed ? "px-2" : "px-4"
+      }`}
     >
-      {/* Wordmark */}
-      <div className="flex items-center gap-3 px-2">
-        <LogoMark />
-        <div className="leading-tight">
-          <div className="text-sm font-semibold tracking-[0.2em] text-ink">
-            PROWL
+      {/* Wordmark. The logo is the collapse control now — the chevron that used
+          to sit here was a second small target doing a job the brand mark can do
+          while taking up no extra room, and it read as decoration until you
+          found out otherwise. */}
+      <div className={`flex items-center gap-3 ${collapsed ? "justify-center px-0" : "px-2"}`}>
+        <button
+          type="button"
+          onClick={onCollapse}
+          disabled={!onCollapse}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand" : "Collapse"}
+          className="shrink-0 rounded-interactive transition-opacity hover:opacity-80 disabled:cursor-default disabled:hover:opacity-100"
+        >
+          <LogoMark />
+        </button>
+        {!collapsed && (
+          <div className="leading-tight">
+            <div className="text-sm font-semibold tracking-[0.2em] text-ink">
+              PROWL
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">
+              Opportunity Tracker
+            </div>
           </div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">
-            Opportunity Tracker
-          </div>
-        </div>
-        {onCollapse && (
-          <button
-            type="button"
-            onClick={onCollapse}
-            aria-label="Collapse sidebar"
-            className="ml-auto grid size-7 shrink-0 place-items-center rounded-interactive border border-line-ctrl bg-surface text-ink-muted transition-colors hover:border-line-strong hover:bg-surface-hover hover:text-ink"
-          >
-            <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 4 6 9l5 5" />
-            </svg>
-          </button>
         )}
       </div>
 
@@ -137,15 +147,23 @@ export function Sidebar({
               type="button"
               onClick={() => onNavigate(view)}
               aria-current={active ? "page" : undefined}
-              className={
+              // The label is what the tooltip carries once it is gone from the
+              // button, so a rail is still readable to someone who has not
+              // memorised five icons.
+              title={collapsed ? item.label : undefined}
+              className={`${
+                collapsed
+                  ? "flex items-center justify-center rounded-interactive border-l-2 py-2"
+                  : "flex items-center gap-3 rounded-interactive border-l-2 px-3 py-2 text-sm"
+              } ${
                 active
-                  ? "flex items-center gap-3 rounded-interactive border-l-2 border-l-accent bg-accent-subtle px-3 py-2 text-sm font-medium text-ink"
-                  : "flex items-center gap-3 rounded-interactive border-l-2 border-l-transparent px-3 py-2 text-sm text-ink-soft transition-colors hover:text-ink"
-              }
+                  ? "border-l-accent bg-accent-subtle font-medium text-ink"
+                  : "border-l-transparent text-ink-soft transition-colors hover:text-ink"
+              }`}
             >
               <span className={active ? "text-accent" : undefined}>{icons[item.key]}</span>
-              <span className="flex-1 text-left">{item.label}</span>
-              {item.view === "applications" && (
+              {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+              {!collapsed && item.view === "applications" && (
                 <span className="text-xs text-ink-soft">{applicationCount}</span>
               )}
             </button>
@@ -161,7 +179,7 @@ export function Sidebar({
 
           Only rendered on the Applications screen: a view of a list you are not
           looking at is a link to a different page wearing a filter's clothes. */}
-      {current === "applications" && (
+      {current === "applications" && !collapsed && (
         <div className="flex flex-col gap-1">
           <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
             Views
@@ -188,21 +206,35 @@ export function Sidebar({
         </div>
       )}
 
-      {/* User card, pinned to the bottom. mt-auto pushes it down past the nav. */}
-      <div className="mt-auto flex items-center gap-3 rounded-frame border border-line bg-surface-hover p-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-line-strong bg-base text-xs font-semibold text-ink-soft">
+      {/* User card, pinned to the bottom. mt-auto pushes it down past the nav.
+          On the rail it drops to the avatar and the sign-out, stacked: a name
+          and a cycle label are context, and context is the first thing a narrow
+          column should give up. */}
+      <div
+        className={`mt-auto flex rounded-frame border border-line bg-surface-hover ${
+          collapsed ? "flex-col items-center gap-2 p-2" : "items-center gap-3 p-3"
+        }`}
+      >
+        <span
+          title={collapsed ? "Lee Leveille" : undefined}
+          className="grid size-8 shrink-0 place-items-center rounded-lg border border-line-strong bg-base text-xs font-semibold text-ink-soft"
+        >
           LL
         </span>
-        <div className="leading-tight">
-          <div className="text-[13px] font-medium text-ink">Lee Leveille</div>
-          <div className="text-[11px] text-ink-muted">Fall 2026 cycle</div>
-        </div>
+        {!collapsed && (
+          <div className="leading-tight">
+            <div className="text-[13px] font-medium text-ink">Lee Leveille</div>
+            <div className="text-[11px] text-ink-muted">Fall 2026 cycle</div>
+          </div>
+        )}
         <button
           type="button"
           onClick={onLogout}
           aria-label="Sign out"
           title="Sign out"
-          className="ml-auto grid size-7 shrink-0 place-items-center rounded-lg border border-line text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+          className={`grid size-7 shrink-0 place-items-center rounded-lg border border-line text-ink-muted transition-colors hover:border-line-strong hover:text-ink ${
+            collapsed ? "" : "ml-auto"
+          }`}
         >
           <Icon>
             <path d="M7 3.5H4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3" />

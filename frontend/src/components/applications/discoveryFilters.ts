@@ -28,10 +28,19 @@ export interface DiscoveryFilters {
   // Only companies on your watchlist. You chose those, which is a stronger
   // statement than any score.
   watchlistOnly: boolean;
+  // Free text over the location. Separate from `query` because they answer
+  // different questions and combining them would make each worse: "rivian"
+  // should not match a job in Riviera Beach, and "FL" should not match every
+  // posting at a company with FL in its name.
+  //
+  // A posting with no location survives. Plenty are listed without one and they
+  // are not all remote — an unknown place is not a place you have ruled out.
+  place: string;
 }
 
 export const NO_FILTERS: DiscoveryFilters = {
   query: "",
+  place: "",
   newOnly: false,
   minFit: 0,
   watchlistOnly: false,
@@ -47,6 +56,7 @@ export function applyFilters(
   // you are looking for, and a search that returns near-misses for an exact
   // query reads as broken.
   const query = filters.query.trim().toLowerCase();
+  const place = filters.place.trim().toLowerCase();
 
   return jobs.filter((job) => {
     if (query !== "") {
@@ -57,6 +67,14 @@ export function applyFilters(
     }
     if (filters.newOnly && (latestRunId === null || job.run_id !== latestRunId)) {
       return false;
+    }
+    if (place !== "") {
+      // No location recorded is not a mismatch. A posting listed without one is
+      // common and is not necessarily remote, so filtering it out would hide
+      // jobs for a reason the data does not support.
+      if (job.location !== null && !job.location.toLowerCase().includes(place)) {
+        return false;
+      }
     }
     if (filters.watchlistOnly && job.target_company_id === null) return false;
     if (filters.minFit > 0) {

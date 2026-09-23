@@ -9,6 +9,7 @@ import type {
 import {
   acceptDiscovered,
   dismissDiscovered,
+  dismissDiscoveredBatch,
   parseJobDescription,
   parseJobUrl,
 } from "../../lib/api";
@@ -480,6 +481,7 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [filters, setFilters] = useState<DiscoveryFilters>(NO_FILTERS);
   const [page, setPage] = useState(0);
+  const [clearing, setClearing] = useState(false);
 
   // Narrow, then fold, then page — in that order. Folding after filtering means
   // a group's leader is the best row that SURVIVED the filter, rather than one
@@ -519,6 +521,24 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
       // enough.
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function clearShown() {
+    // Confirmed because it is the one irreversible-feeling action here. The rows
+    // are recoverable server-side, but nothing in the UI shows dismissed jobs,
+    // so from where you are sitting it is a one-way door.
+    if (!window.confirm(`Dismiss all ${visible.length} shown?`)) return;
+    setClearing(true);
+    try {
+      const ids = visible.map((job) => job.id);
+      await dismissDiscoveredBatch(ids);
+      // Removed locally for the same reason single dismiss is: a refetch flashes
+      // the loading state and throws away where you were.
+      for (const id of ids) remove(id);
+      setPage(0);
+    } finally {
+      setClearing(false);
     }
   }
 
@@ -594,6 +614,18 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
               className="w-[210px] rounded-interactive border border-line bg-surface py-1.5 pl-8 pr-3 text-[12px] text-ink placeholder:text-ink-muted focus:border-accent focus:shadow-glow focus:outline-none"
             />
           </div>
+          <div className="relative">
+            <svg className="pointer-events-none absolute left-2.5 top-1/2 size-[13px] -translate-y-1/2 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 21s7-5.3 7-11a7 7 0 1 0-14 0c0 5.7 7 11 7 11Z" />
+              <circle cx="12" cy="10" r="2.5" />
+            </svg>
+            <input
+              value={filters.place}
+              onChange={(e) => setFilter({ place: e.target.value })}
+              placeholder="Place"
+              className="w-[130px] rounded-interactive border border-line bg-surface py-1.5 pl-8 pr-3 text-[12px] text-ink placeholder:text-ink-muted focus:border-accent focus:shadow-glow focus:outline-none"
+            />
+          </div>
           <FilterChip
             active={filters.newOnly}
             onClick={() => setFilter({ newOnly: !filters.newOnly })}
@@ -615,6 +647,19 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
               Matches {level}%+
             </FilterChip>
           ))}
+          {/* Clears exactly what is on screen, by id. The server re-deriving
+              your filters is how a bulk action dismisses rows you never saw,
+              and there is no way to notice afterwards. */}
+          {visible.length > 0 && (
+            <button
+              type="button"
+              onClick={clearShown}
+              disabled={clearing}
+              className="rounded-interactive border border-line px-3 py-1.5 text-[12px] text-ink-muted transition-colors hover:border-line-strong hover:text-ink-soft disabled:opacity-40"
+            >
+              {clearing ? "Dismissing…" : `Dismiss all ${visible.length}`}
+            </button>
+          )}
           <span className="ml-auto text-[12px] text-ink-muted">
             {groups.length === jobs.length
               ? `${groups.length} to review`

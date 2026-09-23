@@ -237,3 +237,45 @@ def test_accepting_without_a_posting_still_works(
     body = client.post(f"/discovered/{job.id}/accept", json={}).json()
 
     assert body["jd_text"] == "read overnight"
+
+
+def test_dismissing_a_batch_reports_what_it_actually_changed(
+    db: Session, user: User, client: TestClient
+) -> None:
+    """Fewer than asked for is a normal answer, not an error.
+
+    The count is reported rather than assumed so the UI can say "cleared 84"
+    honestly instead of echoing its own request back.
+    """
+    a = _discovery(db, user, external_id="a")
+    b = _discovery(db, user, external_id="b")
+    client.post(f"/discovered/{b.id}/dismiss")
+
+    body = client.post("/discovered/dismiss", json={"job_ids": [a.id, b.id]}).json()
+
+    assert body["dismissed"] == 1
+    assert client.get("/discovered").json() == []
+
+
+def test_a_batch_cannot_reach_another_users_rows(
+    db: Session, user: User, client: TestClient
+) -> None:
+    """Scoped in the WHERE clause, not by fetching and checking.
+
+    A list of ids from anywhere can only ever touch your own rows, so the worst
+    a wrong id can do is not match.
+    """
+    other = User(email="other@example.com", password_hash="x")
+    db.add(other)
+    db.commit()
+    theirs = _discovery(db, other, external_id="theirs")
+
+    body = client.post("/discovered/dismiss", json={"job_ids": [theirs.id]}).json()
+
+    assert body["dismissed"] == 0
+    db.refresh(theirs)
+    assert theirs.state is DiscoveryState.pending
+
+
+def test_an_empty_batch_is_a_no_op(db: Session, user: User, client: TestClient) -> None:
+    assert client.post("/discovered/dismiss", json={"job_ids": []}).json()["dismissed"] == 0

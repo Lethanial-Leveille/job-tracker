@@ -109,6 +109,40 @@ describe("applyFilters", () => {
     expect(applyFilters(jobs, { ...NO_FILTERS, query: "   " }, null)).toHaveLength(2);
   });
 
+  it("filters by place", () => {
+    const jobs = [
+      job({ id: "fl", location: "Orlando, FL" }),
+      job({ id: "wa", location: "Seattle, WA" }),
+    ];
+
+    expect(applyFilters(jobs, { ...NO_FILTERS, place: "fl" }, null).map((j) => j.id)).toEqual(["fl"]);
+  });
+
+  it("matches inside a summarised multi-city location", () => {
+    // Locations read "Seattle, WA, Austin, TX +28 more" once a posting is open
+    // in more places than fit the column.
+    const jobs = [job({ id: "a", location: "Seattle, WA, Austin, TX +28 more" })];
+
+    expect(applyFilters(jobs, { ...NO_FILTERS, place: "austin" }, null)).toHaveLength(1);
+  });
+
+  it("keeps a posting with no location recorded", () => {
+    // Common, and not the same as remote. Dropping it would hide jobs for a
+    // reason the data does not support.
+    const jobs = [job({ id: "unknown", location: null })];
+
+    expect(applyFilters(jobs, { ...NO_FILTERS, place: "fl" }, null)).toHaveLength(1);
+  });
+
+  it("keeps place separate from the company search", () => {
+    // Combining them would make both worse: "rivian" should not match a job in
+    // Riviera Beach.
+    const jobs = [job({ id: "a", organization: "Rivian", location: "Irvine, CA" })];
+
+    expect(applyFilters(jobs, { ...NO_FILTERS, query: "rivian" }, null)).toHaveLength(1);
+    expect(applyFilters(jobs, { ...NO_FILTERS, place: "rivian" }, null)).toHaveLength(0);
+  });
+
   it("combines filters rather than picking one", () => {
     const jobs = [
       job({ id: "both", run_id: "r1", fit_score: 90 }),
