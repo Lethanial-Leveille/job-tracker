@@ -161,6 +161,68 @@ class Project(BaseModel):
     bullets: list[str] = []
 
 
+# --- What tailoring is allowed to AUTHOR ---------------------------------------
+# Four narrowed copies of the models above, holding only the fields the model may
+# write. Everything omitted is an identity fact that tailor_resume() restores
+# from the master straight after the call, so asking the model for it bought
+# nothing and cost twice.
+#
+# The first cost is correctness. The prompt forbids changing identity facts and
+# the model does it anyway: on 2026-09-09 a tailored resume came back with the
+# two graduation dates SWAPPED, which silently inverts the grad-date switch.
+# A field the schema does not contain cannot come back wrong.
+#
+# The second cost is the grammar. Structured outputs compile this schema into a
+# grammar with a hard size ceiling, and on 2026-09-22 adding `track`/`tracks`
+# pushed it over: every tailoring call failed with "The compiled grammar is too
+# large" until these models existed. Measured against the live API, dropping any
+# TWO of these fields clears the ceiling; dropping all of them leaves headroom.
+#
+# So the rule for a new field is the same rule twice over: if tailoring does not
+# have to write it, it belongs on the full model above and NOT here.
+
+
+class TailoredEducation(BaseModel):
+    """A school, as tailoring may write it: the name, and the courses it chose.
+
+    `institution` is not content, it is the join key — tailor_resume() looks the
+    school up by it and rebuilds the entry from the master. `coursework` is the
+    one genuinely tailorable part, selecting courses relevant to the posting.
+    """
+
+    institution: str
+    coursework: list[str] = []
+
+
+class TailoredSkillGroup(BaseModel):
+    """A skills row, minus `tracks` (which flavour the row leads on — a property
+    of the row, not of this job)."""
+
+    category: str
+    items: list[str] = []
+
+
+class TailoredExperience(BaseModel):
+    """A job, minus `descriptor` (a fixed fact about the employer, restored by
+    organization name)."""
+
+    organization: str
+    role: str
+    location: str | None = None
+    dates: str | None = None
+    bullets: list[str] = []
+
+
+class TailoredProject(BaseModel):
+    """A project, minus `links` and `tracks` — both fixed facts about the
+    project, restored by project name."""
+
+    name: str
+    tools: list[str] = []
+    dates: str | None = None
+    bullets: list[str] = []
+
+
 class TailoredResume(BaseModel):
     """Everything tailoring is allowed to produce: a Resume minus `activities`.
 
@@ -210,10 +272,11 @@ class TailoredResume(BaseModel):
     grad_date_variant: Literal["primary", "alternate"] = "primary"
     contact: Contact
     summary: str | None = None        # the one free-text spot tailoring may rewrite
-    education: list[Education] = []
-    skills: list[SkillGroup] = []
-    experience: list[Experience] = []
-    projects: list[Project] = []      # the full bank; tailoring keeps a subset
+    # The narrowed models above, not the full ones: see their header comment.
+    education: list[TailoredEducation] = []
+    skills: list[TailoredSkillGroup] = []
+    experience: list[TailoredExperience] = []
+    projects: list[TailoredProject] = []   # the full bank; tailoring keeps a subset
 
 
 class Resume(TailoredResume):
@@ -227,6 +290,14 @@ class Resume(TailoredResume):
     it may never add a bullet, skill, or number that isn't already in the master
     (hard rule #2, never invent).
     """
+
+    # Widen the four narrowed fields back to the full models. A Resume is what
+    # the renderer, the master and the stored versions all use, so it carries
+    # every field; TailoredResume is only ever the shape handed to the model.
+    education: list[Education] = []
+    skills: list[SkillGroup] = []
+    experience: list[Experience] = []
+    projects: list[Project] = []
 
     # Leadership, clubs, tutoring. Same shape as `experience` and printed last,
     # under its own heading. It is the LOWEST-VALUE section on the page, so the

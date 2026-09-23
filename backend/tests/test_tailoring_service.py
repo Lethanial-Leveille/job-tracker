@@ -15,6 +15,8 @@ plumbing returns what the SDK gives it.
 from unittest.mock import MagicMock, patch
 
 from config import Settings
+import httpx
+from anthropic import BadRequestError
 from pydantic import ValidationError
 from schemas.resume import (
     Contact,
@@ -23,6 +25,7 @@ from schemas.resume import (
     Project,
     Resume,
     SkillGroup,
+    TailoredEducation,
     TailoredResume,
 )
 from services.resume_render import (
@@ -799,41 +802,48 @@ def test_a_skills_row_is_never_trimmed_to_nothing() -> None:
 
 
 @patch("services.tailoring.Anthropic")
-def test_education_dates_are_restored_when_the_model_swaps_them(
+def test_education_identity_facts_come_from_the_master_not_the_model(
     mock_anthropic: MagicMock,
 ) -> None:
-    """The real failure: a tailored resume came back with `dates` and
-    `dates_alternate` swapped, which inverts the graduation-date switch. Both
-    values are real dates, so nothing downstream can tell it went wrong."""
+    """The real failure, now fixed one level lower.
+
+    A tailored resume came back with `dates` and `dates_alternate` swapped,
+    which inverts the graduation-date switch. Both values are real dates, so
+    nothing downstream could tell it had gone wrong, and the service repaired it
+    afterwards by copying the master's values back.
+
+    It cannot happen at all now: TailoredEducation carries only the institution
+    and the coursework, so a swapped date is not something the model is able to
+    express. This asserts the rebuild that replaced the repair — every identity
+    fact comes from the master, and the one tailorable field survives.
+    """
     master = Resume(
         contact=Contact(name="Lee"),
         education=[
             Education(
                 institution="University of Florida",
                 degree="B.S. Computer Engineering",
+                location="Gainesville, FL",
                 dates="Expected May 2028",
                 dates_alternate="Expected May 2029",
                 gpa="3.77",
+                honors=["Dean's List"],
                 coursework=["Data Structures", "Discrete Mathematics"],
             )
         ],
     )
-    swapped = TailoredResume(
+    draft = TailoredResume(
         contact=Contact(name="Lee"),
         education=[
-            Education(
+            TailoredEducation(
                 institution="University of Florida",
-                degree="B.S. Computer Engineering",
-                dates="Expected May 2029",
-                dates_alternate="Expected May 2028",
-                gpa="3.77",
                 # Coursework IS tailorable, so the model's selection must survive.
                 coursework=["Discrete Mathematics"],
             )
         ],
     )
     mock_client = MagicMock()
-    mock_client.messages.parse.return_value.parsed_output = swapped
+    mock_client.messages.parse.return_value.parsed_output = draft
     mock_anthropic.return_value = mock_client
 
     result = tailor_resume(master, "some job description", _fake_settings())
@@ -842,5 +852,64 @@ def test_education_dates_are_restored_when_the_model_swaps_them(
     education = result.education[0]
     assert education.dates == "Expected May 2028"
     assert education.dates_alternate == "Expected May 2029"
+    assert education.degree == "B.S. Computer Engineering"
+    assert education.location == "Gainesville, FL"
+    assert education.gpa == "3.77"
+    assert education.honors == ["Dean's List"]
     # The one education field tailoring is allowed to choose.
     assert education.coursework == ["Discrete Mathematics"]
+
+
+def test_a_swapped_graduation_date_is_not_expressible() -> None:
+    """The structural half of the fix, pinned so a later widening is noticed.
+
+    If TailoredEducation ever regains a date field, this passes again and the
+    2026-09-09 failure becomes possible a second time.
+    """
+    assert set(TailoredEducation.model_fields) == {"institution", "coursework"}
+
+
+@patch("services.tailoring.Anthropic")
+def test_an_api_refusal_becomes_none_instead_of_an_exception(
+    mock_anthropic: MagicMock,
+) -> None:
+    """A 400 from the API is a refused REQUEST, not a bad reply.
+
+    This is what the 2026-09-22 grammar-limit outage looked like from the
+    browser: the API rejected every call, nothing caught it, and it surfaced as
+    a bare "Request failed: 500" with the actual reason only in a traceback.
+    Returning None lets the route answer 502, which is the honest status for
+    "the model call did not produce a resume".
+    """
+    response = httpx.Response(
+        status_code=400,
+        request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"),
+    )
+    mock_client = MagicMock()
+    mock_client.messages.parse.side_effect = BadRequestError(
+        "The compiled grammar is too large", response=response, body=None
+    )
+    mock_anthropic.return_value = mock_client
+
+    result = tailor_resume(_fake_master(), "some job description", _fake_settings())
+
+    assert result is None
+
+
+@patch("services.tailoring.Anthropic")
+def test_an_api_refusal_is_not_retried(mock_anthropic: MagicMock) -> None:
+    """The same request fails the same way, and this call runs the expensive
+    model over a long prompt. Retrying only doubles the bill."""
+    response = httpx.Response(
+        status_code=400,
+        request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"),
+    )
+    mock_client = MagicMock()
+    mock_client.messages.parse.side_effect = BadRequestError(
+        "The compiled grammar is too large", response=response, body=None
+    )
+    mock_anthropic.return_value = mock_client
+
+    tailor_resume(_fake_master(), "some job description", _fake_settings())
+
+    assert mock_client.messages.parse.call_count == 1

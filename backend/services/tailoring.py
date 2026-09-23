@@ -24,7 +24,7 @@ to and only ever sees the master's own facts.
 import logging
 import re
 
-from anthropic import Anthropic
+from anthropic import Anthropic, APIStatusError
 from pydantic import ValidationError
 
 from config import Settings
@@ -191,14 +191,33 @@ def tailor_resume(
                 max_tokens=8192,
                 system=_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_content}],
-                # TailoredResume, not Resume: `activities` is restored from the
-                # master below, and including it here pushed the compiled grammar
-                # past the API's size limit, failing every call. See the
-                # TailoredResume docstring.
+                # TailoredResume, not Resume: it holds ONLY the fields the model
+                # may author, and everything else is restored from the master
+                # below. Both times this schema grew past the compiled-grammar
+                # size limit, every tailoring call failed until it was narrowed
+                # again. See the header comment above TailoredEducation.
                 output_format=TailoredResume,
             )
         except ValidationError:
             continue
+        except APIStatusError as exc:
+            # A refused request, not a bad reply. Retrying cannot help — the same
+            # request fails the same way — so log the API's own message and give
+            # up immediately.
+            #
+            # This exists because of what it cost to find once. On 2026-09-22 the
+            # schema grew past the structured-output grammar limit and the API
+            # started returning 400 "The compiled grammar is too large". Nothing
+            # caught it, so it reached the browser as a bare "Request failed:
+            # 500" with the actual reason only in a traceback nobody was reading.
+            # The route turns None into a 502, which is the honest status for
+            # "the model call did not produce a resume".
+            logger.error(
+                "Tailoring API call failed (%s): %s",
+                exc.status_code,
+                getattr(exc, "message", str(exc)),
+            )
+            return None
         draft = response.parsed_output
         break
     if draft is None:
@@ -212,6 +231,29 @@ def tailor_resume(
     # this only bites if the schema is ever widened again, and silently trusting
     # model-authored activities is exactly what the split exists to prevent.
     fields.pop("activities", None)
+
+    # EDUCATION, rebuilt rather than patched. TailoredEducation carries only the
+    # institution and the coursework, so the draft has no `degree` — a required
+    # field on the full Education — and Resume(**fields) would fail validation.
+    # Each entry is therefore taken whole from the master and given back only the
+    # coursework the model selected. A school the master does not have is dropped
+    # rather than invented (hard rule #2); strip_invented_entries below cannot do
+    # it for us, because without a master match there is nothing to rebuild from.
+    master_education = {e.institution: e for e in master.education}
+    rebuilt: list[dict] = []
+    for entry in draft.education:
+        source = master_education.get(entry.institution)
+        if source is None:
+            logger.warning(
+                "Tailoring returned a school not in the master; dropped: %s",
+                entry.institution,
+            )
+            continue
+        merged = source.model_copy(deep=True)
+        merged.coursework = list(entry.coursework)
+        rebuilt.append(merged.model_dump())
+    fields["education"] = rebuilt
+
     result = Resume(**fields, activities=master.activities)
 
     # career_stage is a fixed rendering setting, not content. The model could
@@ -229,43 +271,38 @@ def tailor_resume(
     # from a job description.
     result.grad_date_variant = master.grad_date_variant
 
-    # Same reasoning, one level down: `descriptor` and `links` are fixed facts
-    # about an entry, not content to be selected. Neither is mentioned in the
-    # prompt and both default to empty, so the model drops them silently and the
-    # tailored PDF loses the company descriptor and every repo link that the base
-    # resume prints. Restored by identity rather than asked for, because a
-    # missing link is invisible in review: the title still renders, it just stops
-    # being clickable.
+    # Same reasoning, one level down: `descriptor`, `links` and `tracks` are
+    # fixed facts about an entry, not content to be selected. None of them is on
+    # the narrowed models the schema now hands the model, so all three come back
+    # at their defaults and are restored by identity here. That is deliberate
+    # rather than a gap: a missing link is invisible in review, because the title
+    # still renders, it just stops being clickable.
     master_descriptors = {e.organization: e.descriptor for e in master.experience}
     for entry in result.experience:
         if entry.organization in master_descriptors:
             entry.descriptor = master_descriptors[entry.organization]
-    master_links = {p.name: p.links for p in master.projects}
+    master_projects = {p.name: p for p in master.projects}
     for project in result.projects:
-        if project.name in master_links:
-            project.links = master_links[project.name]
+        source_project = master_projects.get(project.name)
+        if source_project is not None:
+            project.links = list(source_project.links)
+            project.tracks = list(source_project.tracks)
+    master_skill_tracks = {row.category: row.tracks for row in master.skills}
+    for row in result.skills:
+        if row.category in master_skill_tracks:
+            row.tracks = list(master_skill_tracks[row.category])
 
-    # EDUCATION IDENTITY FACTS, restored wholesale.
+    # EDUCATION IDENTITY FACTS need no restoring here any more: the widening step
+    # above rebuilds each school from the master and gives back only the
+    # coursework, so degree, dates, gpa and honors never pass through the model
+    # at all. They used to be repaired after the fact, because the prompt forbids
+    # changing them and the model did it anyway — on 2026-09-09 a tailored resume
+    # came back with `dates` and `dates_alternate` SWAPPED, silently inverting
+    # the graduation-date switch. A field the schema does not contain cannot come
+    # back wrong, which is the better version of that fix.
     #
-    # The prompt forbids changing them and the model does it anyway: on
-    # 2026-09-09 a tailored resume came back with `dates` and `dates_alternate`
-    # SWAPPED, which silently inverts the graduation-date switch — ticking "later
-    # grad date" then printed the earlier one. Nothing downstream can catch that,
-    # because both values are real dates and either looks plausible on a page.
-    #
-    # `coursework` is deliberately NOT restored: selecting relevant courses is
-    # one of the few things tailoring is explicitly asked to do.
-    master_education = {e.institution: e for e in master.education}
-    for entry in result.education:
-        source = master_education.get(entry.institution)
-        if source is None:
-            continue
-        entry.degree = source.degree
-        entry.location = source.location
-        entry.dates = source.dates
-        entry.dates_alternate = source.dates_alternate
-        entry.gpa = source.gpa
-        entry.honors = list(source.honors)
+    # `coursework` stays model-chosen: selecting relevant courses is one of the
+    # few things tailoring is explicitly asked to do.
 
     # Enforce never-invent before anything else looks at the draft, so a
     # fabricated skill cannot survive into the PDF or a saved version.
