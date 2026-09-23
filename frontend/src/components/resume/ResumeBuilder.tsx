@@ -17,7 +17,7 @@ import { ProjectsSection } from "./ProjectsSection";
 import { SkillsSection } from "./SkillsSection";
 import { ResumeEditor } from "./ResumeEditor";
 import { ResumeWizard } from "./ResumeWizard";
-import type { CareerStage, ResumeSection } from "./shell";
+import type { ResumeSection, ResumeTrack } from "./shell";
 
 interface Props {
   onClose: () => void;
@@ -106,8 +106,10 @@ function Inner({
 
   const shellProps = {
     sections,
-    careerStage: (draft.career_stage ?? "student") as CareerStage,
-    onCareerStageChange: (stage: CareerStage) => update({ career_stage: stage }),
+    // Defaults to software: it is the larger share of what goes out, and a
+    // resume saved before this setting existed was the software one.
+    track: (draft.track ?? "swe") as ResumeTrack,
+    onTrackChange: (track: ResumeTrack) => update({ track }),
     canSave,
     saving,
     saveError,

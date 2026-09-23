@@ -14,6 +14,14 @@ export interface DiscoveredState {
   // from `loading`, which is only about fetching the list you already have.
   pulling: boolean;
   refetch: () => void;
+  // Drop a row you have just resolved, without going back to the server.
+  //
+  // A refetch here was the bug: it flips the list to loading skeletons, which
+  // unmounts it, and the browser has nothing to restore your scroll position
+  // against — so tracking the last job on a long page threw you back to the
+  // top. Removing it locally is also simply true: the row is resolved on the
+  // server, and the next focus refetch reconciles anything else.
+  remove: (id: string) => void;
   pull: () => Promise<void>;
 }
 
@@ -76,6 +84,10 @@ export function useDiscovered(): DiscoveredState {
     }
   }, [load]);
 
+  const remove = useCallback((id: string) => {
+    setJobs((current) => current.filter((job) => job.id !== id));
+  }, []);
+
   const pull = useCallback(async () => {
     setError(null);
     try {
@@ -125,6 +137,7 @@ export function useDiscovered(): DiscoveredState {
       run?.state === "running" &&
       Date.now() - new Date(run.started_at).getTime() < STALLED_AFTER_MS,
     refetch: load,
+    remove,
     pull,
   };
 }

@@ -21,6 +21,8 @@ the Resume JSON between the two calls.
 from typing import Literal
 from urllib.parse import quote
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
@@ -102,6 +104,7 @@ def tailor(
 
 @router.get("/base", response_model=Resume)
 def get_base_resume(
+    track: Literal["swe", "embedded"] | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> Resume:
@@ -121,7 +124,10 @@ def get_base_resume(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No master resume saved yet. Build one first.",
         )
-    base, _ = build_base_resume(Resume.model_validate(master.resume_json))
+    resume = Resume.model_validate(master.resume_json)
+    if track is not None:
+        resume.track = track
+    base, _ = build_base_resume(resume)
     return base
 
 

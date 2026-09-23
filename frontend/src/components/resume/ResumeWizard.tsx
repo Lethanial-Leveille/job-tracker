@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import type { ShellProps } from "./shell";
-import { CareerStageToggle } from "./CareerStageToggle";
+import { ResumeTrackToggle } from "./ResumeTrackToggle";
 
 const primaryBtn =
   "rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink transition-shadow transition-colors hover:bg-accent-hover hover:shadow-glow active:bg-accent-press disabled:opacity-60";
@@ -15,8 +15,8 @@ const secondaryBtn =
 
 export function ResumeWizard({
   sections,
-  careerStage,
-  onCareerStageChange,
+  track,
+  onTrackChange,
   canSave,
   saving,
   saveError,
@@ -60,7 +60,7 @@ export function ResumeWizard({
             <p className="text-sm text-ink-soft">
               This sets the layout. Students lead with education; professionals lead with experience.
             </p>
-            <CareerStageToggle value={careerStage} onChange={onCareerStageChange} />
+            <ResumeTrackToggle value={track} onChange={onTrackChange} />
           </div>
         )}
 

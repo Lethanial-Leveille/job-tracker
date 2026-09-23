@@ -11,6 +11,7 @@ import { getMasterResume, saveMasterResume } from "./api";
 function blankResume(): Resume {
   return {
     career_stage: "student",
+    track: "swe",
     contact: { name: "" },
     summary: "",
     education: [],

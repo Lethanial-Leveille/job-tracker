@@ -476,7 +476,7 @@ function FilterChip({
 }
 
 export function DiscoveredPage({ applications, onChanged }: Props) {
-  const { jobs, loading, error, pulling, run, refetch, pull } = useDiscovered();
+  const { jobs, loading, error, pulling, run, remove, pull } = useDiscovered();
   const [busy, setBusy] = useState<string | null>(null);
   const [filters, setFilters] = useState<DiscoveryFilters>(NO_FILTERS);
   const [page, setPage] = useState(0);
@@ -506,7 +506,10 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
     setBusy(job.id);
     try {
       await acceptDiscovered(job.id, posting);
-      await refetch();
+      // Removed locally rather than refetched, so the page does not flash
+      // through a loading state and lose where you were. Tracking the last job
+      // on page eight used to throw you back to the top of page one.
+      remove(job.id);
       // Refresh the pipeline upstairs so the new row is there when you go look.
       onChanged();
       // Deliberately no navigation. Triaging an inbox is a rhythm — read,
@@ -523,7 +526,7 @@ export function DiscoveredPage({ applications, onChanged }: Props) {
     setBusy(job.id);
     try {
       await dismissDiscovered(job.id);
-      await refetch();
+      remove(job.id);
     } finally {
       setBusy(null);
     }

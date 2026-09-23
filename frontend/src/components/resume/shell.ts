@@ -5,7 +5,10 @@
 
 import type { ReactNode } from "react";
 
-export type CareerStage = "student" | "professional";
+// Which flavour of resume goes out. Replaces the old student/professional
+// choice, which picked a section arrangement for two different people; there is
+// one person now, and the daily question is software or embedded.
+export type ResumeTrack = "swe" | "embedded";
 
 // One section, pre-wired to the draft by the orchestrator. The shells only
 // arrange these nodes — the wizard shows one per step, the editor stacks them.
@@ -17,8 +20,8 @@ export interface ResumeSection {
 
 export interface ShellProps {
   sections: ResumeSection[];
-  careerStage: CareerStage;
-  onCareerStageChange: (stage: CareerStage) => void;
+  track: ResumeTrack;
+  onTrackChange: (track: ResumeTrack) => void;
   canSave: boolean;
   saving: boolean;
   saveError: string | null;

@@ -371,6 +371,13 @@ export interface Education {
 export interface SkillGroup {
   category: string;
   items: string[];
+  // Flavours this row LEADS on. Promotion only, never exclusion: an embedded
+  // resume still lists the web stack, it just does not lead with it.
+  //
+  // Carried here even though nothing edits it yet, because the builder PUTs the
+  // whole resume — a field missing from this type is a field silently wiped on
+  // the next save.
+  tracks?: ("swe" | "embedded")[];
 }
 
 export interface Experience {
@@ -387,6 +394,9 @@ export interface Project {
   links: string[];
   dates?: string | null;
   bullets: string[];
+  // Flavours this project belongs to. Empty or absent means all of them.
+  // A tagged project LEADS on its flavour and is dropped from the others.
+  tracks?: ("swe" | "embedded")[];
 }
 
 export interface Resume {
@@ -394,7 +404,12 @@ export interface Resume {
   // education first with GPA and coursework shown; "professional" leads with
   // experience and hides GPA/coursework. Optional because the server defaults it
   // to "student", so a resume saved before this field existed stays valid.
+  // The section ARRANGEMENT. Still honoured by the renderer, no longer offered
+  // as a control: it existed to serve a second person who no longer uses this.
   career_stage?: "student" | "professional";
+  // Which flavour goes out. Selects content — which projects appear and which
+  // skills lead — not section order. See backend services/resume.py.
+  track?: "swe" | "embedded";
   contact: Contact;
   summary?: string | null;
   education: Education[];

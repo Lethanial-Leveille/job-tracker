@@ -6,6 +6,8 @@ import type { SkillGroup } from "../../lib/types";
 import { Field } from "../ui/Field";
 import { StringListEditor } from "../ui/StringListEditor";
 import { EmptyHint, EntryBlock, SectionCard } from "../ui/SectionCard";
+import { TrackTags } from "./TrackTags";
+import type { ResumeTrack } from "./shell";
 
 function blankSkillGroup(): SkillGroup {
   return { category: "", items: [] };
@@ -34,6 +36,11 @@ export function SkillsSection({ items, onChange }: Props) {
         <EntryBlock key={i} label={`Group ${i + 1}`} onRemove={() => remove(i)}>
           <Field label="Category" value={g.category} onChange={(v) => patch(i, { category: v })} placeholder="Languages" />
           <StringListEditor label="Items" items={g.items} onChange={(v) => patch(i, { items: v })} addLabel="Add skill" placeholder="Python" />
+          <TrackTags
+            value={g.tracks as ResumeTrack[] | undefined}
+            onChange={(tracks) => patch(i, { tracks })}
+            hint="Leads there, still shown elsewhere"
+          />
         </EntryBlock>
       ))}
     </SectionCard>

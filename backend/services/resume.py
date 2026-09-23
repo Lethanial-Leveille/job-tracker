@@ -77,6 +77,46 @@ _BASE_BULLETS_PER_ACTIVITY = 1
 _BASE_TOOLS_PER_PROJECT = 5
 
 
+def select_for_track(resume: Resume, track: str) -> Resume:
+    """Narrow a resume to one flavour: software, or embedded.
+
+    Two rules, and they are deliberately different from each other.
+
+    PROJECTS are filtered and reordered. A project tagged for this track leads,
+    because tagging it is a statement that it is the one to open with. A project
+    tagged only for another track is dropped, because the same statement says it
+    is specific to a different reader. Untagged projects are neutral and keep
+    their order behind the leads.
+
+    SKILLS are only reordered. A tagged row is promoted to sit directly behind
+    the first, never removed. The asymmetry earns its keep: dropping a project
+    the reader does not care about buys space on a one-page resume, where
+    dropping a skills row just hides something you can do. An embedded resume
+    still lists the web stack; it simply does not lead with it.
+
+    Behind the FIRST row rather than at the front, because Languages leads on
+    every engineering resume and the hardware row is the differentiator, not the
+    headline.
+
+    Pure: returns a copy and leaves the master alone. The master is the bank and
+    must stay whole — see docs and CLAUDE.md on never demoting a bullet out of
+    it.
+    """
+    chosen = resume.model_copy(deep=True)
+
+    leads = [p for p in chosen.projects if track in p.tracks]
+    neutral = [p for p in chosen.projects if not p.tracks]
+    chosen.projects = [*leads, *neutral]
+
+    if chosen.skills:
+        first, rest = chosen.skills[0], chosen.skills[1:]
+        promoted = [row for row in rest if track in row.tracks]
+        remaining = [row for row in rest if track not in row.tracks]
+        chosen.skills = [first, *promoted, *remaining]
+
+    return chosen
+
+
 def build_base_resume(master: Resume) -> tuple[Resume, list[str]]:
     """Derive the one-page general resume from `master`. Returns it and the cuts.
 
@@ -85,7 +125,10 @@ def build_base_resume(master: Resume) -> tuple[Resume, list[str]]:
     the tailoring path uses, so the base resume and a tailored resume can never
     disagree about what fits.
     """
-    base = master.model_copy(deep=True)
+    # Narrow to the flavour this master is set to BEFORE trimming, so the
+    # one-page cut happens on the projects that were going to be shown rather
+    # than on a list that still has the other track's work in it.
+    base = select_for_track(master, master.track)
 
     for job in base.experience:
         job.bullets = job.bullets[:_BASE_BULLETS_PER_JOB]

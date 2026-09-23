@@ -219,6 +219,11 @@ def tailor_resume(
     # from the master — a professional resume must never silently revert to
     # the student layout after tailoring.
     result.career_stage = master.career_stage
+    # Same reasoning for the resume flavour: it is a setting, not content. The
+    # model has no idea whether you are handing this to a firmware team, and a
+    # tailored resume that silently switched flavour would reorder your projects
+    # for reasons nobody could explain.
+    result.track = master.track
     # Same reasoning for the graduation-date choice: which of two true dates
     # prints is Lee's call per application, not something the model should infer
     # from a job description.

@@ -5,15 +5,15 @@
 
 import { Link } from "react-router-dom";
 import type { ShellProps } from "./shell";
-import { CareerStageToggle } from "./CareerStageToggle";
+import { ResumeTrackToggle } from "./ResumeTrackToggle";
 
 const primaryBtn =
   "rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink transition-shadow transition-colors hover:bg-accent-hover hover:shadow-glow active:bg-accent-press disabled:opacity-60";
 
 export function ResumeEditor({
   sections,
-  careerStage,
-  onCareerStageChange,
+  track,
+  onTrackChange,
   canSave,
   saving,
   saveError,
@@ -46,7 +46,7 @@ export function ResumeEditor({
           >
             General resume
           </Link>
-          <CareerStageToggle value={careerStage} onChange={onCareerStageChange} />
+          <ResumeTrackToggle value={track} onChange={onTrackChange} />
           {saveError ? (
             <span className="text-[13px] text-ink-soft">{saveError}</span>
           ) : (

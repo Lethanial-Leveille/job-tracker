@@ -6,6 +6,8 @@ import type { Project } from "../../lib/types";
 import { Field } from "../ui/Field";
 import { StringListEditor } from "../ui/StringListEditor";
 import { EmptyHint, EntryBlock, SectionCard } from "../ui/SectionCard";
+import { TrackTags } from "./TrackTags";
+import type { ResumeTrack } from "./shell";
 
 function blankProject(): Project {
   return { name: "", tools: [], links: [], dates: "", bullets: [] };
@@ -39,6 +41,11 @@ export function ProjectsSection({ items, onChange }: Props) {
           <StringListEditor label="Tools" items={p.tools} onChange={(v) => patch(i, { tools: v })} addLabel="Add tool" placeholder="Python" />
           <StringListEditor label="Links" items={p.links} onChange={(v) => patch(i, { links: v })} addLabel="Add link" placeholder="github.com/…" />
           <StringListEditor label="Bullets" items={p.bullets} onChange={(v) => patch(i, { bullets: v })} addLabel="Add bullet" multiline placeholder="Built X that did Y, resulting in Z" />
+          <TrackTags
+            value={p.tracks as ResumeTrack[] | undefined}
+            onChange={(tracks) => patch(i, { tracks })}
+            hint="Leads there, hidden elsewhere"
+          />
         </EntryBlock>
       ))}
     </SectionCard>

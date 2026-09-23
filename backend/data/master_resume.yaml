@@ -126,6 +126,7 @@ skills:
     # because the template rejoins items with commas.
     items: ["AWS (IoT Core, Lambda, DynamoDB, API Gateway)", PostgreSQL, MongoDB, Docker, Docker Compose, GitHub Actions, Cloudflare Tunnel, n8n, Postman, Git/GitHub, MQTT]
   - category: Hardware & Embedded
+    tracks: [embedded]
     # STM32 and ST-Link added Sep 2026 (FormFactor). Without them here, a
     # tailored embedded resume that lists STM32 as a skill has it stripped as
     # invented, because the guard only trusts this row and project tools verbatim.
@@ -190,6 +191,7 @@ projects:
       - "Built hybrid memory retrieval over a 233-memory SQLite corpus, fusing FTS5 keyword search ranked by summed inverse document frequency with all-MiniLM-L6-v2 semantic search (384-dimensional float32 vectors, 31ms per query) through reciprocal rank fusion, so two uncalibrated scoring scales vote without either being mapped onto the other."
       - "Diagnosed months of speaker-verification false rejections down to four compounding defects (an energy VAD that never fired at -53 dBFS capture, a follow-up loop that could not exit on hallucinated transcripts, an enrollment centroid poisoned to 0.63 average pairwise similarity, and mic gain leaving 7 of 16 bits unused), replacing the energy threshold with webrtcvad plus a 300ms pre-roll ring buffer and adding per-attempt logging that showed zero rejections across 94 attempts over two seconds."
   - name: Job Application Tracker (Prowl)
+    tracks: [swe]
     # This project. Per CLAUDE.md hard rule #6, update this entry as the tracker grows.
     tools: [Python, FastAPI, SQLAlchemy 2.0, Alembic, PostgreSQL, SQLite, React, TypeScript, Vite, Tailwind CSS, Claude API, WeasyPrint, Jinja, JWT, bcrypt, DigitalOcean, Linux, Caddy, Cloudflare Tunnel, systemd, GitHub Actions, n8n, httpx]
     # Repo link removed from the printed resume Sep 2026; kept here:
@@ -246,6 +248,7 @@ projects:
       - "Tested the model on **211 readings it had never seen**, getting every one of the 3 activities right at least 99% of the time."
       - "Sent readings from the wrist straight to cloud storage with no server in between, refreshing the dashboard every **4 seconds**."
   - name: Forearm Motion Wearable (FormFactor)
+    tracks: [embedded]
     tools: [C, STM32 Nucleo F401RE, STM32CubeIDE, ST-Link]
     links: [github.com/Lethanial-Leveille/FormFactor]
     dates: September 2026 – Present

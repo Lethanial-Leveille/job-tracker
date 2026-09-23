@@ -99,6 +99,14 @@ class SkillGroup(BaseModel):
 
     category: str
     items: list[str] = []
+    # Which flavour this row leads on. Promotion only — never exclusion, unlike
+    # Project.tracks.
+    #
+    # The asymmetry is the point. Dropping a project the reader does not care
+    # about buys space on a one-page resume; dropping a skills row just hides
+    # things you can do. So an embedded resume still lists the web stack, it
+    # simply does not lead with it.
+    tracks: list[Literal["swe", "embedded"]] = []
 
 
 class Experience(BaseModel):
@@ -135,6 +143,21 @@ class Project(BaseModel):
     tools: list[str] = []
     links: list[str] = []
     dates: str | None = None
+    # Which resume flavours this belongs on. EMPTY means every one, which is
+    # the right default: most projects are worth showing whoever is reading.
+    #
+    # A tag does two things at once, and that is deliberate rather than
+    # economical. On the resume you are building it LEADS, because tagging a
+    # project for a track is a statement that it is the one to open with. On
+    # every other track it is EXCLUDED, because the same statement says it is
+    # specific to that audience.
+    #
+    # Two tags reproduce both hand-built base resumes exactly: FormFactor is
+    # tagged embedded, Prowl is tagged swe, everything else is untagged and
+    # simply follows in order. A rule derived from the tools instead would have
+    # got it wrong — the embedded resume keeps MILES second despite it carrying
+    # no embedded work at all, because it is the strongest project regardless.
+    tracks: list[Literal["swe", "embedded"]] = []
     bullets: list[str] = []
 
 
@@ -164,6 +187,19 @@ class TailoredResume(BaseModel):
     # never change it — it's a fixed setting like the contact block, and the
     # tailoring service forces it back from the master to guarantee that.
     career_stage: Literal["student", "professional"] = "student"
+    # Which resume you are handing out: the general software one, or the
+    # embedded one. A rendering SETTING like career_stage and grad_date_variant,
+    # never chosen by tailoring, which forces it back from the master.
+    #
+    # This is what the builder now offers instead of student versus
+    # professional. The two arrangements still exist and career_stage still
+    # picks them; there is simply no longer a second person using the
+    # professional one, and the choice that matters every day is which flavour
+    # of the same student resume goes out.
+    #
+    # It selects CONTENT, not section order: which projects appear and which
+    # skills lead. See services/resume.py select_for_track.
+    track: Literal["swe", "embedded"] = "swe"
     # Which graduation date prints, when an Education carries two (see
     # Education.dates_alternate). "primary" prints `dates`; "alternate" prints
     # `dates_alternate`, falling back to `dates` for any school that has no
