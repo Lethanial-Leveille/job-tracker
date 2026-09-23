@@ -15,7 +15,7 @@ validation and database storage can never drift apart.
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from schemas.fit import FitReport
 
@@ -24,7 +24,7 @@ from models.application import (
     ApplicationType,
     Priority,
 )
-from schemas.roles import RoleFamily
+from schemas.roles import ROLE_FAMILIES, RoleFamily
 
 
 # --- Shared base -------------------------------------------------------------
@@ -109,6 +109,24 @@ class ApplicationUpdate(BaseModel):
 
 
 class ApplicationRead(ApplicationBase):
+    """One stored application, as the API returns it.
+
+    Two fields here are validated against something narrower than their column,
+    and both have taken the whole list down before. `fit_report` is a JSON blob
+    parsed through FitReport; `role_family` is a Literal over a plain VARCHAR.
+    Because the list response is `list[ApplicationRead]`, ONE row that fails
+    either check 500s the entire pipeline — you do not lose a row, you lose the
+    page, and nothing on screen says which row did it.
+
+    So both degrade instead. A report that cannot be parsed reads as "not
+    computed", and a family outside the vocabulary reads as "unset". Both are
+    cosmetic losses on one row; a blank pipeline is not.
+
+    This is the failure CLAUDE.md's stored-JSON rule is about, and adding a
+    default to new fields prevents only half of it — the other half is old data
+    that was valid when it was written and is not any more.
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -118,6 +136,38 @@ class ApplicationRead(ApplicationBase):
     # for this application yet. Read-only: it is written by POST /{id}/fit, not
     # by create or update, so no human-typed schema carries it.
     fit_report: FitReport | None = None
+
+    @field_validator("fit_report", mode="before")
+    @classmethod
+    def _tolerate_an_unreadable_report(cls, value: object) -> object:
+        """Drop a report this schema can no longer read, rather than 500.
+
+        A cached report is a convenience: it is recomputed on demand by
+        POST /{id}/fit, and showing nothing prompts exactly that. Refusing to
+        serve the application it belongs to is not a proportionate response to a
+        stale cache.
+        """
+        if value is None or isinstance(value, FitReport):
+            return value
+        try:
+            return FitReport.model_validate(value)
+        except ValidationError:
+            return None
+
+    @field_validator("role_family", mode="before")
+    @classmethod
+    def _tolerate_an_unknown_family(cls, value: object) -> object:
+        """Read a family outside the vocabulary as unset.
+
+        The column is a VARCHAR and the Literal is the only thing enforcing the
+        set, precisely so that adding a family is a code change rather than a
+        migration. The cost of that choice is exactly this: retire or rename one
+        and every row still holding the old string becomes unreadable. Losing
+        the tidy label on a row is a fair price; losing the pipeline is not.
+        """
+        if value is None or value in ROLE_FAMILIES:
+            return value
+        return None
     # Derived, never stored: the first time this row reached `applied`, read out
     # of the status history by services/application.py. It exists so the list can
     # answer "how long have I been waiting" without a per-row timeline fetch.

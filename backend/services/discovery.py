@@ -56,6 +56,17 @@ from services.text_match import (
 # and grad students with the coursework to back them), "Hardware Engineer Intern"
 # (RTL and circuit work, which needs Digital Logic), "Data Engineer Intern",
 # "Frontend Engineer Intern", and "Other". Adding one back is one line here.
+# Below this, a posting never reaches the inbox. Applied after scoring rather
+# than before staging, because the score does not exist until the posting has
+# been read — the effect is the same, the row is filed away unseen.
+#
+# 40 is deliberately low. It is not "jobs worth applying to", it is "jobs worth
+# a glance", and the cost of the two errors is not symmetric: a weak posting you
+# see costs one dismissal, where a good one you never see is gone. The rows are
+# kept as `filtered` either way, so raising or lowering this is a judgement you
+# can revisit against real data rather than a deletion.
+MIN_FIT_TO_STAGE = 40
+
 DEFAULT_WANTED_FAMILIES = frozenset(
     {
         "Software Engineer Intern",
@@ -588,6 +599,38 @@ def accept(
     return application
 
 
+def dismiss_many(db: Session, user_id: str, job_ids: list[str]) -> int:
+    """Turn down a batch at once, and report how many actually were.
+
+    The inbox runs to hundreds and most of them are rejections. One decision
+    instead of a hundred clicks is the difference between clearing it and
+    abandoning it.
+
+    Scoped by owner in the WHERE clause rather than by fetching and checking,
+    so a list of ids from anywhere can only ever touch your own rows. Ids that
+    are not yours, or already resolved, simply do not match — the count says how
+    many did, which is how the UI can tell you "cleared 84" honestly rather than
+    echoing back what it asked for.
+    """
+    if not job_ids:
+        return 0
+
+    rows = db.execute(
+        select(DiscoveredJob).where(
+            DiscoveredJob.user_id == user_id,
+            DiscoveredJob.id.in_(job_ids),
+            DiscoveredJob.state == DiscoveryState.pending,
+        )
+    ).scalars().all()
+
+    now = datetime.now(UTC)
+    for job in rows:
+        job.state = DiscoveryState.dismissed
+        job.resolved_at = now
+    db.commit()
+    return len(rows)
+
+
 def dismiss(db: Session, job: DiscoveredJob) -> DiscoveredJob:
     """Turn a discovery down. The row stays so the feed cannot re-offer it."""
     return resolve(db, job, DiscoveryState.dismissed)
@@ -716,6 +759,10 @@ def enrich(
         if report is not None:
             job.fit_report = report.model_dump(mode="json")
             job.fit_score = fit_score(report)
+            if job.fit_score < MIN_FIT_TO_STAGE:
+                # Scored too low to be worth a glance. Filed away rather than
+                # deleted, so the threshold stays a judgement you can revisit.
+                job.state = DiscoveryState.filtered
 
     # A posting whose graduation window closes before you can finish is not a
     # judgement call. It is a new-grad role or a cycle already gone, and there
@@ -835,6 +882,8 @@ def rescore_pending(db: Session, user_id: str, settings: Settings, limit: int = 
             if report is not None:
                 job.fit_report = report.model_dump(mode="json")
                 job.fit_score = fit_score(report)
+                if job.fit_score < MIN_FIT_TO_STAGE:
+                    job.state = DiscoveryState.filtered
                 rescored += 1
 
     db.commit()

@@ -1,4 +1,7 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from config import Settings, get_settings
@@ -27,6 +30,8 @@ from services.fetch_posting import PostingFetchError, fetch_posting
 from services.parsing import parse_job_description
 from services.resume import get_master
 from services.status_event import delete_status_event, list_status_events
+
+logger = logging.getLogger(__name__)
 
 # dependencies=[Depends(get_current_user)] protects EVERY route in this router by
 # default — you can't forget to guard one. Handlers that need the owner also
@@ -151,7 +156,33 @@ def list_all(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> list[ApplicationRead]:
-    return list_applications(db, user.id)
+    """Every application this user owns.
+
+    Rows are validated ONE AT A TIME here rather than being handed to FastAPI as
+    a list. That looks like extra work and it is the difference between losing a
+    row and losing the page: `list[ApplicationRead]` validates all or nothing, so
+    a single row this schema can no longer read returns a 500 and an empty
+    pipeline, with nothing on screen saying which row caused it.
+
+    ApplicationRead already degrades the two fields that realistically go stale
+    (a cached fit report, a retired role family), so reaching the skip below
+    means something genuinely unexpected. It is logged with the row's id, which
+    is the only breadcrumb anyone gets, and the rest of the list still loads.
+    """
+    rows: list[ApplicationRead] = []
+    for application in list_applications(db, user.id):
+        try:
+            rows.append(ApplicationRead.model_validate(application))
+        except ValidationError as exc:
+            # Deliberately not re-raised. A pipeline missing one row is a
+            # problem you can see and report; a blank page is one you cannot.
+            logger.error(
+                "Skipping unreadable application %s (%s): %s",
+                application.id,
+                application.organization,
+                exc,
+            )
+    return rows
 
 
 @router.patch("/{application_id}", response_model=ApplicationRead)

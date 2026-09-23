@@ -293,3 +293,75 @@ def test_listing_stays_two_queries_however_many_rows(db, user):
 
     assert len(rows) >= 5
     assert len(seen) == 2, "expected 2 queries, got:\n" + "\n".join(q[:90] for q in seen)
+
+
+# --- One bad row must not cost the whole page --------------------------------
+# The list response is `list[ApplicationRead]`, which validates all or nothing.
+# A single row this schema can no longer read returns a 500 and a blank
+# pipeline, with nothing on screen saying which row did it. That has happened.
+
+
+def test_a_cached_report_this_schema_cannot_read_is_dropped_not_fatal() -> None:
+    """A stale cache is not a reason to refuse the application it belongs to.
+
+    Reports are recomputed on demand by POST /{id}/fit, so showing none prompts
+    exactly that. Refusing to serve the row is not proportionate.
+    """
+    from schemas.application import ApplicationRead
+
+    row = ApplicationRead(
+        id="a",
+        type="internship",
+        organization="Acme",
+        role_or_program="Software Engineer Intern",
+        posting_url="https://x/1",
+        created_at="2026-09-01T00:00:00Z",
+        updated_at="2026-09-01T00:00:00Z",
+        # Shaped like a report written by older code, and unreadable now.
+        fit_report={"matches": [], "met_count": "not a number"},
+    )
+
+    assert row.fit_report is None
+    assert row.organization == "Acme"
+
+
+def test_a_retired_role_family_reads_as_unset() -> None:
+    """The cost of keeping the family list in code rather than in a migration.
+
+    The column is a VARCHAR and the Literal is the only thing enforcing the set,
+    so retiring or renaming a family makes every row still holding the old
+    string unreadable. Losing the tidy label is a fair price; losing the
+    pipeline is not.
+    """
+    from schemas.application import ApplicationRead
+
+    row = ApplicationRead(
+        id="a",
+        type="internship",
+        organization="Acme",
+        role_or_program="Software Engineer Intern",
+        posting_url="https://x/1",
+        created_at="2026-09-01T00:00:00Z",
+        updated_at="2026-09-01T00:00:00Z",
+        role_family="Robotics Engineer Intern",
+    )
+
+    assert row.role_family is None
+
+
+def test_a_family_still_in_the_vocabulary_survives() -> None:
+    # The guard must not quietly blank every family it is asked about.
+    from schemas.application import ApplicationRead
+
+    row = ApplicationRead(
+        id="a",
+        type="internship",
+        organization="Acme",
+        role_or_program="Software Engineer Intern",
+        posting_url="https://x/1",
+        created_at="2026-09-01T00:00:00Z",
+        updated_at="2026-09-01T00:00:00Z",
+        role_family="Embedded Engineer Intern",
+    )
+
+    assert row.role_family == "Embedded Engineer Intern"

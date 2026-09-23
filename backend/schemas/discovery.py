@@ -202,3 +202,22 @@ class AcceptDiscovered(BaseModel):
 
     jd_text: str | None = None
     jd_parsed: dict | None = None
+
+
+class DismissMany(BaseModel):
+    """Ids to turn down in one go.
+
+    A list rather than a filter description, deliberately: the server would have
+    to re-derive what you were looking at, and any disagreement between its idea
+    of the filter and yours dismisses rows you never saw. Sending the ids means
+    what gets cleared is exactly what was on screen.
+    """
+
+    job_ids: list[str]
+
+
+class DismissResult(BaseModel):
+    # How many rows this actually changed, which can be fewer than asked for if
+    # some were already resolved. Reported rather than assumed, so the UI can
+    # say "cleared 84" instead of echoing its own request back.
+    dismissed: int

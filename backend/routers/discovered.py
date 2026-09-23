@@ -22,11 +22,14 @@ from schemas.discovery import (
     AcceptDiscovered,
     DiscoveredJobRead,
     DiscoveryRunRead,
+    DismissMany,
+    DismissResult,
 )
 from services.discovery import (
     RunAlreadyGoing,
     accept,
     dismiss,
+    dismiss_many,
     execute_run,
     get_discovered,
     latest_run,
@@ -99,6 +102,24 @@ def read_latest_run(
     """
     run = latest_run(db, user.id)
     return DiscoveryRunRead.model_validate(run) if run else None
+
+
+@router.post("/dismiss", response_model=DismissResult)
+def dismiss_batch(
+    data: DismissMany,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> DismissResult:
+    """Turn down a batch in one action.
+
+    Declared before /{job_id}/accept so the static segment is not swallowed by
+    the dynamic one — the same rule the applications router follows.
+
+    Takes ids rather than a filter description. The server re-deriving what you
+    were looking at is how a bulk action clears rows you never saw, and there is
+    no way to notice afterwards.
+    """
+    return DismissResult(dismissed=dismiss_many(db, user.id, data.job_ids))
 
 
 @router.post("/{job_id}/accept", response_model=ApplicationRead)
