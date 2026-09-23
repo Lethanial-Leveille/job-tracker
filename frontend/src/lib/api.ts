@@ -363,8 +363,15 @@ function filenameFrom(header: string | null): string {
 // on every call rather than stored. Feed the result straight to renderResume()
 // (optionally with a gradDate) to get the PDF — one render path for base and
 // tailored alike, so the two can never disagree about format.
-export async function getBaseResume(): Promise<Resume> {
-  const res = await request("/resume/base");
+export async function getBaseResume(
+  track?: "swe" | "embedded",
+): Promise<Resume> {
+  // `track` overrides the flavour saved on the master for this call only, so
+  // you can print the embedded resume for one application without changing your
+  // default and having to remember to change it back.
+  const res = await request(
+    `/resume/base${track ? `?track=${track}` : ""}`,
+  );
   return (await res.json()) as Resume;
 }
 

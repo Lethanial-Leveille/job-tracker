@@ -6,6 +6,7 @@
 import { Link } from "react-router-dom";
 import type { ShellProps } from "./shell";
 import { ResumeTrackToggle } from "./ResumeTrackToggle";
+import { DownloadBaseButtons } from "./DownloadBaseButtons";
 
 const primaryBtn =
   "rounded-interactive bg-accent px-4 py-2 text-sm font-medium text-ink transition-shadow transition-colors hover:bg-accent-hover hover:shadow-glow active:bg-accent-press disabled:opacity-60";
@@ -15,6 +16,7 @@ export function ResumeEditor({
   track,
   onTrackChange,
   canSave,
+  unsaved,
   saving,
   saveError,
   saved,
@@ -47,6 +49,10 @@ export function ResumeEditor({
             General resume
           </Link>
           <ResumeTrackToggle value={track} onChange={onTrackChange} />
+          {/* Both flavours, one click each. Disabled while there are unsaved
+              edits: the server derives these from the STORED master, so a
+              download taken mid-edit would quietly be the previous version. */}
+          <DownloadBaseButtons unsaved={unsaved} />
           {saveError ? (
             <span className="text-[13px] text-ink-soft">{saveError}</span>
           ) : (

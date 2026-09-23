@@ -23,6 +23,10 @@ export interface ShellProps {
   track: ResumeTrack;
   onTrackChange: (track: ResumeTrack) => void;
   canSave: boolean;
+  // True while the draft differs from what the server holds. The general
+  // resumes are derived server-side from the STORED master, so a download taken
+  // mid-edit would quietly be the previous version.
+  unsaved: boolean;
   saving: boolean;
   saveError: string | null;
   saved: boolean;

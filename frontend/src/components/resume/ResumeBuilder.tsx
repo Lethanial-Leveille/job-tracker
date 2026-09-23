@@ -60,6 +60,10 @@ function Inner({
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState<Resume>(initial);
+  // What was last written to the server. Kept alongside the draft so "are there
+  // unsaved edits" is answerable — `canSave` only says the draft is VALID, and
+  // reusing it for that question disables things permanently.
+  const [stored, setStored] = useState<Resume>(initial);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -84,12 +88,19 @@ function Inner({
   // saved half-filled (partial resumes validate).
   const canSave = draft.contact.name.trim() !== "";
 
+  // A whole-object compare rather than a flag each editor has to remember to
+  // set. The resume is small, this runs on render, and a dirty flag that one
+  // section forgets to raise is worse than a cheap comparison — it would let a
+  // download silently hand you the previous version.
+  const unsaved = JSON.stringify(draft) !== JSON.stringify(stored);
+
   async function handleSave() {
     if (!canSave) return;
     setSaving(true);
     setSaveError(null);
     try {
-      await save(draft);
+      const written = await save(draft);
+      setStored(written);
       // First-time users finish the wizard and return to the app; returning
       // users stay in the editor with a "Saved" confirmation.
       if (isNew) {
@@ -111,6 +122,7 @@ function Inner({
     track: (draft.track ?? "swe") as ResumeTrack,
     onTrackChange: (track: ResumeTrack) => update({ track }),
     canSave,
+    unsaved,
     saving,
     saveError,
     saved,
