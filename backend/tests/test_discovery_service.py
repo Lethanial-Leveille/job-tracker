@@ -480,6 +480,48 @@ def test_accepting_carries_the_posting_onto_the_application(
     assert application.role_family == "Software Engineer Intern"
 
 
+def test_accepting_promotes_the_postings_own_deadline(db: Session, user: User) -> None:
+    """A stated deadline has to reach the column that things actually read.
+
+    It used to sit in jd_parsed and stop there, so a discovery with a real
+    closing date arrived in the pipeline looking like it had none. It is
+    labelled `posting` because the parser is forbidden from inventing a
+    deadline, which makes anything in that blob a fact about the posting.
+    """
+    from services.discovery import accept
+
+    _stage(db, user, [_listing()], {0: "Software Engineer Intern"})
+    _enrich(db, user, text="Graduating in 2029 required.")
+
+    application = accept(
+        db, _staged(db)[0], user.id, jd_parsed={"deadline": "2026-11-01"}
+    )
+
+    assert application.deadline.isoformat() == "2026-11-01"
+    assert application.deadline_source == "posting"
+
+
+def test_accepting_a_posting_with_no_deadline_invents_none(
+    db: Session, user: User
+) -> None:
+    """No stated date means no date, and no source either.
+
+    The add flow defaults a self-imposed date so a row stays visible; this path
+    deliberately does not. A discovery already sits in a review queue you are
+    looking at, so there is nothing to rescue it from, and a date with no source
+    is exactly the ambiguity deadline_source exists to remove.
+    """
+    from services.discovery import accept
+
+    _stage(db, user, [_listing()], {0: "Software Engineer Intern"})
+    _enrich(db, user, text="Rolling applications, no closing date.")
+
+    application = accept(db, _staged(db)[0], user.id, jd_parsed={"salary": "none"})
+
+    assert application.deadline is None
+    assert application.deadline_source is None
+
+
 # --- Fields carried across ---------------------------------------------------
 
 

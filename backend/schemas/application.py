@@ -22,6 +22,7 @@ from schemas.fit import FitReport
 from models.application import (
     ApplicationStatus,
     ApplicationType,
+    DeadlineSource,
     Priority,
 )
 from schemas.roles import ROLE_FAMILIES, RoleFamily
@@ -49,6 +50,13 @@ class ApplicationBase(BaseModel):
 
     # Genuinely optional, no default value.
     deadline: date | None = None
+
+    # Whether `deadline` above is the posting's date or one you set yourself.
+    # Null means unknown, which is a real third answer here rather than a
+    # missing value: rows predating this field have no evidence either way, and
+    # a warning about a missed deadline must not fire on a guess.
+    deadline_source: DeadlineSource | None = None
+
     notes: str | None = None
 
     # The tidy, groupable version of role_or_program, normally filled by the
@@ -91,6 +99,10 @@ class ApplicationUpdate(BaseModel):
     status: ApplicationStatus | None = None
     priority: Priority | None = None
     deadline: date | None = None
+    # Editable, because the two move together: changing a date by hand usually
+    # means it is now yours rather than the posting's, and the caller is the
+    # only one who knows which.
+    deadline_source: DeadlineSource | None = None
     notes: str | None = None
     role_family: RoleFamily | None = None
     # Re-settable input (unlike jd_parsed, which update omits): lets you paste a
@@ -168,6 +180,22 @@ class ApplicationRead(ApplicationBase):
         if value is None or value in ROLE_FAMILIES:
             return value
         return None
+
+    @field_validator("deadline_source", mode="before")
+    @classmethod
+    def _tolerate_an_unknown_deadline_source(cls, value: object) -> object:
+        """Read a source outside the vocabulary as unknown.
+
+        Same trade as the family above, and the same reason: the column is a
+        VARCHAR so that adding a source later is a code change rather than a
+        migration. Degrading to None is safe in a way it would not be for most
+        fields, because None already means "no evidence" here, and every
+        consumer of this field is required to treat unknown as "do not warn".
+        """
+        if value is None:
+            return None
+        raw = value.value if isinstance(value, DeadlineSource) else str(value)
+        return raw if raw in {m.value for m in DeadlineSource} else None
     # Derived, never stored: the first time this row reached `applied`, read out
     # of the status history by services/application.py. It exists so the list can
     # answer "how long have I been waiting" without a per-row timeline fetch.

@@ -8,6 +8,10 @@ function app(over: Partial<Application> = {}): Application {
     id: Math.random().toString(36).slice(2),
     status: "discovered" as ApplicationStatus,
     deadline: null,
+    // Default to the employer's own date, so a test that only cares about
+    // status does not have to think about provenance. The tests that DO care
+    // override it.
+    deadline_source: "posting" as const,
     applied_at: null,
     ...over,
   } as unknown as Application;
@@ -39,6 +43,22 @@ describe("StatsStrip", () => {
     );
     const label = screen.getByText("Closing ≤7d").parentElement!;
     expect(label.textContent).toContain("1");
+  });
+
+  it("does not count a self-imposed date as closing", () => {
+    // A date I set so the row would stay visible is a reminder, not a closing
+    // date. Nothing is enforcing it, so counting it inflates the one figure
+    // meant to make me act, and a counter that cries wolf gets ignored.
+    render(
+      <StatsStrip
+        applications={[
+          app({ deadline: inDays(2), deadline_source: "self" }),
+          app({ deadline: inDays(2), deadline_source: null }),
+        ]}
+      />,
+    );
+    const label = screen.getByText("Closing ≤7d").parentElement!;
+    expect(label.textContent).toContain("0");
   });
 
   it("excludes closed rows from the applied count", () => {

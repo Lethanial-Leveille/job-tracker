@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from dependencies import get_miles_owner, verify_miles_token
-from models.application import Application, ApplicationStatus
+from models.application import Application, ApplicationStatus, DeadlineSource
 from models.status_event import StatusEvent
 from models.user import User
 from schemas.integrations import (
@@ -144,6 +144,7 @@ def _row(
         role_family=application.role_family,
         deadline=application.deadline,
         days_until_deadline=_days_until(application.deadline),
+        deadline_source=application.deadline_source,
         applied_at=applied,
         days_since_applied=_days_since(applied),
         # Falls back to created_at so a row that has never moved still reports
@@ -336,11 +337,17 @@ def miles_summary(
     # case that matters. Sorted most recently missed first, because a deadline
     # that slipped two days ago may still be worth a late application and one
     # that slipped two months ago is history.
+    # Only the employer's own dates. A self-imposed date that slipped is not a
+    # missed opportunity, it is a to-do list running late, and an unknown source
+    # is no evidence at all. Warning on either would mean telling Lee he missed
+    # something that was never closing, which is worse than staying quiet: a
+    # warning that is sometimes invented is one he learns to ignore entirely.
     overdue = sorted(
         (
             r
             for r in rows
-            if r.days_until_deadline is not None
+            if r.deadline_source == DeadlineSource.posting.value
+            and r.days_until_deadline is not None
             and r.days_until_deadline < 0
             and r.days_since_applied is None
         ),

@@ -58,14 +58,23 @@ export function DeadlineCell({ application }: { application: Application }) {
   if (!d) {
     return <span className="text-sm tabular-nums text-ink-muted">—</span>;
   }
-  const urgent = d.days <= URGENT_DAYS;
+  // A date you set yourself is never urgent, however close it is. Nothing
+  // closes on it, so brightening it would spend the column's one signal on a
+  // reminder and leave a real closing date looking identical to a preference.
+  // It still shows, because the reason it exists is to keep the row visible.
+  const mine = application.deadline_source === "self";
+  const urgent = !mine && d.days <= URGENT_DAYS;
   return (
     <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-      <span className={`text-sm tabular-nums ${urgent ? "text-ink" : "text-ink-soft"}`}>
+      <span
+        className={`text-sm tabular-nums ${
+          urgent ? "text-ink" : mine ? "text-ink-muted" : "text-ink-soft"
+        }`}
+      >
         {d.date}
       </span>
       <span className={`text-[11px] ${urgent ? "text-ink-soft" : "text-ink-muted"}`}>
-        {d.relative}
+        {mine ? `yours · ${d.relative}` : d.relative}
       </span>
     </div>
   );

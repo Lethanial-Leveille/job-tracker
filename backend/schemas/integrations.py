@@ -54,6 +54,13 @@ class MilesApplication(BaseModel):
     deadline: date | None = None
     days_until_deadline: int | None = None
 
+    # "posting" = the employer's date. "self" = one Lee set so the row would not
+    # sink out of view. None = unknown, no evidence either way. This is the
+    # difference between "applications close Friday" and "you wanted to finish
+    # this by Friday", which are not the same sentence and must not be spoken as
+    # though they were.
+    deadline_source: str | None = None
+
     # Null when the row has never reached `applied`, which is different from
     # applied today. Null means "not yet", not zero.
     applied_at: datetime | None = None

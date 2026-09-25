@@ -22,7 +22,12 @@ from sqlalchemy.orm import Session
 
 from config import Settings
 from database import SessionLocal
-from models.application import Application, ApplicationStatus, ApplicationType
+from models.application import (
+    Application,
+    ApplicationStatus,
+    ApplicationType,
+    DeadlineSource,
+)
 from models.discovered_job import DiscoveredJob, DiscoveryState
 from models.discovery_run import DiscoveryRun, RunState
 from models.target_company import TargetCompany
@@ -573,6 +578,15 @@ def accept(
     at the beginning, and it goes through create_application so the status
     history records its opening entry like every other row.
     """
+    # The posting's own deadline, if it stated one. Until now accepting threw
+    # this away: the date sat in jd_parsed and never reached the column anything
+    # reads, so a discovery with a real closing date arrived in the pipeline
+    # looking like it had none. It is labelled `posting` because the parser is
+    # forbidden from inventing a deadline, which makes anything here a fact
+    # about the posting rather than a preference of ours.
+    blob = jd_parsed or job.jd_parsed
+    stated = blob.get("deadline") if isinstance(blob, dict) else None
+
     application = create_application(
         db,
         ApplicationCreate(
@@ -592,6 +606,10 @@ def accept(
             # besides.
             jd_text=jd_text or job.jd_text,
             jd_parsed=jd_parsed or job.jd_parsed,
+            # Both or neither. A date with no source is the ambiguity this
+            # whole field exists to remove, so they are set together.
+            deadline=stated,
+            deadline_source=DeadlineSource.posting if stated else None,
         ),
         user_id,
     )

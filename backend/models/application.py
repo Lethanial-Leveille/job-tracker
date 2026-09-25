@@ -58,6 +58,27 @@ class Priority(str, enum.Enum):
     high = "high"
 
 
+class DeadlineSource(str, enum.Enum):
+    """Where a row's `deadline` came from.
+
+    This exists because one column grew two meanings. "This posting closes on
+    Sept 15" is a fact about the world; "I want to apply by Friday" is an
+    intention of mine. Both were being written to `deadline`, which left nothing
+    downstream able to tell them apart: a missed-deadline warning could not say
+    whether an employer had closed the door or whether I had blown past a date I
+    made up. The dates stay in one column, sorted together, because for sorting
+    they ARE the same thing. Only their origin differs, so only their origin is
+    recorded.
+    """
+
+    # The posting stated this date, extracted by the parser, which is forbidden
+    # from inventing one (see services/parsing.py).
+    posting = "posting"
+    # The add flow supplied it so a row with no stated deadline would not sort
+    # last and vanish. Mine, not the employer's.
+    self_imposed = "self"
+
+
 # --- Model -------------------------------------------------------------------
 
 
@@ -114,6 +135,19 @@ class Application(Base):
 
     # Optional fields.
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    # Which kind of date `deadline` above is holding. Values come from
+    # DeadlineSource; NULL means genuinely unknown, which is the honest state
+    # for rows created before this column existed and carrying no jd_parsed to
+    # judge them by. Unknown is deliberately NOT collapsed into either answer:
+    # guessing "posting" would resurrect the wrong warnings this column exists
+    # to stop, and guessing "self" would discard real scraped deadlines.
+    #
+    # String rather than SqlEnum, following role_family above. A Postgres enum
+    # needs a hand-written ALTER TYPE migration to gain a value (see
+    # docs/deploy.md), and this is a small vocabulary that may well grow, for
+    # example if a date ever arrives from an email rather than a posting.
+    deadline_source: Mapped[str | None] = mapped_column(String(16), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Parser output home. Empty in v1 (no JD parsing yet); filled in v2.

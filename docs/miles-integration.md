@@ -82,7 +82,7 @@ that was forgotten, not the thing someone remembered to ask.
 active_count          live applications
 counts_by_status      {status: count}, all rows including closed
 upcoming_deadlines    deadline within the window, soonest first, max 5
-overdue               deadline passed AND never applied, most recent first, max 5
+overdue               a POSTING deadline passed AND never applied, max 5
 stale                 applied, untouched 14+ days, longest silence first, max 5
 pending_suggestions   status changes awaiting review, max 5
 discovered_waiting    count of jobs in the discovery inbox
@@ -90,6 +90,10 @@ discovered_waiting    count of jobs in the discovery inbox
 
 `overdue` and `upcoming_deadlines` are separate on purpose. One is "this is
 coming up", the other is "this got away from you". They are different sentences.
+
+`overdue` counts **only** deadlines the posting itself stated. Prowl also holds
+self-imposed dates, and one of those slipping is a to-do list running late, not
+a missed opportunity. Say "you missed X" only for what this list contains.
 
 ## Field semantics
 
@@ -103,6 +107,12 @@ fields when a day count is already provided.
 - `days_since_applied` — **null means never applied**, not applied today
 - `days_since_last_change` — how long the row has sat at its current status
 - `fit_score` — 0 to 100, **null means unknown**, not a bad match
+- `deadline_source` — where the date came from, and it changes the wording:
+  - `"posting"` — the employer's date. "Applications close Friday."
+  - `"self"` — a date Lee set so the row would not sink out of view. "You wanted
+    to get this in by Friday." Never call this a closing date.
+  - `null` — unknown, no evidence either way. Give the date without claiming
+    whose it is, and never warn that it was missed.
 - `needs_a_screen` on a suggestion — matched nothing, or matched several. Do not
   present it as actionable by voice
 

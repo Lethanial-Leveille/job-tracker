@@ -34,7 +34,11 @@ function summarize(applications: Application[]) {
     const closed = isClosed(app.status);
     if (!pre && !closed) applied += 1;
     if (IN_PROCESS.includes(app.status)) inProcess += 1;
-    if (pre) {
+    if (pre && app.deadline_source === "posting") {
+      // Only the employer's own dates. A self-imposed date is a reminder, not a
+      // closing date, and an unknown source is no evidence at all. This counter
+      // exists to make you act, so padding it with dates nobody is enforcing
+      // makes it a number you learn to ignore.
       const days = formatDeadline(app.deadline)?.days;
       if (days !== undefined && days <= 7) closingSoon += 1;
     }

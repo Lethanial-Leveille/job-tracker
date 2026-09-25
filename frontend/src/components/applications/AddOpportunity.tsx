@@ -75,6 +75,7 @@ interface ReviewForm {
   posting_url: string;
   status: ApplicationStatus;
   deadline: string;
+  deadline_source: "posting" | "self" | null;
   notes: string;
 }
 
@@ -88,6 +89,10 @@ const BLANK: ReviewForm = {
   posting_url: "",
   status: "discovered",
   deadline: "",
+  // Null rather than "self" because BLANK carries no date at all. The two are
+  // set together everywhere below: a date without a source is exactly the
+  // ambiguity this field exists to remove.
+  deadline_source: null,
   notes: "",
 };
 
@@ -162,6 +167,9 @@ export function AddOpportunity({
   const [form, setForm] = useState<ReviewForm>(() => ({
     ...BLANK,
     deadline: defaultDeadline(),
+    // Ours, not the employer's. Labelling it honestly is what lets the rest of
+    // the app stop treating an invented date as a real closing date.
+    deadline_source: "self",
   }));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -194,6 +202,9 @@ export function AddOpportunity({
       role_or_program: p.role_or_program,
       role_family: p.role_family,
       deadline: p.deadline ?? defaultDeadline(),
+      // The parser is forbidden from inventing a deadline, so a date here is a
+      // fact about the posting. Falling back to our own date makes it ours.
+      deadline_source: p.deadline ? "posting" : "self",
       // Carried from the input step so the link never gets typed twice. Still
       // editable at review.
       posting_url: resolvedUrl,
@@ -266,6 +277,7 @@ export function AddOpportunity({
         status: form.status,
         role_family: form.role_family,
         deadline: form.deadline === "" ? null : form.deadline,
+        deadline_source: form.deadline === "" ? null : form.deadline_source,
         notes: form.notes === "" ? null : form.notes,
         // Carry the parser's extras + the raw JD so the detail view can surface
         // them and tailoring can run against the real posting.
@@ -297,7 +309,17 @@ export function AddOpportunity({
     !saving;
 
   function set<K extends keyof ReviewForm>(key: K, value: ReviewForm[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => ({
+      ...f,
+      [key]: value,
+      // Typing a date by hand makes it yours, whatever it was before. This is
+      // the one field where editing changes what the value MEANS, not just what
+      // it is, so the source has to follow the edit rather than be set once.
+      // Clearing the box leaves no date, so it leaves no source either.
+      ...(key === "deadline"
+        ? { deadline_source: value === "" ? null : "self" }
+        : {}),
+    }));
   }
 
   return (

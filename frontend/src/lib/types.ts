@@ -114,6 +114,11 @@ export interface Application {
   status: ApplicationStatus;
   priority: Priority;
   deadline: string | null; // ISO date, e.g. "2026-07-14"
+  // Where that date came from. "posting" is the employer's own closing
+  // date; "self" is one we set so a row with no stated deadline would not
+  // sort last and vanish; null is unknown, which is a real third answer
+  // for rows created before this field existed.
+  deadline_source: "posting" | "self" | null;
   notes: string | null;
   jd_parsed: JdParsed | null; // parser extras (salary, summary, requirements…)
   jd_text: string | null; // the raw pasted JD, used as tailoring input
@@ -331,6 +336,7 @@ export interface ApplicationCreateInput {
   status?: ApplicationStatus;
   priority?: Priority;
   deadline?: string | null;
+  deadline_source?: "posting" | "self" | null;
   notes?: string | null;
   // The parser's extras (salary, summary, requirements) with no column of their
   // own. Set only on an autofilled create; omitted on manual create and edit.
