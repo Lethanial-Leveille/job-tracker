@@ -15,6 +15,7 @@ from routers.applications import router as applications_router
 from routers.auth import router as auth_router
 from routers.companies import router as companies_router
 from routers.discovered import router as discovered_router
+from routers.integrations import router as integrations_router
 from routers.resume import router as resume_router
 from routers.suggestions import router as suggestions_router
 from routers.webhooks import router as webhooks_router
@@ -50,6 +51,7 @@ app.include_router(discovered_router)
 app.include_router(resume_router)
 app.include_router(suggestions_router)
 app.include_router(webhooks_router)
+app.include_router(integrations_router)
 
 @app.get("/health")
 def health(db: Session = Depends(get_db)) -> dict[str, str]:

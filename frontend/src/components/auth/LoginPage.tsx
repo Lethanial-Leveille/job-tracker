@@ -9,10 +9,14 @@ interface Props {
 
 // The gate the whole app sits behind. Two panels: a brand/hero column on the
 // left (hidden on small screens) and the sign-in form on the right. Only the
-// email/password flow is real; "Continue with Google", "Forgot?", and "Create
-// an account" are shown to match the target design but are not wired to any
-// backend yet, so they surface an honest "not set up yet" note instead of
-// pretending to work.
+// email/password flow is real; "Continue with Google" and "Forgot?" are shown
+// to match the target design but are not wired to any backend yet, so they
+// surface an honest "not set up yet" note instead of pretending to work.
+//
+// "Create an account" used to sit below the form and was removed. The other two
+// are unbuilt; that one was never coming. Prowl is a single user app whose
+// accounts are made by a seed script on the server, so an invitation to sign up
+// promised something that does not exist rather than something not finished.
 export function LoginPage({ onLoggedIn }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -182,16 +186,6 @@ export function LoginPage({ onLoggedIn }: Props) {
             Continue with Google
           </button>
 
-          <p className="mt-6 text-center text-sm text-ink-muted">
-            New to Prowl?{" "}
-            <button
-              type="button"
-              onClick={() => notYet("Account creation")}
-              className="font-semibold text-accent hover:text-accent-hover"
-            >
-              Create an account
-            </button>
-          </p>
         </form>
       </main>
     </div>

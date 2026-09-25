@@ -26,6 +26,7 @@ from database import get_db
 from main import app
 from models.user import User
 from services.email_ingest import IngestOutcome
+from services.user import OwnerNotConfigured
 
 _TOKEN = "test-service-token"
 
@@ -127,23 +128,50 @@ def test_a_user_jwt_does_not_open_the_webhook(client: TestClient) -> None:
 # --- the request contract ---------------------------------------------------
 
 
-@patch("routers.webhooks.get_user_by_email")
-def test_unknown_mailbox_is_a_404(
-    mock_get_user: MagicMock, client: TestClient
+@patch("routers.webhooks.get_owner")
+def test_an_unconfigured_owner_is_a_500(
+    mock_get_owner: MagicMock, client: TestClient
 ) -> None:
-    """A mailbox with no matching user is a misconfiguration on the Pi, not a
-    transient failure, so it fails loudly and keeps failing until fixed."""
-    mock_get_user.return_value = None
+    """No OWNER_EMAIL on the server is a misconfiguration, not a bad request.
+
+    500 rather than the 404 this used to answer, and the difference is the
+    thing it points at. There is no mailbox in the body any more, so a failure
+    here can only mean the DROPLET is misconfigured. Answering 4xx would send
+    someone to the Pi to debug a payload that is fine.
+    """
+    mock_get_owner.side_effect = OwnerNotConfigured("OWNER_EMAIL is not set")
 
     resp = client.post(
         "/webhooks/email", json=_body(), headers={"X-Service-Token": _TOKEN}
     )
 
-    assert resp.status_code == 404
+    assert resp.status_code == 500
+
+
+def test_a_body_still_carrying_a_mailbox_is_accepted(client: TestClient) -> None:
+    """The trim must not require changing n8n at the same moment.
+
+    _body() still sends `mailbox`, which EmailIngestRequest no longer declares.
+    Pydantic ignores undeclared fields, so the workflow already running on the
+    Pi keeps working and can be tidied up whenever. If this ever fails, someone
+    has added extra="forbid" and turned a deploy into a coordinated one.
+    """
+    assert "mailbox" in _body()
+
+    with patch("routers.webhooks.get_owner") as mock_get_owner, patch(
+        "routers.webhooks.ingest_messages"
+    ) as mock_ingest:
+        mock_get_owner.return_value = _user()
+        mock_ingest.return_value = []
+        resp = client.post(
+            "/webhooks/email", json=_body(), headers={"X-Service-Token": _TOKEN}
+        )
+
+    assert resp.status_code == 200
 
 
 @patch("routers.webhooks.ingest_messages")
-@patch("routers.webhooks.get_user_by_email")
+@patch("routers.webhooks.get_owner")
 def test_a_batch_over_the_cap_is_rejected_before_any_work(
     mock_get_user: MagicMock, mock_ingest: MagicMock, client: TestClient
 ) -> None:
@@ -161,7 +189,7 @@ def test_a_batch_over_the_cap_is_rejected_before_any_work(
 
 
 @patch("routers.webhooks.ingest_messages")
-@patch("routers.webhooks.get_user_by_email")
+@patch("routers.webhooks.get_owner")
 def test_an_empty_batch_is_rejected(
     mock_get_user: MagicMock, mock_ingest: MagicMock, client: TestClient
 ) -> None:
@@ -181,7 +209,7 @@ def test_an_empty_batch_is_rejected(
 
 
 @patch("routers.webhooks.ingest_messages")
-@patch("routers.webhooks.get_user_by_email")
+@patch("routers.webhooks.get_owner")
 def test_summarises_a_mixed_batch(
     mock_get_user: MagicMock, mock_ingest: MagicMock, client: TestClient
 ) -> None:
@@ -209,7 +237,7 @@ def test_summarises_a_mixed_batch(
 
 
 @patch("routers.webhooks.ingest_messages")
-@patch("routers.webhooks.get_user_by_email")
+@patch("routers.webhooks.get_owner")
 def test_a_batch_where_everything_failed_is_still_a_200(
     mock_get_user: MagicMock, mock_ingest: MagicMock, client: TestClient
 ) -> None:
@@ -233,13 +261,15 @@ def test_a_batch_where_everything_failed_is_still_a_200(
 
 
 @patch("routers.webhooks.ingest_messages")
-@patch("routers.webhooks.get_user_by_email")
-def test_the_mailbox_decides_whose_rows_are_touched(
+@patch("routers.webhooks.get_owner")
+def test_the_configured_owner_decides_whose_rows_are_touched(
     mock_get_user: MagicMock, mock_ingest: MagicMock, client: TestClient
 ) -> None:
-    """The service token authenticates the machine and returns nobody, so the
-    mailbox is what names the owner. Ingestion must be handed that user's id and
-    no other."""
+    """The service token authenticates the machine and returns nobody, so
+    something else must name the owner. That used to be the mailbox in the
+    body; it is now OWNER_EMAIL on the server. Either way the property under
+    test is the same one: ingestion is handed exactly one user's id, and it is
+    not chosen by the caller."""
     mock_get_user.return_value = _user()
     mock_ingest.return_value = []
 

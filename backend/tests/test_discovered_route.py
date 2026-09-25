@@ -30,7 +30,15 @@ def _fake_settings() -> Settings:
 
 @pytest.fixture
 def client(db: Session, user: User) -> TestClient:
-    app.dependency_overrides[get_settings] = _fake_settings
+    # owner_email points at the fixture user, so the webhook resolves an owner
+    # the same way prod does: from configuration, through the real get_owner,
+    # against the real database. Patching that out would leave the resolution
+    # itself untested, and it is the whole mechanism this file now depends on.
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        anthropic_api_key="test-key",
+        jwt_secret="test-secret",
+        owner_email=user.email,
+    )
     app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[verify_service_token] = lambda: None
@@ -176,7 +184,9 @@ def test_the_webhook_also_answers_before_the_work_happens(
     Held open, it would hand n8n a failure for a working run, n8n would retry,
     and the retry would collide with the run still going.
     """
-    resp = client.post("/webhooks/discovery/pull", json={"email": user.email})
+    # No body at all any more: the owner comes from OWNER_EMAIL on the server,
+    # so there is nothing left for the caller to say.
+    resp = client.post("/webhooks/discovery/pull")
 
     assert resp.status_code == 202
     assert resp.json()["state"] == "running"
@@ -187,21 +197,27 @@ def test_the_webhook_also_answers_before_the_work_happens(
 def test_the_webhook_refuses_to_start_a_second_run(
     mock_execute: MagicMock, db: Session, user: User, client: TestClient
 ) -> None:
-    client.post("/webhooks/discovery/pull", json={"email": user.email})
+    client.post("/webhooks/discovery/pull")
 
-    resp = client.post("/webhooks/discovery/pull", json={"email": user.email})
+    resp = client.post("/webhooks/discovery/pull")
 
     assert resp.status_code == 409
 
 
-def test_the_webhook_fails_loudly_for_an_unknown_account(
+def test_the_webhook_fails_loudly_when_no_owner_is_configured(
     db: Session, user: User, client: TestClient
 ) -> None:
-    # A configuration mistake on the Pi, not a transient failure. It should keep
-    # failing until someone fixes it rather than quietly staging nothing.
-    resp = client.post("/webhooks/discovery/pull", json={"email": "nobody@example.com"})
+    """Still a configuration mistake, but now the server's rather than the Pi's.
 
-    assert resp.status_code == 404
+    The caller can no longer name an account, so the only way this fails is an
+    unset OWNER_EMAIL on the droplet. It should keep failing until someone
+    fixes it rather than quietly staging nothing.
+    """
+    app.dependency_overrides[get_settings] = _fake_settings  # no owner_email
+
+    resp = client.post("/webhooks/discovery/pull")
+
+    assert resp.status_code == 500
 
 
 def test_accepting_can_carry_a_posting_that_was_never_read(

@@ -104,20 +104,19 @@ class EmailClassification(BaseModel):
 
 
 class EmailIngestRequest(BaseModel):
-    """A batch of messages from one mailbox.
+    """A batch of messages, for the one account this deployment belongs to.
 
-    `mailbox` is how the request names its owner. The service token
-    authenticates the MACHINE — n8n has no user and verify_service_token
-    deliberately returns nobody — so the mailbox address is what decides whose
-    applications these messages may touch. Each n8n Gmail node reads exactly one
-    mailbox, so it already knows this without being told.
+    There is no longer a `mailbox` field. It used to name the owner, because
+    the service token authenticates the MACHINE and deliberately returns
+    nobody, so something had to say whose applications these messages could
+    touch. The owner now comes from OWNER_EMAIL on the server instead, which
+    removes the oddity the old docstring admitted to: anyone holding the token
+    could claim any mailbox.
 
-    Worth being clear-eyed about: anyone holding the service token could claim
-    any mailbox. The token IS the trust boundary, on infrastructure owned end to
-    end, and that is an accepted trade rather than an oversight.
+    n8n can keep sending `mailbox` and nothing breaks. Pydantic ignores fields
+    a model does not declare, so the Pi does not have to be updated in lockstep
+    with this.
     """
-
-    mailbox: str = Field(min_length=3, max_length=320)
 
     # Capped at 10. Classification is a model call per message and the endpoint
     # answers synchronously, so an unbounded batch could outlast n8n's HTTP

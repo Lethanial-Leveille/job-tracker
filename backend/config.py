@@ -80,6 +80,36 @@ class Settings(BaseSettings):
     # the webhook door shut rather than leaving it open.
     n8n_service_token: str | None = None
 
+    # --- The owner (single user) --------------------------------------------
+    # The email of the one person this deployment belongs to. Prowl keeps its
+    # per-row user_id ownership, because that is what makes "whose row is this"
+    # answerable. What it stops doing is asking a CALLER who they are: outside
+    # the login flow, automation and integrations resolve the owner from here.
+    #
+    # This is what closes a real hole on the read side. The webhooks take a
+    # mailbox in the request body, which is tolerable while every one of them
+    # only writes: a token holder can at worst file rows against a mailbox. A
+    # read route trusting the same field would let a token holder read ANY
+    # user's applications by naming their address, and there is a second
+    # account in prod. Resolving from config means the token reaches exactly
+    # one account, the one named here, no matter what the caller sends.
+    #
+    # Optional for the same reason the service token is: a required field would
+    # crash prod on the next auto deploy until the env var was set. Unset means
+    # no owner can be resolved, and every caller needing one fails loudly.
+    owner_email: str | None = None
+
+    # --- Integrations (MILES) -----------------------------------------------
+    # The secret MILES sends in the X-Miles-Token header. Mostly reads, plus
+    # one write: accepting a discovered job into the pipeline. That write
+    # files a row and calls nothing external, so the blast radius of a leaked
+    # token is a cluttered pipeline you can delete, not an application sent.
+    # Deliberately a SECOND secret rather than reusing n8n_service_token: the
+    # two callers want different access (n8n writes, MILES reads), they run as
+    # different processes, and revoking one must never break the other. Same
+    # unset-means-reject-everything rule as the n8n token above.
+    miles_service_token: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

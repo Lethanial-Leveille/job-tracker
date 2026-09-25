@@ -14,13 +14,16 @@ the discovery pull runs the internship feed overnight so the inbox is filled in
 by morning.
 """
 
+import logging
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from config import Settings, get_settings
 from database import get_db
 from dependencies import verify_service_token
-from schemas.discovery import DiscoveryPullRequest, DiscoveryRunRead
+from models.user import User
+from schemas.discovery import DiscoveryRunRead
 from schemas.email import (
     EmailIngestRequest,
     EmailIngestResponse,
@@ -28,7 +31,7 @@ from schemas.email import (
 )
 from services.discovery import RunAlreadyGoing, execute_run, start_run
 from services.email_ingest import ingest_messages
-from services.user import get_user_by_email
+from services.user import OwnerNotConfigured, get_owner
 
 # dependencies=[Depends(verify_service_token)] guards EVERY route here, so a
 # route added later is protected without anyone remembering to protect it. Same
@@ -42,6 +45,31 @@ router = APIRouter(
 # Results that mean a new row was written to ingested_emails.
 _STORED_RESULTS = frozenset({"suggested", "ambiguous", "unmatched", "no_action"})
 _SUGGESTION_RESULTS = frozenset({"suggested", "ambiguous", "unmatched"})
+
+logger = logging.getLogger(__name__)
+
+
+def _owner(db: Session, settings: Settings) -> User:
+    """Whose rows these writes belong to, from config rather than the request.
+
+    This used to come out of the request body: the Gmail webhook named a
+    mailbox, the discovery webhook named an email, and each was looked up. That
+    made sense while this was heading toward several people. It is now one
+    person plus a dormant account, so asking the caller to name the owner is
+    one more thing to keep in sync in an n8n node and one more way to get a
+    confusing 404 at three in the morning.
+
+    n8n may keep sending those fields. Pydantic ignores what a model does not
+    declare, so nothing on the Pi has to change at the same time as this.
+    """
+    try:
+        return get_owner(db, settings)
+    except OwnerNotConfigured as exc:
+        logger.error("A webhook call could not resolve an owner: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The owner is not configured on this server.",
+        ) from exc
 
 
 @router.post("/email", response_model=EmailIngestResponse)
@@ -61,20 +89,12 @@ def ingest_email(
     the next poll. Returning an error would make n8n retry the whole batch and
     re-bill every message that already succeeded.
 
-    The 404 below is the one real error. It means the mailbox n8n is polling has
-    no matching user, which is a configuration mistake on the Pi rather than a
-    transient failure, so it is worth failing loudly and repeatedly until fixed.
+    The one real error is the 500 from _owner: the server has no OWNER_EMAIL
+    set. That is a configuration mistake on the droplet rather than a transient
+    failure, so it fails loudly and keeps failing until someone fixes it.
     """
-    user = get_user_by_email(db, data.mailbox)
-    if user is None:
-        # No hint about which mailboxes DO exist. The caller holds the service
-        # token, but this stays terse out of habit rather than necessity.
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No user for that mailbox",
-        )
-
-    outcomes = ingest_messages(db, user.id, data.messages, settings)
+    owner = _owner(db, settings)
+    outcomes = ingest_messages(db, owner.id, data.messages, settings)
 
     return EmailIngestResponse(
         received=len(outcomes),
@@ -96,7 +116,6 @@ def ingest_email(
     status_code=status.HTTP_202_ACCEPTED,
 )
 def pull_discoveries(
-    data: DiscoveryPullRequest,
     background: BackgroundTasks,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -119,23 +138,18 @@ def pull_discoveries(
       202 — accepted, the run is going. The body carries its id.
       409 — one is already in progress. Not an error to alert on; it means the
             schedule fired twice or a manual pull is running.
-      404 — no user for that email. A misconfigured automation rather than a
-            transient failure, so it fails loudly and keeps failing.
+      500 — the server has no owner configured. A misconfigured droplet rather
+            than a transient failure, so it fails loudly and keeps failing.
     """
-    user = get_user_by_email(db, data.email)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No user for that email",
-        )
+    owner = _owner(db, settings)
 
     try:
-        run = start_run(db, user.id)
+        run = start_run(db, owner.id)
     except RunAlreadyGoing as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="A pull is already running for that user.",
         ) from exc
 
-    background.add_task(execute_run, run.id, user.id, settings)
+    background.add_task(execute_run, run.id, owner.id, settings)
     return DiscoveryRunRead.model_validate(run)

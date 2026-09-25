@@ -7,6 +7,7 @@ services/auth.py, because it needs FastAPI (Depends, HTTPException, the request
 header) — services stay HTTP-ignorant.
 """
 
+import logging
 import secrets
 
 from fastapi import Depends, Header, HTTPException, status
@@ -17,11 +18,13 @@ from config import Settings, get_settings
 from database import get_db
 from models.user import User
 from services.auth import decode_access_token
-from services.user import get_user_by_id
+from services.user import OwnerNotConfigured, get_owner, get_user_by_id
 
 # auto_error=False so a MISSING Authorization header hands us None instead of
 # HTTPBearer raising its own 403. We want one consistent 401 for every auth
 # failure (missing, malformed, expired, or unknown user), so we handle it below.
+logger = logging.getLogger(__name__)
+
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -88,3 +91,77 @@ def verify_service_token(
     # timing responses. compare_digest is the standard tool for secret checks.
     if not secrets.compare_digest(x_service_token, settings.n8n_service_token):
         raise forbidden
+
+
+def verify_miles_token(
+    x_miles_token: str | None = Header(default=None),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """Gate for the MILES integration: require its own shared secret.
+
+    The THIRD auth path, and it gets its own everything on purpose.
+
+    Its own HEADER, X-Miles-Token, for the reason written above verify_service_
+    token: a credential on Authorization: Bearer would sit where the login JWT
+    sits, and some function would end up guessing which kind it was holding.
+
+    Its own SECRET, separate from n8n_service_token, because the two callers
+    want different things. n8n writes on a schedule from a workflow you rarely
+    touch; MILES reads on demand and files one accept, from a Pi that runs a
+    voice assistant you are actively developing. Revoking the one you are
+    iterating on must never take Gmail ingestion down with it.
+
+    Returns None rather than a user, exactly like the n8n gate: a secret proves
+    which MACHINE is calling and says nothing about whose data it may touch.
+    get_miles_owner below is what answers that, from configuration.
+    """
+    forbidden = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or missing MILES token",
+    )
+
+    # Unset in this environment means the door is bolted shut, not held open.
+    # Same fail-safe choice as the n8n token, and it matters more here: this one
+    # ships to prod on the next push whether or not you have set the env var.
+    if settings.miles_service_token is None:
+        raise forbidden
+
+    if x_miles_token is None:
+        raise forbidden
+
+    # Constant time compare, so the response time cannot be used to recover the
+    # secret one character at a time.
+    if not secrets.compare_digest(x_miles_token, settings.miles_service_token):
+        raise forbidden
+
+
+def get_miles_owner(
+    _: None = Depends(verify_miles_token),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> User:
+    """The account MILES reads, resolved from config and never from the request.
+
+    Chaining verify_miles_token in as an unused parameter is the point: it makes
+    the identity impossible to obtain without first passing the gate, so a route
+    cannot accidentally ask "whose data" without having asked "who is calling".
+    FastAPI resolves it once per request and caches it, so listing this gate at
+    router level as well costs nothing.
+
+    The 500 below is deliberate, and it is not a 401. The caller's token was
+    perfectly good; the SERVER has no owner configured. Answering 401 would send
+    you hunting for a bad token on the Pi when the real fault is a missing
+    OWNER_EMAIL on the droplet, and that is an afternoon you do not get back.
+
+    The detail is generic while the log line is specific, because the exception
+    text carries the configured address and an HTTP body is the wrong place for
+    it.
+    """
+    try:
+        return get_owner(db, settings)
+    except OwnerNotConfigured as exc:
+        logger.error("A MILES request could not resolve an owner: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The integration owner is not configured on this server.",
+        ) from exc

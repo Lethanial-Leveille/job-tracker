@@ -150,18 +150,6 @@ class PullResult(BaseModel):
     dropped: dict[str, int] = {}
 
 
-class DiscoveryPullRequest(BaseModel):
-    """What n8n sends to run the nightly pull.
-
-    Identified by email for the same reason the Gmail webhook is: the Pi knows
-    which account it is acting for, and nothing else. A user id would mean
-    keeping a database key in an automation config, where an email is something
-    you can read and check.
-    """
-
-    email: str
-
-
 class DiscoveryRunRead(BaseModel):
     """One pull attempt, as the Discovered page sees it.
 
