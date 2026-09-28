@@ -51,7 +51,8 @@ experience:
     bullets:
       - "Merged 4 separate contact import paths into 1 review screen so users see exactly who will be added before anything is saved or billed, backed by a preview endpoint that builds the list without saving it."
       - "Found a background refresh logging 30 fake usage events per user per minute, which inflated the adoption number the feature was judged on, and made it log only while the user actually had the page open."
-      - "Made the Google login path behind **51% of signups** traceable to its marketing channel, adding signup source tracking across 3 repositories so the team could see where each new account came from."
+      # "51% of signups" cut Sep 28 2026 to pay for the Activities layout; still
+      # banked in master_resume.yaml.
       - "Cut a **4% duplicate rate** in contact imports, 40 bad rows per 1,000, by making the import safe to rerun so each record is claimed exactly once, proven with tests that ran imports at the same time."
 projects:
   - name: Forearm Motion Wearable (FormFactor)
@@ -87,10 +88,22 @@ skills:
   - category: Cloud & DevOps
     items: ["AWS (IoT Core, Lambda, DynamoDB)", Docker, GitHub Actions, Cloudflare Tunnel, Linux]
 
+# Same three entries as base_resume.yaml, printed the same way (see
+# templates/resume.html). ACM prints its role only until real work exists.
 activities:
+  - organization: ACM Design Team
+    role: Backend Developer, Check-In Application
+    location: Gainesville, FL
+    dates: September 2026 – Present
+    bullets: []
   - organization: Prep Academy
     role: Test Prep Tutor
     location: Remote
     dates: August 2026 – Present
     bullets:
-      - "tutoring ACT and SAT English, Reading, and Math"
+      - "Tutor students individually for the ACT and SAT, and lead a group class on SAT grammar."
+  - organization: National Society of Black Engineers (NSBE)
+    role: Member
+    location: Gainesville, FL
+    dates: September 2026 – Present
+    bullets: []

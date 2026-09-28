@@ -166,7 +166,7 @@ experience:
 projects:
   # Function first, codename after: the acronym alone tells a recruiter nothing.
   - name: Voice AI Assistant (M.I.L.E.S.)
-    tools: [Python, FastAPI, Swift/SwiftUI, Whisper.cpp, Claude API, SQLite, SQLite FTS5, Resemblyzer, webrtcvad, sentence-transformers, ONNX, NumPy, ElevenLabs, Cloudflare, systemd]
+    tools: [Python, FastAPI, Swift/SwiftUI, Whisper.cpp, Claude API, SQLite, SQLite FTS5, Resemblyzer, ECAPA, webrtcvad, sentence-transformers, ONNX, NumPy, ElevenLabs, Cloudflare, systemd, Server-Sent Events, Google Calendar API]
     # Repo links removed from the printed resume Sep 2026 (GitHub is in the
     # header, so every repo is one click away). Kept here so nothing is lost:
     #   github.com/Lethanial-Leveille/miles-app  (the iOS client)
@@ -177,6 +177,22 @@ projects:
       - "Traced months of failed voice recognition to 4 compounding defects: a mic trigger that never fired, a corrupted enrollment sample, gain leaving 7 of 16 bits unused, and a loop that could not exit. Reached **zero false rejections across 94 attempts**."
       - "Built hybrid memory retrieval over a 233-memory corpus, fusing keyword search with semantic vector search through **reciprocal rank fusion at 31 ms per query**, so two differently-scaled rankings vote without either being rescaled onto the other."
       - "Shipped a JWT-authenticated FastAPI backend (REST and WebSocket) and a zero-dependency SwiftUI iOS client with Face ID and Keychain-stored tokens, deployed as 3 systemd services reachable globally through a Cloudflare Tunnel with no open ports."
+      # Added Sep 28 2026 from the Sep 6 to Sep 23 commits in the miles repo.
+      # Already in the plain style, so any of these can print as written.
+      - "Raised how often the assistant saves a fact worth remembering from **4 of 24 to 16 of 24** by moving memory into its own AI call after each reply, measured by replaying real conversations, with every save held for review so a wrong guess costs one discard."
+      - "Cut two waits from every spoken reply, medians of **287 ms and 264 ms**, by starting speech to text after 210 ms of silence instead of 450 ms, tuned on 283 recorded commands, and running voice verification alongside it instead of after."
+      - "Filled a median **5.3 s** of silence before tool answers, on half of all voice turns, by playing a prerecorded line such as \"Checking your calendar\" the moment a slow tool starts."
+      - "Removed a median **647 ms** of silence between spoken sentences by synthesizing speech two sentences ahead of playback instead of waiting for each one to finish."
+      - "Built monitoring for the assistant's 3 services with 7 health checks on a 15 minute timer, including a restart counter that catches a crash looping service a plain \"is it running\" check reports as healthy, and a probe of the public tunnel rather than localhost."
+      - "Made timers and reminders survive restarts by storing them as database rows fired by one poller instead of sleeping threads, which had silently dropped every pending reminder on any deploy or crash."
+      - "Enforced a permission tier on every tool in the executor rather than in the prompt, so a turn can never call a tool above the speaker's tier, and made calendar edits reversible with an undo that restores moved or deleted events."
+      - "Fixed spoken times being misread, such as \"wednesday at 4\" searching April, by rewriting bare hours as clock times before the date parser sees them, with 11 tests of which 9 fail on the old code."
+      - "Streamed typed replies to the iOS app as Server-Sent Events and added a speech endpoint that returns a reply as audio in the same voice, so the phone gets sound without the room speaker saying it."
+      - "Benchmarked 2 speaker recognition models on archived audio at an equal error rate of **22.3% against 4.8%**, and put both behind one interface that refuses at boot to score a voiceprint built by the other model."
+      - "Showed that false wakes and near misses were one population, neighbours heard through the wall and sorted only by loudness, by replaying 29 clips 10 to 13 dB louder and watching them cross the threshold, ruling out a threshold change as the fix."
+      # Sensitive: true and a strong interview story, but it says services were
+      # exposed. Lee decides whether it ever prints.
+      - "Traced a 21 hour outage to a Wi-Fi recovery that gave up after one misread handshake and added a watchdog that reconnects within 2 minutes; the fallback network had left 3 services facing the internet for 9 hours, taking about 13,000 failed logins and none that succeeded."
       # --- bench: true, but rewrite in the plain style above before printing ---
       - "Added custom wake-word detection via openWakeWord (90.4% recall), on-device Whisper.cpp speech-to-text, and speaker verification through 256-dimensional voice embeddings (cosine similarity, 0.65 threshold)."
       - "Migrated the assistant off hand-parsed bracket action tags onto native Claude tool use behind a single tool registry (six live tools), bounding the follow-up loop and deleting the 50-character lookahead buffer that had sat directly on the path to first audio."
@@ -202,6 +218,7 @@ projects:
       - "Cut a routine status update from **5 interactions to 2** with an in-place editable cell driven by an optimistic update that rolls back on failure, and trimmed a 14-value status enum to a 6-value working set in the UI rather than by migration."
       - "Added duplicate detection that blocks an already-tracked posting **before it reaches the paid parsing call**, matching on a URL normalized to strip tracking parameters while preserving job-board ids, then on employer and title similarity."
       - "Automated releases with **GitHub Actions** so every push to main rebuilds, migrates, and restarts the app on a DigitalOcean droplet behind Caddy and a Cloudflare Tunnel, connecting as a least-privilege deploy user limited to 1 scoped sudo command."
+      - "Gave each hiring stage its own due date, kept apart from the posting's closing date, and restarted the silence counter at every status change, so an assessment invite surfaces as a deadline instead of reading as more waiting."
       # --- bench: true, but rewrite in the plain style above before printing ---
       - "Let the tailoring model choose which fragment of each bullet to emphasize for a given job, then capped it at one span per bullet in application code rather than in the prompt, because models over-emphasize and bold covering half a page stops being a highlight."
       - "Read each posting's eligibility text to suggest which graduation date to print, citing the phrase it matched so the suggestion can be judged rather than trusted, and left the switch manual because a wrong automatic flip prints a date the user never chose."
@@ -285,43 +302,48 @@ projects:
       - "Exposed the stack over HTTPS at automation.lethanial.com via Cloudflare Tunnel (no port forwarding or static IP), sharing one tunnel with the MILES backend on the same Pi, and migrated Gmail auth from an SMTP app password to OAuth2 once the public domain was live."
       - "Externalized the Claude prompt to a Notion page so context edits require no workflow changes, and generated the email subject as a separate sub-70-character hook to lift open rate on a self-sent accountability email."
 
-# Leadership and Activities. ACM added Sept 19 2026 on acceptance to the design
-# team. It prints role only (bullets[0] is empty in base_resume.yaml): the
-# membership is true today, the check in application work has not started. The
-# scope phrase is banked below, unprinted. Promote it the day work begins.
+# Activities. Printed as one row per entry ("Organization, Role" plus dates)
+# with bullets[0] as a real bullet beneath it, since Sep 28 2026. Order here is
+# print order on tailored resumes: ACM first, as the entry most relevant to an
+# engineering recruiter.
 activities:
-  - organization: Prep Academy
-    role: Test Prep Tutor
-    location: Remote
-    dates: August 2026 – Present
-    # FIRST bullet is what prints, on every resume: tailoring never sees
-    # activities (it copies them from here) and the template prints an activity
-    # as ONE row using only bullets[0]. So it stays a short lowercase phrase that
-    # fits beside "Prep Academy, Test Prep Tutor:". The full detail stays banked.
-    bullets:
-      - "tutoring ACT and SAT English, Reading, and Math"
-      - "Tutoring **3 students** in ACT English, Reading, and Math and SAT Math and Reading across 60 to 90 minute sessions, plus teaching Standard English Conventions to a group, building each student a plan targeted at the specific question types they miss."
-  - organization: ACM
-    role: Design Team
+  - organization: ACM Design Team
+    role: Backend Developer, Check-In Application
     location: Gainesville, FL
     dates: September 2026 – Present
-    # bullets MUST stay empty until Lee does real design work. This is not a
-    # style choice: build_base_resume() copies activity.bullets[0] straight onto
-    # the page, so ANY phrase parked here prints through the app the moment it
-    # lands in the database. An empty list is what makes the row read
-    # "ACM, Design Team" and claim nothing, which is hard rule #2.
+    # Was "ACM, Design Team" until Sep 28 2026. The row now names the actual
+    # role, which is true today and far more specific, with no bullet under it.
+    #
+    # bullets MUST stay empty until real work exists. This is not a style
+    # choice: build_base_resume() copies activity.bullets[0] straight onto the
+    # page, so ANY sentence parked here prints through the app the moment it
+    # lands in the database. The empty list is what keeps the row claiming only
+    # the role, which is hard rule #2.
     #
     # The phrase to promote the day work begins, kept in a comment precisely so
     # it cannot print by accident:
     #   "designing the chapter check in application"
     # Replace it with what was actually built once there is something to say.
     bullets: []
-  - organization: National Society of Black Engineers
+  - organization: Prep Academy
+    role: Test Prep Tutor
+    location: Remote
+    dates: August 2026 – Present
+    # FIRST bullet is what prints, on every resume: tailoring never sees
+    # activities (it copies them from here) and the template prints only
+    # bullets[0], as a full bullet under the row. Keep it to one line.
+    bullets:
+      # No student count in the printed line: the number varies term to term
+      # (Lee, Sep 28 2026). The detailed bullet below records it as of Sep 2026.
+      - "Tutor students individually for the ACT and SAT, and lead a group class on SAT grammar."
+      - "Tutor 3 students individually in ACT English, Reading, and Math and SAT Reading and Math, and lead a group class on SAT grammar."
+      - "Tutoring **3 students** in ACT English, Reading, and Math and SAT Math and Reading across 60 to 90 minute sessions, plus teaching Standard English Conventions to a group, building each student a plan targeted at the specific question types they miss."
+      # Demoted Sep 28 2026: the lowercase phrase the old one row layout needed.
+      - "tutoring ACT and SAT English, Reading, and Math"
+  - organization: National Society of Black Engineers (NSBE)
     role: Member
     location: Gainesville, FL
     dates: September 2026 – Present
-    # BANKED, NOT PRINTED. base_resume.yaml omits this entry entirely: its row
-    # pushes that file to 2 pages, over by exactly one line, and plain membership
-    # with no role was not worth cutting a quantified bullet for (Sep 19 2026).
-    # If Lee takes a position, add the entry there and cut a bullet to pay for it.
+    # Printed on the base resume since Sep 28 2026 (a membership line matters
+    # at the career fair). No bullet: membership alone has nothing to claim.
     bullets: []

@@ -62,7 +62,8 @@ experience:
     bullets:
       - "Merged 4 separate contact import paths into 1 review screen so users see exactly who will be added before anything is saved or billed, backed by a preview endpoint that builds the list without saving it."
       - "Found a background refresh logging 30 fake usage events per user per minute, which inflated the adoption number the feature was judged on, and made it log only while the user actually had the page open."
-      - "Made the Google login path behind **51% of signups** traceable to its marketing channel, adding signup source tracking across 3 repositories so the team could see where each new account came from."
+      # "51% of signups" cut Sep 28 2026 to pay for the Activities layout; still
+      # banked in master_resume.yaml.
       - "Cut a **4% duplicate rate** in contact imports, 40 bad rows per 1,000, by making the import safe to rerun so each record is claimed exactly once, proven with tests that ran imports at the same time."
 projects:
   # Function first, codename in parentheses: "M.I.L.E.S." alone tells a recruiter
@@ -101,27 +102,24 @@ skills:
   - category: Hardware & Embedded
     items: [Raspberry Pi 5, MPU6050 IMU, I2C, Whisper.cpp, ONNX]
 
-# Leadership and Activities: prints LAST as ONE row per entry
-# ("Organization, Role: phrase", see templates/resume.html), so the bullet is a
-# short lowercase phrase. A long one wraps the row onto a second line.
-#
-# ACM went on Sept 19 2026, the day Lee was accepted to the design team. It
-# prints role only, no phrase: being on the team is true today, "designing the
-# chapter check in application" is not true until he starts the work. The scope
-# phrase is banked in master_resume.yaml. Move it here the day work begins.
+# Activities: prints LAST, one row per entry ("Organization, Role" plus dates),
+# with bullets[0] as a full bullet beneath it (see templates/resume.html).
+# Copied from master_resume.yaml; ACM prints its role only, no bullet, until
+# real work on the check in application exists.
 activities:
+  - organization: ACM Design Team
+    role: Backend Developer, Check-In Application
+    location: Gainesville, FL
+    dates: September 2026 – Present
+    bullets: []
   - organization: Prep Academy
     role: Test Prep Tutor
     location: Remote
     dates: August 2026 – Present
     bullets:
-      - "tutoring ACT and SAT English, Reading, and Math"
-  - organization: ACM
-    role: Design Team
+      - "Tutor students individually for the ACT and SAT, and lead a group class on SAT grammar."
+  - organization: National Society of Black Engineers (NSBE)
+    role: Member
     location: Gainesville, FL
     dates: September 2026 – Present
     bullets: []
-  # NSBE (Member) is banked in master_resume.yaml but NOT printed: adding its row
-  # pushes this file to 2 pages, over by exactly one line. Plain membership with
-  # no role was not worth cutting a quantified bullet for. Promote it here if Lee
-  # takes a position, and cut a bullet in the same edit to pay for the line.

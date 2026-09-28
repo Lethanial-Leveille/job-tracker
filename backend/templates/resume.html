@@ -105,20 +105,26 @@
 {% endmacro %}
 
 {#
-  Leadership and Activities: ONE row per entry, "Organization, Role: what you
-  do" on the left and dates on the right. Deliberately not the two line
-  experience grid plus a bullet: that cost three lines for the lowest value
-  section on the page (Lee, Sep 2026: activities should take about one line).
-  Location is dropped and only the first bullet prints; tailoring already caps
-  an activity at one bullet. Keep that bullet short, or the row wraps to two.
+  Activities: ONE row per entry, "Organization, Role" on the left and dates on
+  the right, with the first bullet (if any) printed as a real bullet beneath.
+  Was "Organization, Role: phrase" on one line (Sep 2026), which forced the
+  bullet into a lowercase fragment and read as filler beside the dense sections
+  above. A full sentence under the row reads like the rest of the page and costs
+  one line only for entries that have something to say. Location is dropped and
+  only the first bullet prints; tailoring already caps an activity at one.
+
+  Titled "Activities", not "Leadership and Activities": nothing here is a
+  leadership role yet, and a heading that promises leadership invites a
+  recruiter to look for it and not find it. Rename it when that changes.
 #}
 {% macro activities_section() %}
 {% if r.activities %}
 <section>
-  <div class="section">Leadership and Activities</div>
+  <div class="section">Activities</div>
   {% for a in r.activities %}
   <div class="entry">
-    <div class="row"><span><span class="bold">{{ a.organization }}</span>, <span class="italic">{{ a.role }}</span>{% if a.bullets %}: {{ a.bullets[0] | bold }}{% endif %}</span>{% if a.dates %}<span class="right italic">{{ a.dates }}</span>{% endif %}</div>
+    <div class="row"><span><span class="bold">{{ a.organization }}</span>, <span class="italic">{{ a.role }}</span></span>{% if a.dates %}<span class="right italic">{{ a.dates }}</span>{% endif %}</div>
+    {% if a.bullets %}<ul><li>{{ a.bullets[0] | bold }}</li></ul>{% endif %}
   </div>
   {% endfor %}
 </section>
