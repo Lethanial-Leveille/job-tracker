@@ -109,7 +109,9 @@ export function AppShell({ current, onNavigate, applicationCount, onLogout, chil
         )}
 
         {/* Content: its own scroll column on desktop; natural page scroll on
-            mobile (the top bar takes the fixed height there). */}
+            mobile (the top bar takes the fixed height there). md:py-8 is
+            cancelled by the table header's -top-8 in ApplicationsTable; change
+            the two together. */}
         <main className="px-4 py-6 md:h-screen md:overflow-y-auto md:px-8 md:py-8">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>

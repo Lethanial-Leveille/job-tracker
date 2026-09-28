@@ -57,6 +57,10 @@ class ApplicationBase(BaseModel):
     # a warning about a missed deadline must not fire on a guess.
     deadline_source: DeadlineSource | None = None
 
+    # When the current stage's task is due (an assessment, a take-home). Not the
+    # posting's deadline; see the model for why they are separate columns.
+    next_step_due: date | None = None
+
     notes: str | None = None
 
     # The tidy, groupable version of role_or_program, normally filled by the
@@ -103,6 +107,9 @@ class ApplicationUpdate(BaseModel):
     # means it is now yours rather than the posting's, and the caller is the
     # only one who knows which.
     deadline_source: DeadlineSource | None = None
+    # Sent explicitly as null to clear it. A status change clears it anyway
+    # unless the same request sets a new one.
+    next_step_due: date | None = None
     notes: str | None = None
     role_family: RoleFamily | None = None
     # Re-settable input (unlike jd_parsed, which update omits): lets you paste a
@@ -201,5 +208,9 @@ class ApplicationRead(ApplicationBase):
     # answer "how long have I been waiting" without a per-row timeline fetch.
     # Optional because a row that has never been applied to has no such event.
     applied_at: datetime | None = None
+    # Derived the same way: the LATEST status change of any kind. This is what
+    # "quiet" counts from, because a new stage (an assessment invite, a screen)
+    # is them replying, and the silence starts over from there.
+    last_status_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

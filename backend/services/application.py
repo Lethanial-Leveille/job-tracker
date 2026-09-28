@@ -41,6 +41,7 @@ def get_application(
     application = db.execute(stmt).scalar_one_or_none()
     if application is not None:
         application.applied_at = _first_applied_at(db, application_id)
+        application.last_status_at = _last_status_at(db, application_id)
     return application
 
 
@@ -51,6 +52,32 @@ def _first_applied_at(db: Session, application_id: str) -> object | None:
         StatusEvent.to_status == ApplicationStatus.applied,
     )
     return db.execute(stmt).scalar_one_or_none()
+
+
+def _last_status_at(db: Session, application_id: str) -> object | None:
+    """The single-row version of _last_status_at_by_application."""
+    stmt = select(func.max(StatusEvent.created_at)).where(
+        StatusEvent.application_id == application_id
+    )
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def _last_status_at_by_application(
+    db: Session, user_id: str
+) -> dict[str, object]:
+    """When each of this user's applications last changed status.
+
+    The counterpart to _applied_at_by_application below, with MAX instead of MIN
+    and no filter on which status. "Quiet" counts from here rather than from the
+    first `applied`, because moving to an assessment or a screen means they
+    answered, and a counter that kept running through that would be wrong.
+    """
+    stmt = (
+        select(StatusEvent.application_id, func.max(StatusEvent.created_at))
+        .where(StatusEvent.user_id == user_id)
+        .group_by(StatusEvent.application_id)
+    )
+    return {row[0]: row[1] for row in db.execute(stmt).all()}
 
 
 def _applied_at_by_application(db: Session, user_id: str) -> dict[str, object]:
@@ -89,8 +116,10 @@ def list_applications(db: Session, user_id: str) -> list[Application]:
     # other. Set on EVERY row, including None, so the schema never falls back to
     # its default for a row that simply has no applied event.
     applied = _applied_at_by_application(db, user_id)
+    last_status = _last_status_at_by_application(db, user_id)
     for application in applications:
         application.applied_at = applied.get(application.id)
+        application.last_status_at = last_status.get(application.id)
     return applications
 
 
@@ -108,6 +137,10 @@ def update_application(
     # Record a history entry only when the status actually changed (editing the
     # notes or deadline is not a status event).
     if "status" in update_data and application.status != old_status:
+        # The due date belongs to the stage that just ended, so it goes with it,
+        # unless this same request set the next stage's date alongside.
+        if "next_step_due" not in update_data:
+            application.next_step_due = None
         record_status_event(
             db,
             user_id=user_id,
@@ -118,6 +151,10 @@ def update_application(
         )
     db.commit()
     db.refresh(application)
+    # The derived fields were attached by get_application BEFORE this change, so
+    # a status change in this request would leave them stale. Recompute them.
+    application.applied_at = _first_applied_at(db, application.id)
+    application.last_status_at = _last_status_at(db, application.id)
     return application
 
 

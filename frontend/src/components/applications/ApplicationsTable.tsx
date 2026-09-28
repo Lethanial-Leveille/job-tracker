@@ -51,11 +51,17 @@ export function ApplicationsTable({
   // NOT overflow-hidden. A non-visible overflow on ANY ancestor captures
   // position: sticky and parks the column header mid-list, so the container
   // keeps visible overflow and the corners are rounded on the header instead.
+  //
+  // -top-8, not top-0: the scrolling <main> in AppShell has md:py-8, and sticky
+  // offsets are measured inside the scroller's padding. top-0 parked the header
+  // 32px below the top edge and rows scrolled through the gap above it. The
+  // header only renders at md+ (HEADER_GRID is hidden below), so md:py-8 is the
+  // only padding this ever has to cancel. Change the two together.
   return (
     <div className="rounded-frame border border-line-strong bg-surface">
       {/* Column header */}
       <div
-        className={`${HEADER_GRID} sticky top-0 z-20 rounded-t-frame border-b border-line bg-surface px-4 py-2 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-spent`}
+        className={`${HEADER_GRID} sticky -top-8 z-20 rounded-t-frame border-b border-line bg-surface px-4 py-2 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-spent`}
       >
         {(grouped ? GROUPED_COLUMNS : COLUMNS).map((label) => (
           <span key={label}>{label}</span>

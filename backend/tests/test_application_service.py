@@ -1,3 +1,5 @@
+from datetime import date
+
 from models.application import Application, ApplicationStatus, Priority
 from models.user import User
 from schemas.application import ApplicationCreate, ApplicationUpdate
@@ -265,10 +267,10 @@ def test_applied_at_keeps_the_first_applied_not_the_latest(db, user):
     assert list_applications(db, user.id)[0].applied_at == first
 
 
-def test_listing_stays_two_queries_however_many_rows(db, user):
-    """The reason applied_at is a grouped query rather than a relationship read:
-    the list must not become an N+1. It was one SELECT before this field; it is
-    two now, and it must not grow with the row count."""
+def test_listing_stays_three_queries_however_many_rows(db, user):
+    """The reason applied_at and last_status_at are grouped queries rather than
+    relationship reads: the list must not become an N+1. One SELECT for the rows
+    plus one per derived field, and it must not grow with the row count."""
     import sqlalchemy
     from sqlalchemy import event
 
@@ -277,8 +279,8 @@ def test_listing_stays_two_queries_however_many_rows(db, user):
         update_application(db, ApplicationUpdate(status="applied"), created.id, user.id)
 
     # Read the id BEFORE measuring: the last commit expired the fixture, so
-    # touching user.id inside the window emits a refresh SELECT and counts as a
-    # third query that list_applications never ran.
+    # touching user.id inside the window emits a refresh SELECT and counts as an
+    # extra query that list_applications never ran.
     user_id = user.id
     seen: list[str] = []
 
@@ -292,7 +294,63 @@ def test_listing_stays_two_queries_however_many_rows(db, user):
         event.remove(sqlalchemy.engine.Engine, "before_cursor_execute", record)
 
     assert len(rows) >= 5
-    assert len(seen) == 2, "expected 2 queries, got:\n" + "\n".join(q[:90] for q in seen)
+    assert len(seen) == 3, "expected 3 queries, got:\n" + "\n".join(q[:90] for q in seen)
+
+
+# --- last_status_at and next_step_due ----------------------------------------
+
+
+def test_last_status_at_moves_forward_with_each_stage(db, user):
+    """Quiet counts from here, so an assessment invite must restart it."""
+    created = _make(db, user.id)
+    update_application(db, ApplicationUpdate(status="applied"), created.id, user.id)
+    # Copy the values out: the session hands back the SAME object on the next
+    # list, so holding the row itself would compare it against its own update.
+    applied = list_applications(db, user.id)[0]
+    applied_at, first_change = applied.applied_at, applied.last_status_at
+
+    update_application(db, ApplicationUpdate(status="assessment"), created.id, user.id)
+    row = list_applications(db, user.id)[0]
+
+    assert row.last_status_at > first_change
+    # The submitted date does not move: it still dates the application.
+    assert row.applied_at == applied_at
+
+
+def test_update_returns_fresh_derived_fields(db, user):
+    created = _make(db, user.id)
+
+    result = update_application(
+        db, ApplicationUpdate(status="applied"), created.id, user.id
+    )
+
+    assert result.applied_at is not None
+    assert result.last_status_at == result.applied_at
+
+
+def test_a_status_change_clears_the_old_stage_due_date(db, user):
+    created = _make(db, user.id, status="applied")
+    update_application(
+        db,
+        ApplicationUpdate(status="assessment", next_step_due=date(2026, 10, 2)),
+        created.id,
+        user.id,
+    )
+    assert get_application(db, created.id, user.id).next_step_due == date(2026, 10, 2)
+
+    update_application(
+        db, ApplicationUpdate(status="phone_screen"), created.id, user.id
+    )
+
+    assert get_application(db, created.id, user.id).next_step_due is None
+
+
+def test_editing_other_fields_keeps_the_due_date(db, user):
+    created = _make(db, user.id, status="assessment", next_step_due=date(2026, 10, 2))
+
+    update_application(db, ApplicationUpdate(notes="HackerRank"), created.id, user.id)
+
+    assert get_application(db, created.id, user.id).next_step_due == date(2026, 10, 2)
 
 
 # --- One bad row must not cost the whole page --------------------------------

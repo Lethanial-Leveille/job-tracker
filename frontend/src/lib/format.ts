@@ -78,6 +78,16 @@ export function formatDeadline(
   return { date, relative, urgency, days };
 }
 
+// "today", "in 4d", "16d ago": the relative half of a date, short enough to sit
+// beside the date in the list's fixed width column. formatDeadline's "16 days
+// ago" is fine on a detail page and ran under the link icon in the table.
+export function compactRelative(days: number): string {
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days === -1) return "yesterday";
+  return days > 0 ? `in ${days}d` : `${-days}d ago`;
+}
+
 // Whole days since an ISO timestamp. Used for the "quiet Nd" counter that
 // replaces the deadline once an application is out the door: the deadline stops
 // being actionable the moment you apply, but how long you have been waiting

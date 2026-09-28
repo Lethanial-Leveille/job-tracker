@@ -30,6 +30,7 @@ interface FormState {
   // silently assign it a family you never chose.
   role_family: RoleFamily | "";
   deadline: string; // "" means no deadline
+  next_step_due: string; // "" means nothing due
   notes: string;
 }
 
@@ -40,6 +41,7 @@ function formFrom(app: Application): FormState {
     posting_url: app.posting_url,
     role_family: app.role_family ?? "",
     deadline: app.deadline ?? "",
+    next_step_due: app.next_step_due ?? "",
     notes: app.notes ?? "",
   };
 }
@@ -91,6 +93,7 @@ export function DetailOverview({ application, onSaved, onDelete }: Props) {
         // The API wants null for "not set"; "" would fail validation on a date
         // and on the role family Literal.
         deadline: form.deadline === "" ? null : form.deadline,
+        next_step_due: form.next_step_due === "" ? null : form.next_step_due,
         notes: form.notes === "" ? null : form.notes,
         role_family: form.role_family === "" ? null : form.role_family,
       });
@@ -186,6 +189,19 @@ export function DetailOverview({ application, onSaved, onDelete }: Props) {
               type="date"
               value={form.deadline}
               onChange={(e) => set("deadline", e.target.value)}
+              className={fieldClass}
+            />
+          </label>
+
+          {/* The posting's deadline above is a fact about the job; this is the
+              current stage's task (an assessment link's expiry, a take-home).
+              It clears itself when the status moves on. */}
+          <label className={labelClass}>
+            Next step due
+            <input
+              type="date"
+              value={form.next_step_due}
+              onChange={(e) => set("next_step_due", e.target.value)}
               className={fieldClass}
             />
           </label>

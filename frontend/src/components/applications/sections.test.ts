@@ -60,4 +60,27 @@ describe("sectionByUrgency", () => {
     ]);
     expect(sections[0].key).toBe("closed");
   });
+
+  it("leads with a stage task due soon, ahead of postings closing", () => {
+    const sections = sectionByUrgency([
+      app({ deadline: inDays(2) }),
+      app({
+        status: "assessment" as ApplicationStatus,
+        applied_at: agoIso(3),
+        next_step_due: inDays(3),
+      }),
+    ]);
+    expect(sections.map((s) => s.key)).toEqual(["due", "closing"]);
+  });
+
+  it("leaves a stage task due further out in flight", () => {
+    const sections = sectionByUrgency([
+      app({
+        status: "assessment" as ApplicationStatus,
+        applied_at: agoIso(3),
+        next_step_due: inDays(10),
+      }),
+    ]);
+    expect(sections[0].key).toBe("in_flight");
+  });
 });

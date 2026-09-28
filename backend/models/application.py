@@ -148,6 +148,17 @@ class Application(Base):
     # docs/deploy.md), and this is a small vocabulary that may well grow, for
     # example if a date ever arrives from an email rather than a posting.
     deadline_source: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    # When the CURRENT stage's task is due: an online assessment's closing date,
+    # a take-home, an interview. Deliberately NOT folded into `deadline` above.
+    # That column is the posting's closing date and everything downstream reads
+    # it that way (the urgency bands, the missed-deadline logic); an OA date
+    # written there would look like the posting had closed. One column, one
+    # meaning, the same lesson deadline_source was added to learn.
+    #
+    # Stage scoped: services clear it whenever the status changes, so a finished
+    # assessment's date cannot linger into the next round as if still pending.
+    next_step_due: Mapped[date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Parser output home. Empty in v1 (no JD parsing yet); filled in v2.

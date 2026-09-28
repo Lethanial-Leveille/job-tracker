@@ -37,9 +37,11 @@ export const SAVED_VIEWS: SavedView[] = [
   {
     key: "closing",
     label: "Closing in 4 days",
+    // A posting closing before you apply, or a stage task (an assessment)
+    // due after you have. Both are dates you can miss.
     matches: (app) => {
-      if (!isPreSubmit(app.status)) return false;
-      const days = formatDeadline(app.deadline)?.days;
+      const date = isPreSubmit(app.status) ? app.deadline : app.next_step_due;
+      const days = formatDeadline(date)?.days;
       return days !== undefined && days <= URGENT_DAYS;
     },
   },
@@ -51,13 +53,16 @@ export const SAVED_VIEWS: SavedView[] = [
   {
     key: "quiet",
     label: `Quiet ${QUIET_DAYS}+ days`,
-    // Applied, not closed, and no news since. A row with no applied_at cannot
-    // be counted from, so it is not quiet — it is unknown, which is different.
+    // Applied, not closed, and no news since the last status change. A row
+    // with no applied_at cannot be counted from, so it is not quiet — it is
+    // unknown, which is different. A row with a task due is waiting on you,
+    // not on them, so it is not quiet either.
     matches: (app) =>
       !isPreSubmit(app.status) &&
       !isClosed(app.status) &&
       app.applied_at !== null &&
-      daysSince(app.applied_at) >= QUIET_DAYS,
+      !app.next_step_due &&
+      daysSince(app.last_status_at ?? app.applied_at) >= QUIET_DAYS,
   },
 ];
 

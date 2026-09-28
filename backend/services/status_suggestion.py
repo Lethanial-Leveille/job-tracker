@@ -102,6 +102,8 @@ def accept_suggestion(
     # actually changed (accepting a suggestion for the status it's already at is
     # a no-op worth no event).
     if application.status != old_status:
+        # Same rule as a manual change: the due date belonged to the old stage.
+        application.next_step_due = None
         record_status_event(
             db,
             user_id=user_id,

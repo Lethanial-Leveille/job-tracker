@@ -119,6 +119,9 @@ export interface Application {
   // sort last and vanish; null is unknown, which is a real third answer
   // for rows created before this field existed.
   deadline_source: "posting" | "self" | null;
+  // When the CURRENT stage's task is due (an assessment, a take-home). Not the
+  // posting's deadline. The backend clears it whenever the status changes.
+  next_step_due: string | null; // ISO date
   notes: string | null;
   jd_parsed: JdParsed | null; // parser extras (salary, summary, requirements…)
   jd_text: string | null; // the raw pasted JD, used as tailoring input
@@ -129,6 +132,9 @@ export interface Application {
   // reached `applied`. Null until it has been. Not a stored column — see
   // backend/services/application.py.
   applied_at: string | null; // ISO datetime
+  // Derived the same way: the LATEST status change of any kind. "Quiet" counts
+  // from here, because a new stage means they replied.
+  last_status_at: string | null; // ISO datetime
   created_at: string; // ISO datetime
   updated_at: string; // ISO datetime
 }
@@ -337,6 +343,7 @@ export interface ApplicationCreateInput {
   priority?: Priority;
   deadline?: string | null;
   deadline_source?: "posting" | "self" | null;
+  next_step_due?: string | null;
   notes?: string | null;
   // The parser's extras (salary, summary, requirements) with no column of their
   // own. Set only on an autofilled create; omitted on manual create and edit.

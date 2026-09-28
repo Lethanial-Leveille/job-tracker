@@ -42,8 +42,12 @@ function deadlineFact(app: Application): { value: string; muted: boolean } {
 function statusFact(app: Application): string {
   const label = statusLabel(app.status);
   if (isClosed(app.status) || isPreSubmit(app.status)) return label;
+  // A stage task due outranks the silence counter, same as in the list.
+  const due = formatDeadline(app.next_step_due);
+  if (due) return `${label} · due ${due.date} · ${due.relative}`;
   if (!app.applied_at) return label;
-  return `${label} · sent ${shortDate(app.applied_at)} · quiet ${daysSince(app.applied_at)}d`;
+  const quiet = daysSince(app.last_status_at ?? app.applied_at);
+  return `${label} · sent ${shortDate(app.applied_at)} · quiet ${quiet}d`;
 }
 
 function hint(app: Application) {

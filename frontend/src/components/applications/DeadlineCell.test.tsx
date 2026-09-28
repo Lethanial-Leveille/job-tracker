@@ -44,7 +44,7 @@ function isoDaysAgo(days: number): string {
 describe("still open — the deadline is the point of the row", () => {
   it("shows the date and how long is left", () => {
     render(<DeadlineCell application={app({ deadline: isoDaysFromNow(3) })} />);
-    expect(screen.getByText(/in 3 days/)).toBeDefined();
+    expect(screen.getByText("in 3d")).toBeDefined();
   });
 
   it("shows an em dash when there is no deadline at all", () => {
@@ -69,7 +69,49 @@ describe("out the door — count silence, not a deadline", () => {
     expect(screen.getByText("quiet 7d")).toBeDefined();
     // The deadline must NOT be rendered: it is not actionable any more, and
     // showing it is the noise this whole rule exists to remove.
-    expect(screen.queryByText(/in \d+ days/)).toBeNull();
+    expect(screen.queryByText(/in \d+d/)).toBeNull();
+  });
+
+  it("restarts the quiet counter at the latest status change", () => {
+    // An assessment invite is them replying, so silence counts from there.
+    render(
+      <DeadlineCell
+        application={app({
+          status: "assessment" as ApplicationStatus,
+          applied_at: isoDaysAgo(10),
+          last_status_at: isoDaysAgo(2),
+        })}
+      />,
+    );
+    expect(screen.getByText("quiet 2d")).toBeDefined();
+  });
+
+  it("shows a stage task's due date instead of the silence counter", () => {
+    render(
+      <DeadlineCell
+        application={app({
+          status: "assessment" as ApplicationStatus,
+          applied_at: isoDaysAgo(3),
+          next_step_due: isoDaysFromNow(4),
+        })}
+      />,
+    );
+    expect(screen.getByText(/^Due /)).toBeDefined();
+    expect(screen.getByText("in 4d")).toBeDefined();
+    expect(screen.queryByText(/quiet/)).toBeNull();
+  });
+
+  it("shows the due date even with no applied event to count from", () => {
+    render(
+      <DeadlineCell
+        application={app({
+          status: "assessment" as ApplicationStatus,
+          applied_at: null,
+          next_step_due: isoDaysFromNow(2),
+        })}
+      />,
+    );
+    expect(screen.getByText("in 2d")).toBeDefined();
   });
 
   it("falls back to an em dash when the row was never actually applied", () => {
