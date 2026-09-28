@@ -193,6 +193,12 @@ projects:
       # Sensitive: true and a strong interview story, but it says services were
       # exposed. Lee decides whether it ever prints.
       - "Traced a 21 hour outage to a Wi-Fi recovery that gave up after one misread handshake and added a watchdog that reconnects within 2 minutes; the fallback network had left 3 services facing the internet for 9 hours, taking about 13,000 failed logins and none that succeeded."
+      # iOS app (miles-app repo), Sep 16 to Sep 28 2026 commits.
+      - "Added a hands free Talk Mode to the SwiftUI app that listens, sends, and plays each reply in the assistant's own voice, synthesizing the reply whole because voicing it sentence by sentence sounded like a new speaker partway through."
+      - "Streamed replies into the iOS chat over Server-Sent Events with a keep-alive so Cloudflare never closes a slow tool call, and never retried a turn that reached the Pi, since a second send would run its tools twice."
+      - "Kept Face ID working past token expiry by renewing tokens in their last 10 minutes and saving the password in a Keychain item locked to the current Face ID enrollment, so an expired session logs back in with a glance."
+      - "Rendered replies as markdown with a parser built on Apple's Foundation alone, covering headings, nested lists, tables, and code, keeping the app at **zero third party dependencies**."
+      - "Built app screens for the week's calendar, reminders, diagnostics, and a memory bank with approval, editing, and wording history, with Dynamic Type on every font."
       # --- bench: true, but rewrite in the plain style above before printing ---
       - "Added custom wake-word detection via openWakeWord (90.4% recall), on-device Whisper.cpp speech-to-text, and speaker verification through 256-dimensional voice embeddings (cosine similarity, 0.65 threshold)."
       - "Migrated the assistant off hand-parsed bracket action tags onto native Claude tool use behind a single tool registry (six live tools), bounding the follow-up loop and deleting the 50-character lookahead buffer that had sat directly on the path to first audio."
