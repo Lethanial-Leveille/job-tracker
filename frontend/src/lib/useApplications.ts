@@ -2,6 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import type { Application, ApplicationStatus } from "./types";
 import { listApplications, updateApplication } from "./api";
 
+// The two dates the deadline column can show, and so the two it can edit: the
+// posting's deadline before you apply, the current stage's due date after.
+export type DateField = "deadline" | "next_step_due";
+
 export interface ApplicationsState {
   applications: Application[];
   loading: boolean;
@@ -9,6 +13,8 @@ export interface ApplicationsState {
   refetch: () => void;
   // Change one row's status without a round trip through the edit form.
   setStatus: (id: string, status: ApplicationStatus) => void;
+  // Same, for the date the deadline column is showing. null clears it.
+  setDate: (id: string, field: DateField, value: string | null) => void;
   // A failed write, kept separate from `error` on purpose — see below.
   saveError: string | null;
   dismissSaveError: () => void;
@@ -105,6 +111,35 @@ export function useApplications(): ApplicationsState {
     [applications],
   );
 
+  // The same optimistic update as setStatus, for one date. Only that one key is
+  // sent, so deadline_source is left as it was: a date typed here keeps whatever
+  // source the row already had. Deciding when a hand edit should count as
+  // "self" is a separate change.
+  const setDate = useCallback(
+    async (id: string, field: DateField, value: string | null) => {
+      const row = applications.find((app) => app.id === id);
+      if (row === undefined || row[field] === value) return;
+      const previous = row[field];
+
+      setApplications((prev) =>
+        prev.map((app) => (app.id === id ? { ...app, [field]: value } : app)),
+      );
+      setSaveError(null);
+
+      try {
+        await updateApplication(id, { [field]: value });
+      } catch {
+        setApplications((prev) =>
+          prev.map((app) =>
+            app.id === id ? { ...app, [field]: previous } : app,
+          ),
+        );
+        setSaveError("Could not save that date. Nothing was updated.");
+      }
+    },
+    [applications],
+  );
+
   const dismissSaveError = useCallback(() => setSaveError(null), []);
 
   return {
@@ -113,6 +148,7 @@ export function useApplications(): ApplicationsState {
     error,
     refetch: load,
     setStatus,
+    setDate,
     saveError,
     dismissSaveError,
   };

@@ -1,6 +1,8 @@
+import { useRef } from "react";
 import { compactRelative, daysSince, formatDeadline, shortDate } from "../../lib/format";
 import { isClosed, isPreSubmit } from "./statuses";
 import type { Application } from "../../lib/types";
+import type { DateField } from "../../lib/useApplications";
 
 // One column, four meanings, decided by where the row is.
 //
@@ -30,7 +32,72 @@ const QUIET_DAYS = 21;
 const ROW = "flex min-w-0 items-baseline gap-1.5 whitespace-nowrap";
 const SUB = "truncate text-[11px]";
 
-export function DeadlineCell({ application }: { application: Application }) {
+interface Props {
+  application: Application;
+  // Optional so the cell can still render read only (its tests do). When set,
+  // clicking the cell opens a date picker for whichever date it is showing.
+  onDateChange?: (field: DateField, value: string | null) => void;
+}
+
+// Which date a click edits follows the same branches as the display below: the
+// posting's deadline while you have not applied, the stage's due date once you
+// have. A closed row has nothing worth dating, so it stays plain text.
+function editableField(application: Application): DateField | null {
+  if (isClosed(application.status)) return null;
+  return isPreSubmit(application.status) ? "deadline" : "next_step_due";
+}
+
+export function DeadlineCell({ application, onDateChange }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const field = editableField(application);
+  if (!onDateChange || !field) return <DeadlineText application={application} />;
+
+  function openPicker() {
+    const input = inputRef.current;
+    if (!input) return;
+    // showPicker() is the only way to open a native date picker from a click
+    // somewhere else. Older browsers lack it, so fall back to focusing the
+    // input, which at least lets the keyboard type a date.
+    try {
+      input.showPicker();
+    } catch {
+      input.focus();
+    }
+  }
+
+  return (
+    // A real button, so it is reachable by Tab and Enter opens the picker. Both
+    // events stop here for the same reason as StatusSelect's wrapper: the row
+    // underneath is itself clickable and would open the drawer too.
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        openPicker();
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
+      title={field === "deadline" ? "Set the deadline" : "Set when the next step is due"}
+      className="relative -mx-1.5 min-w-0 rounded-md px-1.5 py-0.5 text-left transition-colors hover:bg-surface focus:outline-none focus-visible:bg-surface"
+    >
+      <DeadlineText application={application} />
+      {/* The picker's anchor. Visually hidden rather than display:none, because
+          a browser will not open a picker for an input that is not rendered.
+          An empty value from the picker's Clear button means "no date". */}
+      <input
+        ref={inputRef}
+        type="date"
+        tabIndex={-1}
+        aria-hidden="true"
+        value={application[field] ?? ""}
+        onChange={(e) => onDateChange(field, e.target.value || null)}
+        onClick={(e) => e.stopPropagation()}
+        className="pointer-events-none absolute bottom-0 left-0 h-px w-px opacity-0"
+      />
+    </button>
+  );
+}
+
+function DeadlineText({ application }: { application: Application }) {
   // 1. Closed. Nothing to wait for and nothing to act on.
   if (isClosed(application.status)) {
     return <span className="text-sm tabular-nums text-ink-muted">—</span>;

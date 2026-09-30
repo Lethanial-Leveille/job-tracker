@@ -1,4 +1,5 @@
 import type { Application, ApplicationStatus } from "../../lib/types";
+import type { DateField } from "../../lib/useApplications";
 import { HEADER_GRID } from "./grid";
 import { ApplicationRow } from "./ApplicationRow";
 import { groupByOrganization } from "./grouping";
@@ -9,6 +10,7 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onStatusChange: (id: string, status: ApplicationStatus) => void;
+  onDateChange: (id: string, field: DateField, value: string | null) => void;
   // Break the rows into per-employer sections. Off by default: the flat list is
   // sorted by deadline, and that ordering answers the question the list exists
   // to answer.
@@ -31,6 +33,7 @@ export function ApplicationsTable({
   selectedId,
   onSelect,
   onStatusChange,
+  onDateChange,
   grouped,
 }: Props) {
   // `underHeading` is per-row, not per-table: in the grouped view an employer
@@ -44,6 +47,7 @@ export function ApplicationsTable({
       selected={application.id === selectedId}
       onSelect={onSelect}
       onStatusChange={onStatusChange}
+      onDateChange={onDateChange}
       grouped={underHeading}
     />
   );
