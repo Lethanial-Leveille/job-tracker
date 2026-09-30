@@ -2,8 +2,8 @@
 // row is, and picking the wrong one is invisible in a screenshot — a "Sent"
 // date and a deadline look identical at a glance. So each branch is pinned.
 
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { Application, ApplicationStatus } from "../../lib/types";
 import { DeadlineCell } from "./DeadlineCell";
 
@@ -148,5 +148,71 @@ describe("closed — nothing to wait for", () => {
       <DeadlineCell application={app({ status: "missed_deadline" as ApplicationStatus })} />,
     );
     expect(screen.getByText("—")).toBeDefined();
+  });
+});
+
+// Editing. A date and its source are one fact, and the source decides whether a
+// date is ever shown as urgent, so which source each pick writes is pinned.
+describe("editing in place", () => {
+  function openPicker(application: Application) {
+    const onDateChange = vi.fn();
+    render(<DeadlineCell application={application} onDateChange={onDateChange} />);
+    fireEvent.click(screen.getByRole("button", { name: /./ }));
+    return onDateChange;
+  }
+
+  it("marks a date picked on an undated row as yours", () => {
+    const onDateChange = openPicker(app({ deadline: null, deadline_source: null }));
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    expect(onDateChange).toHaveBeenCalledWith({
+      deadline: isoDaysFromNow(0),
+      deadline_source: "self",
+    });
+  });
+
+  it("keeps a posting deadline a posting deadline when you change the date", () => {
+    const onDateChange = openPicker(
+      app({ deadline: isoDaysFromNow(3), deadline_source: "posting" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    expect(onDateChange).toHaveBeenCalledWith({
+      deadline: isoDaysFromNow(0),
+      deadline_source: "posting",
+    });
+  });
+
+  it("clears the source along with the date", () => {
+    const onDateChange = openPicker(
+      app({ deadline: isoDaysFromNow(3), deadline_source: "posting" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(onDateChange).toHaveBeenCalledWith({ deadline: null, deadline_source: null });
+  });
+
+  it("can turn a reminder into a real closing date", () => {
+    const onDateChange = openPicker(
+      app({ deadline: isoDaysFromNow(3), deadline_source: "self" }),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Posting" }));
+    expect(onDateChange).toHaveBeenCalledWith({ deadline_source: "posting" });
+  });
+
+  it("edits the next step date once you have applied, with no source toggle", () => {
+    const onDateChange = openPicker(
+      app({ status: "applied" as ApplicationStatus, applied_at: isoDaysAgo(5) }),
+    );
+    expect(screen.queryByRole("radio")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    expect(onDateChange).toHaveBeenCalledWith({ next_step_due: isoDaysFromNow(0) });
+  });
+
+  it("stays plain text on a closed row", () => {
+    render(
+      <DeadlineCell
+        application={app({ status: "rejected" as ApplicationStatus })}
+        onDateChange={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });

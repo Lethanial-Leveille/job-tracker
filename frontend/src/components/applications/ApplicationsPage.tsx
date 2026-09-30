@@ -35,7 +35,7 @@ export function ApplicationsPage({
   error,
   refetch,
   setStatus,
-  setDate,
+  setDates,
   saveError,
   dismissSaveError,
 }: ApplicationsState) {
@@ -252,7 +252,7 @@ export function ApplicationsPage({
           selectedId={keyboard.selectedId}
           onSelect={(id) => navigate(`/applications/${id}`)}
           onStatusChange={setStatus}
-          onDateChange={setDate}
+          onDateChange={setDates}
           grouped={grouped}
         />
       )}

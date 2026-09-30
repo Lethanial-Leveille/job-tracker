@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from "react";
 import type { Application, ApplicationStatus } from "../../lib/types";
-import type { DateField } from "../../lib/useApplications";
+import type { DatePatch } from "../../lib/useApplications";
 import { ROW_GRID } from "./grid";
 import { StatusSelect } from "./StatusSelect";
 import { DeadlineCell } from "./DeadlineCell";
@@ -10,7 +10,7 @@ interface Props {
   selected: boolean;
   onSelect: (id: string) => void;
   onStatusChange: (id: string, status: ApplicationStatus) => void;
-  onDateChange: (id: string, field: DateField, value: string | null) => void;
+  onDateChange: (id: string, patch: DatePatch) => void;
   // Rendered underneath an employer heading. The heading already names the
   // company, so repeating it here would print it twice in a row AND waste the
   // widest column on something constant across the whole group.
@@ -96,7 +96,7 @@ export function ApplicationRow({
           id is bound here so the cell only has to know which field it edits. */}
       <DeadlineCell
         application={application}
-        onDateChange={(field, value) => onDateChange(application.id, field, value)}
+        onDateChange={(patch) => onDateChange(application.id, patch)}
       />
 
       {/* Actions: open the posting (independent link) + a detail affordance. */}

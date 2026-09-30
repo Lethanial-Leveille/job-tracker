@@ -6,6 +6,12 @@ import { listApplications, updateApplication } from "./api";
 // posting's deadline before you apply, the current stage's due date after.
 export type DateField = "deadline" | "next_step_due";
 
+// What the deadline column may write in one go. The source rides along with the
+// deadline because the two describe one fact and must not disagree.
+export type DatePatch = Partial<
+  Pick<Application, "deadline" | "deadline_source" | "next_step_due">
+>;
+
 export interface ApplicationsState {
   applications: Application[];
   loading: boolean;
@@ -13,8 +19,8 @@ export interface ApplicationsState {
   refetch: () => void;
   // Change one row's status without a round trip through the edit form.
   setStatus: (id: string, status: ApplicationStatus) => void;
-  // Same, for the date the deadline column is showing. null clears it.
-  setDate: (id: string, field: DateField, value: string | null) => void;
+  // Same, for the dates the deadline column edits. null clears one.
+  setDates: (id: string, patch: DatePatch) => void;
   // A failed write, kept separate from `error` on purpose — see below.
   saveError: string | null;
   dismissSaveError: () => void;
@@ -111,28 +117,30 @@ export function useApplications(): ApplicationsState {
     [applications],
   );
 
-  // The same optimistic update as setStatus, for one date. Only that one key is
-  // sent, so deadline_source is left as it was: a date typed here keeps whatever
-  // source the row already had. Deciding when a hand edit should count as
-  // "self" is a separate change.
-  const setDate = useCallback(
-    async (id: string, field: DateField, value: string | null) => {
+  // The same optimistic update as setStatus, for the date fields. Only the keys
+  // in the patch are sent, so nothing else on the row can be clobbered. Which
+  // source a date gets is the caller's decision (DeadlineCell); this only
+  // writes what it is given and puts it all back if the server says no.
+  const setDates = useCallback(
+    async (id: string, patch: DatePatch) => {
       const row = applications.find((app) => app.id === id);
-      if (row === undefined || row[field] === value) return;
-      const previous = row[field];
+      if (row === undefined) return;
+      const keys = Object.keys(patch) as (keyof DatePatch)[];
+      // Nothing actually changing: nothing to send.
+      if (keys.every((k) => row[k] === patch[k])) return;
+      // Exactly the keys being written, as they were, for the rollback.
+      const previous: DatePatch = Object.fromEntries(keys.map((k) => [k, row[k]]));
 
       setApplications((prev) =>
-        prev.map((app) => (app.id === id ? { ...app, [field]: value } : app)),
+        prev.map((app) => (app.id === id ? { ...app, ...patch } : app)),
       );
       setSaveError(null);
 
       try {
-        await updateApplication(id, { [field]: value });
+        await updateApplication(id, patch);
       } catch {
         setApplications((prev) =>
-          prev.map((app) =>
-            app.id === id ? { ...app, [field]: previous } : app,
-          ),
+          prev.map((app) => (app.id === id ? { ...app, ...previous } : app)),
         );
         setSaveError("Could not save that date. Nothing was updated.");
       }
@@ -148,7 +156,7 @@ export function useApplications(): ApplicationsState {
     error,
     refetch: load,
     setStatus,
-    setDate,
+    setDates,
     saveError,
     dismissSaveError,
   };
