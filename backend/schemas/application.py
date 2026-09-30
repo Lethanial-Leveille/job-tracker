@@ -99,7 +99,10 @@ class ApplicationUpdate(BaseModel):
     role_or_program: str | None = Field(
         default=None, min_length=1, max_length=255
     )
-    posting_url: str | None = Field(default=None, min_length=1, max_length=2048)
+    # No min_length, unlike create: a row added from an email starts with an
+    # empty URL, and the detail drawer sends every field back on save, so
+    # requiring one here would make that row uneditable until you found a link.
+    posting_url: str | None = Field(default=None, max_length=2048)
     status: ApplicationStatus | None = None
     priority: Priority | None = None
     deadline: date | None = None
@@ -147,6 +150,11 @@ class ApplicationRead(ApplicationBase):
     """
 
     model_config = ConfigDict(from_attributes=True)
+
+    # Overrides the base's min_length=1. "Add as application" on an email
+    # suggestion stores an empty URL (an email has no posting link), and a row
+    # the API cannot read back is a row the list silently skips.
+    posting_url: str = Field(default="", max_length=2048)
 
     id: str
     jd_parsed: dict | None = None
