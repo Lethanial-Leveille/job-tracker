@@ -139,7 +139,7 @@
       ],
       "dates": "April 2026 – Present",
       "bullets": [
-        "Built hybrid memory retrieval over a 233-memory corpus, fusing keyword search with semantic vector search through **reciprocal rank fusion at 31 ms per query**, so two differently-scaled rankings vote without either being rescaled onto the other.",
+        "Switched voice verification to an ECAPA model after friends got in as me, cutting impostors let through from **21.5% to 0%**.",
         "Shipped a JWT-authenticated FastAPI backend (REST and WebSocket) and a zero-dependency SwiftUI iOS client with Face ID and Keychain-stored tokens, deployed as 3 systemd services reachable globally through a Cloudflare Tunnel with no open ports.",
         "Built a voice assistant on a Raspberry Pi 5 that answers out loud in **~520 ms**, 1.5 s faster than the first working version, by streaming ElevenLabs TTS straight to ALSA, with Whisper.cpp transcription and openWakeWord detection at 90.4% recall."
       ]
@@ -147,13 +147,23 @@
   ],
   "activities": [
     {
+      "organization": "ACM Design Team",
+      "role": "Backend Developer, Check-In Application",
+      "location": "Gainesville, FL",
+      "dates": "September 2026 – Present",
+      "descriptor": null,
+      "bullets": [
+        "Built the admin dashboard's check in QR code, generated in the browser per club, with print ready PNG and SVG downloads."
+      ]
+    },
+    {
       "organization": "Prep Academy",
       "role": "Test Prep Tutor",
       "location": "Remote",
       "dates": "August 2026 – Present",
       "descriptor": null,
       "bullets": [
-        "Tutoring 3 students in ACT English, Reading, and Math and SAT Math and Reading across 60 to 90 minute sessions, plus teaching Standard English Conventions to a group, building each student a plan targeted at the specific question types they miss."
+        "Tutor ACT and SAT math, reading, and writing one on one and in groups, with a plan built around each student's weak spots."
       ]
     }
   ]

@@ -166,7 +166,7 @@ experience:
 projects:
   # Function first, codename after: the acronym alone tells a recruiter nothing.
   - name: Voice AI Assistant (M.I.L.E.S.)
-    tools: [Python, FastAPI, Swift/SwiftUI, Whisper.cpp, Claude API, SQLite, SQLite FTS5, Resemblyzer, ECAPA, webrtcvad, sentence-transformers, ONNX, NumPy, ElevenLabs, Cloudflare, systemd, Server-Sent Events, Google Calendar API]
+    tools: [Python, FastAPI, Swift/SwiftUI, Whisper.cpp, Claude API, SQLite, SQLite FTS5, Resemblyzer, ECAPA, webrtcvad, sentence-transformers, ONNX, NumPy, ElevenLabs, Cloudflare, systemd, Server-Sent Events, Google Calendar API, Deepgram, Hevy API, LD2410 radar, ReSpeaker XVF3800, Claude web search]
     # Repo links removed from the printed resume Sep 2026 (GitHub is in the
     # header, so every repo is one click away). Kept here so nothing is lost:
     #   github.com/Lethanial-Leveille/miles-app  (the iOS client)
@@ -199,6 +199,24 @@ projects:
       - "Kept Face ID working past token expiry by renewing tokens in their last 10 minutes and saving the password in a Keychain item locked to the current Face ID enrollment, so an expired session logs back in with a glance."
       - "Rendered replies as markdown with a parser built on Apple's Foundation alone, covering headings, nested lists, tables, and code, keeping the app at **zero third party dependencies**."
       - "Built app screens for the week's calendar, reminders, diagnostics, and a memory bank with approval, editing, and wording history, with Dynamic Type on every font."
+      # Added Oct 8 2026 from the Sep 27 to Oct 1 commits in the miles repo.
+      # 21.5% is Resemblyzer's equal error rate on 28 impostor clips from 3
+      # people (at that point 21.5% of impostors pass); 0% is ECAPA at its 0.15
+      # threshold, where the highest of 27 impostor clips scored 0.088.
+      - "Switched voice verification to an ECAPA model after the old one let friends in as me, cutting impostors let through from **21.5% to 0%** across 27 recordings of other people."
+      # One line version, printed on the ReliaQuest resume (Oct 8 2026).
+      - "Switched voice verification to an ECAPA model after friends got in as me, cutting impostors let through from **21.5% to 0%**."
+      # 1742 ms to ~970 ms median on 49 archived clips over 12 s.
+      - "Nearly halved voice verification on long turns, from **1.7 s to 0.97 s**, by checking only the first 10 seconds of speech, the same length the voiceprint was enrolled on."
+      - "Connected the assistant to my workout tracking app so it raises a lift's weight in my routine automatically once I hit the top of its rep range, backing up the routine first and never lowering a weight."
+      - "Wrote a driver for a presence radar's serial protocol and used its readings to re-aim it, going from detecting me lying still in **0 of 1,200** readings to tracking me for 2.5 minutes without a gap."
+      # 83% is 10 of 12 takes, 64% is 7 of 11, on the same recordings.
+      - "Moved to a ReSpeaker mic array that caught the wake word **83%** of the time versus 64% on the old mic, and found its echo canceller removed 14 to 15 dB of the assistant's own voice through the array's speaker jack versus about 1 dB through separate speakers."
+      - "Gave the assistant live web search through Anthropic's server side tool, kept outside the local permission gate since it runs on Anthropic's side."
+      # Detail behind the 1.7 s bullet, banked separately to keep that one short.
+      - "Ran the backup Whisper transcriber only when the main Deepgram transcription fails or is late instead of on every turn, after finding it slowed voice verification from a median 21 ms to 198 ms on the Pi's four cores."
+      # Hevy by name, for anywhere the product name helps.
+      - "Read my Hevy workout log through its API and applied double progression from each routine's rep ranges, converting the API's kilograms back to the half pound I log in."
       # --- bench: true, but rewrite in the plain style above before printing ---
       - "Added custom wake-word detection via openWakeWord (90.4% recall), on-device Whisper.cpp speech-to-text, and speaker verification through 256-dimensional voice embeddings (cosine similarity, 0.65 threshold)."
       - "Migrated the assistant off hand-parsed bracket action tags onto native Claude tool use behind a single tool registry (six live tools), bounding the follow-up loop and deleting the 50-character lookahead buffer that had sat directly on the path to first audio."
@@ -317,20 +335,16 @@ activities:
     role: Backend Developer, Check-In Application
     location: Gainesville, FL
     dates: September 2026 – Present
-    # Was "ACM, Design Team" until Sep 28 2026. The row now names the actual
-    # role, which is true today and far more specific, with no bullet under it.
-    #
-    # bullets MUST stay empty until real work exists. This is not a style
-    # choice: build_base_resume() copies activity.bullets[0] straight onto the
-    # page, so ANY sentence parked here prints through the app the moment it
-    # lands in the database. The empty list is what keeps the row claiming only
-    # the role, which is hard rule #2.
-    #
-    # The phrase to promote the day work begins, kept in a comment precisely so
-    # it cannot print by accident:
-    #   "designing the chapter check in application"
-    # Replace it with what was actually built once there is something to say.
-    bullets: []
+    # Was "ACM, Design Team" until Sep 28 2026. bullets[0] prints, so only work
+    # that exists goes first. Added Oct 8 2026 from Lee's Oct 7 commits on the
+    # feat/qr-code-generation branch of uf-acm-design-team/ACM-checkin (Next.js,
+    # TypeScript, Supabase, Vitest). NOT merged to main as of Oct 8 2026: no PR
+    # yet, so open one before an interviewer looks.
+    bullets:
+      - "Built the admin dashboard's check in QR code, generated in the browser per club, with print ready PNG and SVG downloads."
+      # Longer wording, wraps to two lines on the page.
+      - "Built the admin dashboard's check in QR code, generating each club's code in the browser from its link with print ready PNG and SVG downloads."
+      - "Put the check in URL format in one tested helper, so switching from a web link to an app link later is a one line change."
   - organization: Prep Academy
     role: Test Prep Tutor
     location: Remote
@@ -341,15 +355,17 @@ activities:
     bullets:
       # No student count in the printed line: the number varies term to term
       # (Lee, Sep 28 2026). The detailed bullet below records it as of Sep 2026.
+      # Printed from Oct 8 2026: covers group and one on one teaching across
+      # math, reading, and writing (Lee teaches all three, not just grammar).
+      - "Tutor ACT and SAT math, reading, and writing one on one and in groups, with a plan built around each student's weak spots."
+      # Longer wording, wraps to two lines on the page.
+      - "Tutor ACT and SAT math, reading, and writing one on one and in groups, building each student a plan around the question types they miss."
+      # One student's ACT superscore went 25 to 27 (Lee, Oct 8 2026); the other
+      # students' results are not known, so the claim names one student only.
+      - "Build each student an ACT or SAT plan around the question types they miss, raising one student's ACT superscore from 25 to 27."
+      # Demoted Oct 8 2026: undersold the subjects taught.
       - "Tutor students individually for the ACT and SAT, and lead a group class on SAT grammar."
       - "Tutor 3 students individually in ACT English, Reading, and Math and SAT Reading and Math, and lead a group class on SAT grammar."
       - "Tutoring **3 students** in ACT English, Reading, and Math and SAT Math and Reading across 60 to 90 minute sessions, plus teaching Standard English Conventions to a group, building each student a plan targeted at the specific question types they miss."
       # Demoted Sep 28 2026: the lowercase phrase the old one row layout needed.
       - "tutoring ACT and SAT English, Reading, and Math"
-  - organization: National Society of Black Engineers (NSBE)
-    role: Member
-    location: Gainesville, FL
-    dates: September 2026 – Present
-    # Printed on the base resume since Sep 28 2026 (a membership line matters
-    # at the career fair). No bullet: membership alone has nothing to claim.
-    bullets: []

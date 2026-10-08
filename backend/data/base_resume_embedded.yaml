@@ -88,22 +88,18 @@ skills:
   - category: Cloud & DevOps
     items: ["AWS (IoT Core, Lambda, DynamoDB)", Docker, GitHub Actions, Cloudflare Tunnel, Linux]
 
-# Same three entries as base_resume.yaml, printed the same way (see
-# templates/resume.html). ACM prints its role only until real work exists.
+# Same entries as base_resume.yaml, printed the same way (see
+# templates/resume.html).
 activities:
   - organization: ACM Design Team
     role: Backend Developer, Check-In Application
     location: Gainesville, FL
     dates: September 2026 – Present
-    bullets: []
+    bullets:
+      - "Built the admin dashboard's check in QR code, generated in the browser per club, with print ready PNG and SVG downloads."
   - organization: Prep Academy
     role: Test Prep Tutor
     location: Remote
     dates: August 2026 – Present
     bullets:
-      - "Tutor students individually for the ACT and SAT, and lead a group class on SAT grammar."
-  - organization: National Society of Black Engineers (NSBE)
-    role: Member
-    location: Gainesville, FL
-    dates: September 2026 – Present
-    bullets: []
+      - "Tutor ACT and SAT math, reading, and writing one on one and in groups, with a plan built around each student's weak spots."
