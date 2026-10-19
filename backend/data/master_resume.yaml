@@ -314,6 +314,39 @@ projects:
       - "Brought up an 84 MHz Cortex M4 Nucleo board with on chip ST-Link debugging, verifying the PLL clock configuration and single stepping code under the debugger, and baselined the build at 1.5% of 512 KB flash."
       - "Building a battery powered STM32 wearable in C, designed to count exercise reps and time holds from 100 Hz IMU data."
       - "Brought up an 84 MHz Cortex M4 with on chip ST-Link debugging, baselining the build at 1.5% of 512 KB flash."
+  # SwampHacks XII, Oct 16 to 18 2026, team of 4 (Lee, Michael McCamy, Shreya
+  # Rajaram, Freddy Rives). No placement. Lee asked for the codename
+  # (Notechalant) to stay off the resume. Every claim below is Lee's own work
+  # (59 of 98 commits): the ESP32 firmware, the Bluetooth LE link, the touch
+  # pad, the whole motion pipeline, calibration, shape snapping, Circle to
+  # Ask. Teammates built the tutor, the file viewers, the IR remote, and the
+  # visual design, so do not claim those. Numbers come from Lee's commit
+  # messages in that repo. The app is plain JavaScript (no React, no TypeScript).
+  - name: Air Writing Smart Pen
+    tracks: [embedded]
+    tools: [Arduino C++, C, ESP32-S3, MPU6050, I2C, Bluetooth LE, Web Bluetooth, JavaScript, Vite, Node.js, Gemini API, KaTeX, Vercel]
+    # The repo lives on a teammate's account.
+    links: [github.com/michaelmccamy/swamphacks]
+    dates: October 2026
+    bullets:
+      - "Built a pen that writes on any screen from across the room at SwampHacks XII, on a team of 4 for about $25 in parts, streaming a motion sensor and touch pad from an ESP32 to a browser app that types the handwriting up as notes and math."
+      - "Wrote the pen's ESP32 firmware in Arduino C++, sampling the motion sensor at 100 Hz and streaming it over Bluetooth LE in packed 17 byte samples, which let us drop WiFi and cut the firmware from **1.29 MB to 662 KB**."
+      - "Made air writing readable by slowing the ink at low speeds and smoothing each stroke when the pen lifts, cutting the median wiggle per stroke from **180 to 22 degrees** on recorded handwriting."
+      - "Let the pen aim like a laser pointer at a screen from any distance or angle by having the user point at its 4 corners and mapping each pointing direction onto the screen, tested with the screen off to the side and turned 30 degrees."
+      - "Built Circle to Ask: circling a question on a slide sends a picture of it to Gemini and shows a step by step answer next to it in about **2 seconds**."
+      - "Cut the wait from writing to typed text to about **1 second** after timing the path and finding most of the delay was the app waiting 2 seconds for the pen to stop, not the model."
+      - "Stopped the cursor creeping about 20 pixels a second in long sessions by re-measuring the gyro's drift each time the pen is held still, which learned the drift at the first pause on a 12 minute recording."
+      - "Replaced the pen's button with a bare metal touch pad, setting its thresholds from measured touches (a finger raised the reading 93 to 380%, idle drift stayed under 35%) so 6 test presses read as exactly 6."
+      - "Snapped rough lines, circles, boxes, triangles, and arrows into clean shapes when the pen lifts, leaving anything uncertain alone, and checked every recorded stroke to confirm no letter snaps by mistake."
+      - "Built a debug panel with live sensor graphs and recording, then tuned every feature by replaying recordings of the real pen instead of guessing."
+      # --- bench: true, denser detail behind the bullets above ---
+      - "Fixed strokes drawing 11 to 39 degrees off by measuring that the sensor sat at an angle and mapping rotation to the screen with measured direction vectors, keeping every direction within 8 degrees, then added roll compensation from the accelerometer so the mapping follows the pen however it is held."
+      - "Mapped pointing angles to the screen with a homography through 4 calibrated corners, using each corner's pointing from 0.1 s before the tap so pressing the pad never nudges it, and refused calibrations that would make the pen far too sensitive."
+      - "Tracked pen orientation with a complementary filter (gyro for fast turns, accelerometer pulling back over 0.8 s) and steadied the cursor with a One Euro filter, so smoothing never lags on fast moves."
+      - "Gave aiming mouse style acceleration while keeping drawing at a constant gain, after acceleration during drawing bent letters, so the cursor wandered about 40% less while aiming."
+      - "Required the pen to stay still during gyro calibration (under 2.5 deg/s spread per axis) after calibrating while moving saved biases up to 18 deg/s and slanted every down stroke."
+      - "Ran the ESP32's networking in its own task on the second core so a slow or missing connection never stalled sensor sampling, and had the browser reconnect to the pen every second after a drop without showing the device chooser again."
+      - "Skipped sending underlines and circles to handwriting recognition, which had been calling Gemini on marks that came back empty."
   - name: Life OS
     tools: [n8n, Docker Compose, Cloudflare Tunnel, GitHub GraphQL API, Notion API, Claude API, Gmail API, JavaScript, Raspberry Pi 5]
     links: []
