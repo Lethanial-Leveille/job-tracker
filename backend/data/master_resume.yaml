@@ -371,13 +371,28 @@ activities:
     # Was "ACM, Design Team" until Sep 28 2026. bullets[0] prints, so only work
     # that exists goes first. Added Oct 8 2026 from Lee's Oct 7 commits on the
     # feat/qr-code-generation branch of uf-acm-design-team/ACM-checkin (Next.js,
-    # TypeScript, Supabase, Vitest). NOT merged to main as of Oct 8 2026: no PR
-    # yet, so open one before an interviewer looks.
+    # TypeScript, Supabase, Vitest). Merged as PR #45 (checked Oct 19 2026).
+    #
+    # Oct 19 2026: the live feed (PR #52, merged) replaced the QR code as the
+    # printed line, since it is the bigger piece of work. The QR bullets stay
+    # below. Swap them back if Lee prefers.
     bullets:
+      - "Built the admin dashboard's live check in feed, showing each check in within about 1 second, with a 10 second fallback."
+      # Longer wording, wraps to two lines and pushes base_resume to 2 pages.
+      - "Built a live check in feed for the admin dashboard that shows each check in about 1 second after it happens, falling back to updates every 10 seconds if the live connection drops."
       - "Built the admin dashboard's check in QR code, generated in the browser per club, with print ready PNG and SVG downloads."
       # Longer wording, wraps to two lines on the page.
       - "Built the admin dashboard's check in QR code, generating each club's code in the browser from its link with print ready PNG and SVG downloads."
       - "Put the check in URL format in one tested helper, so switching from a web link to an app link later is a one line change."
+      # PR #52, live check in feed (ADTCIA-17), merged Oct 19 2026. Supabase
+      # Realtime with a polling fallback, 10 new tests.
+      - "Added a catch up check every 60 seconds after finding that a live connection can report success and still never deliver, so the feed can never fail silently."
+      - "Paged the feed newest first by cursor, so check ins arriving at the top never shift or duplicate older pages."
+      - "Fixed meeting times showing 4 to 5 hours off on databases built from migrations, with a guarded migration that changes nothing on production, tested both ways in rolled back transactions."
+      # PR #57, meeting writes to server actions (ADTCIA-32). OPEN, not merged,
+      # as of Oct 19 2026. Check it merged before printing these.
+      - "Closed a security hole that let signed out users read meeting check in passwords through the database API, with a migration that undoes itself unless the password is hidden and every other column stays readable."
+      - "Moved meeting create, open, close, and delete from the browser to the server, with shared validation covered by 77 tests, so a write blocked by database permissions now reports a failure instead of a false success."
   - organization: Prep Academy
     role: Test Prep Tutor
     location: Remote

@@ -112,7 +112,7 @@ activities:
     location: Gainesville, FL
     dates: September 2026 – Present
     bullets:
-      - "Built the admin dashboard's check in QR code, generated in the browser per club, with print ready PNG and SVG downloads."
+      - "Built the admin dashboard's live check in feed, showing each check in within about 1 second, with a 10 second fallback."
   - organization: Prep Academy
     role: Test Prep Tutor
     location: Remote
